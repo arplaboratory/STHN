@@ -76,35 +76,11 @@ class GeoLocalizationNet(nn.Module):
 
     def create_domain_classifier(self, args):
         domain_classifier = None
-        if self.DA.startswith('DANN_before'):
-            # Input dim = backbone_output_dim * H * W
-            if self.DA == 'DANN_before':
-                domain_classifier = nn.Sequential(nn.Linear(args.features_dim * 32 * 32, 1000, bias=False),
-                                                    nn.BatchNorm1d(1000),
-                                                    nn.ReLU(True),
-                                                    nn.Linear(1000, 2),
-                                                    nn.LogSoftmax(dim=1))
-            elif self.DA == 'DANN_before_conv':
-                domain_classifier = nn.Sequential(nn.Conv2d(args.features_dim, args.features_dim * 2, kernel_size=4, stride=2, bias=False),
-                                                    nn.BatchNorm2d(args.features_dim * 2),
-                                                    nn.ReLU(True),
-                                                    nn.Conv2d(args.features_dim * 2, args.features_dim * 4, kernel_size=4, stride=2, bias=False),
-                                                    nn.BatchNorm2d(args.features_dim * 4),
-                                                    nn.ReLU(True),
-                                                    nn.Conv2d(args.features_dim * 4, args.features_dim * 8, kernel_size=4, stride=2, bias=False),
-                                                    nn.BatchNorm2d(args.features_dim * 8),
-                                                    nn.ReLU(True),
-                                                    nn.Conv2d(args.features_dim * 8, 2, kernel_size=2),
-                                                    nn.Flatten(),
-                                                    nn.LogSoftmax(dim=1))
-        elif self.DA == 'DANN_after':
-            domain_classifier = nn.Sequential(nn.Linear(args.conv_output_dim, 100, bias=False),
-                                                   nn.BatchNorm1d(100),
-                                                   nn.ReLU(True),
-                                                   nn.Linear(100, 2),
-                                                   nn.LogSoftmax(dim=1))
-        else:
-            raise NotImplementedError()
+        domain_classifier = nn.Sequential(nn.Linear(args.conv_output_dim, 100, bias=False),
+                                                nn.BatchNorm1d(100),
+                                                nn.ReLU(True),
+                                                nn.Linear(100, 2),
+                                                nn.LogSoftmax(dim=1))
         return domain_classifier
 
 
