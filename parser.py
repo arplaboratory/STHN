@@ -8,23 +8,26 @@ def parse_arguments():
         description="Benchmarking Visual Geolocalization",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
-        "--use_extended_data",
-        action="store_true",
-        help="Use extended data from pix2pix",
-    )
+    #####################################################################
+    # Parameters for Generator
     parser.add_argument(
         "--G_tanh",
         action="store_true",
         help="tanh for G",
     )
     parser.add_argument(
+        "--G_contrast",
+        action="store_true",
+        help="G_contrast"
+    )
+    # Parameters for GAN
+    parser.add_argument(
         "--GAN_epochs_decay",
         type=int,
         default=0,
         help="lr decay epoch num",
     )
-    parser.add_argument(
+     parser.add_argument(
         "--GAN_lr_policy",
         type=str,
         default="linear",
@@ -66,32 +69,6 @@ def parse_arguments():
         help="Norm layer in GAN"
     )
     parser.add_argument(
-        "--G_contrast",
-        action="store_true",
-        help="G_contrast"
-    )
-    parser.add_argument(
-        "--G_gray",
-        action="store_true",
-        help="G_gray"
-    )
-    parser.add_argument(
-        "--G_loss_lambda",
-        type=float,
-        default=100.0,
-        help="G_loss_lambda only for pix2pix"
-    )
-    parser.add_argument(
-        "--visual_all",
-        action="store_true",
-        help="visual_all"
-    )
-    parser.add_argument(
-        "--DA_only_positive",
-        action="store_true",
-        help="Domain adaptation only applys to positive database"
-    )
-    parser.add_argument(
         "--D_net",
         type=str,
         default="none",
@@ -104,6 +81,28 @@ def parse_arguments():
         default="none",
         choices=["none", "unet", "unet_deep"],
         help="G_net"
+    )
+    parser.add_argument(
+        "--G_loss_lambda",
+        type=float,
+        default=100.0,
+        help="G_loss_lambda only for pix2pix"
+    )
+    #####################################################################
+    parser.add_argument(
+        "--use_extended_data",
+        action="store_true",
+        help="Use extended data from pix2pix",
+    )
+    parser.add_argument(
+        "--visual_all",
+        action="store_true",
+        help="visual_all"
+    )
+    parser.add_argument(
+        "--DA_only_positive",
+        action="store_true",
+        help="Domain adaptation only applys to positive database"
     )
     parser.add_argument(
         "--lambda_DA",

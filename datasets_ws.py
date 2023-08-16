@@ -170,9 +170,7 @@ class BaseDataset(data.Dataset):
         identity_transform = transforms.Lambda(lambda x: x)
         self.query_transform = transforms.Compose(
             [
-                transforms.Grayscale(num_output_channels=3)
-                if self.args.G_gray
-                else identity_transform,
+                transforms.Grayscale(num_output_channels=3),
                 base_transform
             ]
         )
@@ -375,9 +373,7 @@ class TripletsDataset(BaseDataset):
 
         self.query_transform = transforms.Compose(
             [
-                transforms.Grayscale(num_output_channels=3)
-                if self.args.G_gray
-                else identity_transform,
+                transforms.Grayscale(num_output_channels=3),
                 transforms.ColorJitter(brightness=args.brightness)
                 if args.brightness != None
                 else identity_transform,
@@ -518,17 +514,17 @@ class TripletsDataset(BaseDataset):
         else:
             return len(self.triplets_global_indexes)
 
-    def compute_triplets(self, args, model, model_db=None):
+    def compute_triplets(self, args, model):
         self.is_inference = True
         if self.mining == "full":
-            self.compute_triplets_full(args, model, model_db)
+            self.compute_triplets_full(args, model)
         elif self.mining == "partial" or self.mining == "msls_weighted":
-            self.compute_triplets_partial(args, model, model_db)
+            self.compute_triplets_partial(args, model)
         elif self.mining == "random":
-            self.compute_triplets_random(args, model, model_db)
+            self.compute_triplets_random(args, model)
 
     @staticmethod
-    def compute_cache(args, model, model_db, subset_ds, cache_shape):
+    def compute_cache(args, model, subset_ds, cache_shape):
         """Compute the cache containing features of images, which is used to
         find best positive and hardest negatives."""
 
@@ -539,58 +535,23 @@ class TripletsDataset(BaseDataset):
         else:
             cache = RAMEfficient2DMatrix(cache_shape, dtype=np.float32)
 
-        if model_db is not None:
-            subset_db_dl = DataLoader(
-                dataset=subset_ds[0],
-                num_workers=args.num_workers,
-                batch_size=args.infer_batch_size,
-                shuffle=False,
-                pin_memory=(args.device == "cuda"),
-            )
-            subset_qr_dl = DataLoader(
-                dataset=subset_ds[1],
-                num_workers=args.num_workers,
-                batch_size=args.infer_batch_size,
-                shuffle=False,
-                pin_memory=(args.device == "cuda"),
-            )
-            model = model.eval()
-            model_db = model_db.eval()
-            
-            with torch.no_grad():
-                for images, indexes in tqdm(subset_db_dl, ncols=100):
-                    images = images.to(args.device)
-                    features = model_db(images)
-                    if args.use_faiss_gpu:
-                        cache[indexes] = features
-                    else:
-                        cache[indexes.numpy()] = features.cpu().numpy()
-                        
-                for images, indexes in tqdm(subset_qr_dl, ncols=100):
-                    images = images.to(args.device)
-                    features = model(images)
-                    if args.use_faiss_gpu:
-                        cache[indexes] = features
-                    else:
-                        cache[indexes.numpy()] = features.cpu().numpy()
-        else:
-            subset_dl = DataLoader(
-                dataset=subset_ds,
-                num_workers=args.num_workers,
-                batch_size=args.infer_batch_size,
-                shuffle=False,
-                pin_memory=(args.device == "cuda"),
-            )
-            model = model.eval()
-            
-            with torch.no_grad():
-                for images, indexes in tqdm(subset_dl, ncols=100):
-                    images = images.to(args.device)
-                    features = model(images)
-                    if args.use_faiss_gpu:
-                        cache[indexes] = features
-                    else:
-                        cache[indexes.numpy()] = features.cpu().numpy()
+        subset_dl = DataLoader(
+            dataset=subset_ds,
+            num_workers=args.num_workers,
+            batch_size=args.infer_batch_size,
+            shuffle=False,
+            pin_memory=(args.device == "cuda"),
+        )
+        model = model.eval()
+        
+        with torch.no_grad():
+            for images, indexes in tqdm(subset_dl, ncols=100):
+                images = images.to(args.device)
+                features = model(images)
+                if args.use_faiss_gpu:
+                    cache[indexes] = features
+                else:
+                    cache[indexes.numpy()] = features.cpu().numpy()
         return cache
 
     def get_query_features(self, query_index, cache):
@@ -827,24 +788,13 @@ class TripletsDataset(BaseDataset):
         database_indexes = list(sampled_database_indexes) + positives_indexes
         database_indexes = list(np.unique(database_indexes))
 
-        if model_db is not None:
-            subset_db_ds = Subset(
-                self, database_indexes
-            )
-            subset_qr_ds = Subset(
-                self, list(sampled_queries_indexes + self.database_num)
-            )
-            cache = self.compute_cache(
-                args, model, model_db, [subset_db_ds, subset_qr_ds], (len(self), args.features_dim)
-            )
-        else:
-            subset_ds = Subset(
-                self, database_indexes +
-                list(sampled_queries_indexes + self.database_num)
-            )
-            cache = self.compute_cache(
-                args, model, model_db, subset_ds, (len(self), args.features_dim)
-            )
+        subset_ds = Subset(
+            self, database_indexes +
+            list(sampled_queries_indexes + self.database_num)
+        )
+        cache = self.compute_cache(
+            args, model, subset_ds, (len(self), args.features_dim)
+        )
 
         if args.use_faiss_gpu:
             # Tmp memory for faiss
@@ -976,9 +926,7 @@ class TranslationDataset(BaseDataset):
 
         self.query_transform = transforms.Compose(
             [
-                transforms.Grayscale(num_output_channels=1)
-                if self.args.G_gray
-                else identity_transform,
+                transforms.Grayscale(num_output_channels=1),
                 self.resized_transform,
             ]
         )
