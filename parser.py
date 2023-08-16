@@ -82,16 +82,7 @@ def parse_arguments():
         help="G_loss_lambda only for pix2pix"
     )
     #####################################################################
-    parser.add_argument(
-        "--use_extended_data",
-        action="store_true",
-        help="Use extended data from pix2pix",
-    )
-    parser.add_argument(
-        "--visual_all",
-        action="store_true",
-        help="visual_all"
-    )
+    # Parameters for DANN
     parser.add_argument(
         "--DA_only_positive",
         action="store_true",
@@ -109,19 +100,14 @@ def parse_arguments():
         help="Domain adaptation"
     )
     parser.add_argument(
-        "--add_bn",
+        "--use_extended_data",
         action="store_true",
-        help="Add bn to compression layers"
+        help="Use extended data from pix2pix",
     )
     parser.add_argument(
-        "--remove_relu",
+        "--visual_all",
         action="store_true",
-        help="Remove last relu layer of backbone"
-    )
-    parser.add_argument(
-        "--use_faiss_gpu",
-        action="store_true",
-        help="Choose if we use faiss gpu version for mining. Only work for full and partial."
+        help="visual_all"
     )
     parser.add_argument(
         "--prior_location_threshold",

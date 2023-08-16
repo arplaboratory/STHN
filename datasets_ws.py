@@ -530,10 +530,7 @@ class TripletsDataset(BaseDataset):
 
         # RAMEfficient2DMatrix can be replaced by np.zeros, but using
         # RAMEfficient2DMatrix is RAM efficient for full database mining.
-        if args.use_faiss_gpu:
-            cache = RAMEfficient2DMatrixGPU(cache_shape, dtype=torch.float32, device=args.device)
-        else:
-            cache = RAMEfficient2DMatrix(cache_shape, dtype=np.float32)
+        cache = RAMEfficient2DMatrix(cache_shape, dtype=np.float32)
 
         subset_dl = DataLoader(
             dataset=subset_ds,
@@ -548,10 +545,7 @@ class TripletsDataset(BaseDataset):
             for images, indexes in tqdm(subset_dl, ncols=100):
                 images = images.to(args.device)
                 features = model(images)
-                if args.use_faiss_gpu:
-                    cache[indexes] = features
-                else:
-                    cache[indexes.numpy()] = features.cpu().numpy()
+                cache[indexes.numpy()] = features.cpu().numpy()
         return cache
 
     def get_query_features(self, query_index, cache):
@@ -566,11 +560,7 @@ class TripletsDataset(BaseDataset):
 
     def get_best_positive_index(self, args, query_index, cache, query_features):
         positives_features = cache[self.hard_positives_per_query[query_index]]
-        if args.use_faiss_gpu:
-            faiss_index = faiss.GpuIndexFlatL2(
-                self.gpu_resources[0], args.features_dim)
-        else:
-            faiss_index = faiss.IndexFlatL2(args.features_dim)
+        faiss_index = faiss.IndexFlatL2(args.features_dim)
         faiss_index.add(positives_features)
         # Search the best positive (within 10 meters AND nearest in features space)
         _, best_positive_num = faiss_index.search(
@@ -581,19 +571,13 @@ class TripletsDataset(BaseDataset):
 
     def get_hardest_negatives_indexes(self, args, cache, query_features, neg_samples):
         neg_features = cache[neg_samples]
-        if args.use_faiss_gpu:
-            faiss_index = faiss.GpuIndexFlatL2(self.gpu_resources[1], args.features_dim)
-        else:
-            faiss_index = faiss.IndexFlatL2(args.features_dim)
+        faiss_index = faiss.IndexFlatL2(args.features_dim)
         faiss_index.add(neg_features)
         # Search the 10 nearest negatives (further than 25 meters and nearest in features space)
         _, neg_nums = faiss_index.search(
             query_features.reshape(1, -1), self.negs_num_per_query
         )
-        if args.use_faiss_gpu:
-            neg_nums = neg_nums.reshape(-1).cpu()
-        else:
-            neg_nums = neg_nums.reshape(-1)
+        neg_nums = neg_nums.reshape(-1)
         neg_indexes = neg_samples[neg_nums].astype(np.int32)
         if not hasattr(neg_indexes, "__len__"):
             neg_indexes = np.expand_dims(neg_indexes, 0)
@@ -633,15 +617,6 @@ class TripletsDataset(BaseDataset):
             cache = self.compute_cache(
                 args, model, model_db, subset_ds, (len(self), args.features_dim)
             )
-        
-        if args.use_faiss_gpu:
-            # Tmp memory for faiss
-            self.gpu_resources = []
-            for i in range(2):
-                # 2 gpu resource for positive
-                res = faiss.StandardGpuResources()
-                res.setTempMemory(200 * 1024 * 1024)  # 200 MB
-                self.gpu_resources.append(res)
 
         # This loop's iterations could be done individually in the __getitem__(). This way is slower but clearer (and yields same results)
         for query_index in tqdm(sampled_queries_indexes, ncols=100):
@@ -675,9 +650,6 @@ class TripletsDataset(BaseDataset):
             )
 
         del cache
-        # Remove Tmp memory for faiss
-        if args.use_faiss_gpu:
-            del self.gpu_resources
 
         # self.triplets_global_indexes is a tensor of shape [1000, 12]
         self.triplets_global_indexes = torch.tensor(
@@ -710,15 +682,6 @@ class TripletsDataset(BaseDataset):
             cache = self.compute_cache(
                 args, model, model_db, subset_ds, (len(self), args.features_dim)
             )
-
-        if args.use_faiss_gpu:
-            # Tmp memory for faiss
-            self.gpu_resources = []
-            for i in range(2):
-                # 2 gpu resource for positive and negative
-                res = faiss.StandardGpuResources()
-                res.setTempMemory(200 * 1024 * 1024)  # 200 MB
-                self.gpu_resources.append(res)
 
         # This loop's iterations could be done individually in the __getitem__(). This way is slower but clearer (and yields same results)
         for query_index in tqdm(sampled_queries_indexes, ncols=100):
@@ -754,8 +717,6 @@ class TripletsDataset(BaseDataset):
 
         # Remove Tmp memory for faiss
         del cache
-        if args.use_faiss_gpu:
-            del self.gpu_resources
 
         # self.triplets_global_indexes is a tensor of shape [1000, 12]
         self.triplets_global_indexes = torch.tensor(
@@ -796,15 +757,6 @@ class TripletsDataset(BaseDataset):
             args, model, subset_ds, (len(self), args.features_dim)
         )
 
-        if args.use_faiss_gpu:
-            # Tmp memory for faiss
-            self.gpu_resources = []
-            for i in range(2):
-                # 2 gpu resource for positive and negative
-                res = faiss.StandardGpuResources()
-                res.setTempMemory(200 * 1024 * 1024)  # 200 MB
-                self.gpu_resources.append(res)
-
         # This loop's iterations could be done individually in the __getitem__(). This way is slower but clearer (and yields same results)
         for query_index in tqdm(sampled_queries_indexes, ncols=100):
             query_features = self.get_query_features(query_index, cache)
@@ -833,8 +785,6 @@ class TripletsDataset(BaseDataset):
 
         # Remove Tmp memory for faiss
         del cache
-        if args.use_faiss_gpu:
-            del self.gpu_resources
 
         # self.triplets_global_indexes is a tensor of shape [1000, 12]
         self.triplets_global_indexes = torch.tensor(
