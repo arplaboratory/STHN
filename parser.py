@@ -27,13 +27,6 @@ def parse_arguments():
         default=0,
         help="lr decay epoch num",
     )
-     parser.add_argument(
-        "--GAN_lr_policy",
-        type=str,
-        default="linear",
-        choices="linear",
-        help="lr scheduler.",
-    )
     parser.add_argument(
         "--GAN_resize",
         type=int,
