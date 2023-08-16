@@ -23,6 +23,137 @@ from model.Deit import deit_small_distilled_patch16_224, deit_base_distilled_pat
 
 torch.backends.cudnn.benchmark = True  # Provides a speedup
 
+def train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num):
+    global epoch_losses, epoch_triplet_losses
+    if args.DA != 'none':
+        global epoch_DA_losses
+
+    logging.debug(f"Cache: {loop_num} / {loops_num}")
+
+    # Compute triplets to use in the triplet loss
+    train_ds.is_inference = True
+    train_ds.compute_triplets(args, model)
+    train_ds.is_inference = False
+
+    triplets_dl = DataLoader(
+        dataset=train_ds,
+        num_workers=args.num_workers,
+        batch_size=args.train_batch_size,
+        collate_fn=datasets_ws.collate_fn,
+        pin_memory=(args.device == "cuda"),
+        drop_last=True,
+    )
+
+    model.train()
+
+    # images shape: (train_batch_size*12)*3*H*W ; by default train_batch_size=4, H=512, W=512
+    # triplets_local_indexes shape: (train_batch_size*10)*3 ; because 10 triplets per query
+    for images, triplets_local_indexes, _, _ in tqdm(triplets_dl, ncols=100):
+
+        # Flip all triplets or none
+        if args.horizontal_flip:
+            images = transforms.RandomHorizontalFlip()(images)
+
+        # Compute features of all images (images contains queries, positives and negatives)
+        if args.DA:
+            images_index = np.arange(0, len(images))
+            query_images_index = np.arange(0, len(images), 1 + 1 + args.negs_num_per_query)
+            database_images_index = np.setdiff1d(images_index, query_images_index, assume_unique=True)
+            positive_images_index = np.arange(1, len(images), 1 + 1 + args.negs_num_per_query)
+            features, reverse_x = model(images.to(args.device), is_train=True)
+            if args.DA_only_positive:
+                database_reverse_x = reverse_x[positive_images_index]
+            else:
+                database_reverse_x = reverse_x[database_images_index]
+            query_reverse_x = reverse_x[query_images_index]
+            database_domain_label = domain_classifier(database_reverse_x)
+            query_domain_label = domain_classifier(query_reverse_x)
+        else:
+            features = model(images.to(args.device), is_train=True)
+        loss_triplet = 0
+
+        if args.criterion == "triplet":
+            triplets_local_indexes = torch.transpose(
+                triplets_local_indexes.view(
+                    args.train_batch_size, args.negs_num_per_query, 3
+                ),
+                1,
+                0,
+            )
+            for triplets in triplets_local_indexes:
+                queries_indexes, positives_indexes, negatives_indexes = triplets.T
+                loss_triplet += criterion_triplet(
+                    features[queries_indexes],
+                    features[positives_indexes],
+                    features[negatives_indexes],
+                )
+        elif args.criterion == "sare_joint":
+            # sare_joint needs to receive all the negatives at once
+            triplet_index_batch = triplets_local_indexes.view(
+                args.train_batch_size, 10, 3
+            )
+            for batch_triplet_index in triplet_index_batch:
+                q = features[batch_triplet_index[0, 0]].unsqueeze(
+                    0
+                )  # obtain query as tensor of shape 1xn_features
+                p = features[batch_triplet_index[0, 1]].unsqueeze(
+                    0
+                )  # obtain positive as tensor of shape 1xn_features
+                n = features[
+                    batch_triplet_index[:, 2]
+                ]  # obtain negatives as tensor of shape 10xn_features
+                loss_triplet += criterion_triplet(q, p, n)
+        elif args.criterion == "sare_ind":
+            for triplet in triplets_local_indexes:
+                # triplet is a 1-D tensor with the 3 scalars indexes of the triplet
+                q_i, p_i, n_i = triplet
+                loss_triplet += criterion_triplet(
+                    features[q_i: q_i + 1],
+                    features[p_i: p_i + 1],
+                    features[n_i: n_i + 1],
+                )
+
+        del features
+        loss_triplet /= args.train_batch_size * args.negs_num_per_query
+
+        if args.DA:
+            query_target_label = torch.zeros(query_domain_label.shape[0]).long().to(args.device)
+            if args.DA_only_positive:
+                # Positive sample num = query sample num
+                database_target_label = torch.ones(query_domain_label.shape[0]).long().to(args.device)
+            else:
+                database_target_label = torch.ones(database_domain_label.shape[0]).long().to(args.device)
+            loss_DA = criterion_DA(query_domain_label, query_target_label) + \
+                        criterion_DA(database_domain_label, database_target_label)
+            loss_DA /= query_domain_label.shape[0] + database_domain_label.shape[0]
+            loss = loss_triplet + args.lambda_DA * loss_DA
+        else:
+            loss = loss_triplet
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Keep track of all losses by appending them to epoch_losses
+        triplet_loss = loss_triplet.item()
+        batch_loss = loss.item()
+        epoch_triplet_losses = np.append(epoch_triplet_losses, triplet_loss)
+        epoch_losses = np.append(epoch_losses, batch_loss)
+        if args.DA:
+            DA_loss = loss_DA.item()
+            epoch_DA_losses = np.append(epoch_DA_losses, DA_loss)
+    debug_str = f"Epoch[{epoch_num:02d}]({loop_num}/{loops_num}): "+ \
+        f"current batch sum loss = {batch_loss:.4f}, "+ \
+        f"average epoch sum loss = {epoch_losses.mean():.4f}, "+ \
+        f"current batch triplet loss = {triplet_loss:.4f}, "+ \
+        f"average epoch triplet loss = {epoch_triplet_losses.mean():.4f}, "
+
+    if args.DA != 'none':
+        debug_str+= f"current batch DA loss = {DA_loss:.4f}, "+ \
+        f"average epoch DA loss = {epoch_DA_losses.mean():.4f}, "
+
+    logging.debug(debug_str)
+    
 # Initial setup: parser, logging...
 args = parser.parse_arguments()
 start_time = datetime.now()
@@ -206,138 +337,12 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     # How many loops should an epoch last (default is 5000/1000=5)
     loops_num = math.ceil(args.queries_per_epoch / args.cache_refresh_rate)
     for loop_num in range(loops_num):
-        logging.debug(f"Cache: {loop_num} / {loops_num}")
+        train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num)
 
-        # Compute triplets to use in the triplet loss
-        train_ds.is_inference = True
-        train_ds.compute_triplets(args, model)
-        train_ds.is_inference = False
+    if args.use_extended_data:
+        for loop_num in range(loops_num):
+             train_loop(args, model, optimizer, extended_ds, criterion_triplet, loop_num)
 
-            triplets_dl = DataLoader(
-                dataset=train_ds,
-                num_workers=args.num_workers,
-                batch_size=args.train_batch_size,
-                collate_fn=datasets_ws.collate_fn,
-                pin_memory=(args.device == "cuda"),
-                drop_last=True,
-            )
-        else:
-            raise NotImplementedError()
-
-        model.train()
-
-        # images shape: (train_batch_size*12)*3*H*W ; by default train_batch_size=4, H=512, W=512
-        # triplets_local_indexes shape: (train_batch_size*10)*3 ; because 10 triplets per query
-        for images, triplets_local_indexes, _, _ in tqdm(triplets_dl, ncols=100):
-
-            # Flip all triplets or none
-            if args.horizontal_flip:
-                images = transforms.RandomHorizontalFlip()(images)
-
-            # Compute features of all images (images contains queries, positives and negatives)
-            if args.DA:
-                images_index = np.arange(0, len(images))
-                query_images_index = np.arange(0, len(images), 1 + 1 + args.negs_num_per_query)
-                database_images_index = np.setdiff1d(images_index, query_images_index, assume_unique=True)
-                positive_images_index = np.arange(1, len(images), 1 + 1 + args.negs_num_per_query)
-                features, reverse_x = model(images.to(args.device), is_train=True)
-                if args.DA_only_positive:
-                    database_reverse_x = reverse_x[positive_images_index]
-                else:
-                    database_reverse_x = reverse_x[database_images_index]
-                query_reverse_x = reverse_x[query_images_index]
-                database_domain_label = domain_classifier(database_reverse_x)
-                query_domain_label = domain_classifier(query_reverse_x)
-            else:
-                features = model(images.to(args.device), is_train=True)
-            loss_triplet = 0
-
-            if args.criterion == "triplet":
-                triplets_local_indexes = torch.transpose(
-                    triplets_local_indexes.view(
-                        args.train_batch_size, args.negs_num_per_query, 3
-                    ),
-                    1,
-                    0,
-                )
-                for triplets in triplets_local_indexes:
-                    queries_indexes, positives_indexes, negatives_indexes = triplets.T
-                    loss_triplet += criterion_triplet(
-                        features[queries_indexes],
-                        features[positives_indexes],
-                        features[negatives_indexes],
-                    )
-            elif args.criterion == "sare_joint":
-                # sare_joint needs to receive all the negatives at once
-                triplet_index_batch = triplets_local_indexes.view(
-                    args.train_batch_size, 10, 3
-                )
-                for batch_triplet_index in triplet_index_batch:
-                    q = features[batch_triplet_index[0, 0]].unsqueeze(
-                        0
-                    )  # obtain query as tensor of shape 1xn_features
-                    p = features[batch_triplet_index[0, 1]].unsqueeze(
-                        0
-                    )  # obtain positive as tensor of shape 1xn_features
-                    n = features[
-                        batch_triplet_index[:, 2]
-                    ]  # obtain negatives as tensor of shape 10xn_features
-                    loss_triplet += criterion_triplet(q, p, n)
-            elif args.criterion == "sare_ind":
-                for triplet in triplets_local_indexes:
-                    # triplet is a 1-D tensor with the 3 scalars indexes of the triplet
-                    q_i, p_i, n_i = triplet
-                    loss_triplet += criterion_triplet(
-                        features[q_i: q_i + 1],
-                        features[p_i: p_i + 1],
-                        features[n_i: n_i + 1],
-                    )
-
-            del features
-            loss_triplet /= args.train_batch_size * args.negs_num_per_query
-
-            if args.DA:
-                query_target_label = torch.zeros(query_domain_label.shape[0]).long().to(args.device)
-                if args.DA_only_positive:
-                    # Positive sample num = query sample num
-                    database_target_label = torch.ones(query_domain_label.shape[0]).long().to(args.device)
-                else:
-                    database_target_label = torch.ones(database_domain_label.shape[0]).long().to(args.device)
-                loss_DA = criterion_DA(query_domain_label, query_target_label) + \
-                          criterion_DA(database_domain_label, database_target_label)
-                loss_DA /= query_domain_label.shape[0] + database_domain_label.shape[0]
-                loss = loss_triplet + args.lambda_DA * loss_DA
-            else:
-                loss = loss_triplet
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            # Keep track of all losses by appending them to epoch_losses
-            triplet_loss = loss_triplet.item()
-            batch_loss = loss.item()
-            epoch_triplet_losses = np.append(epoch_triplet_losses, triplet_loss)
-            epoch_losses = np.append(epoch_losses, batch_loss)
-            if args.DA:
-                DA_loss = loss_DA.item()
-                epoch_DA_losses = np.append(epoch_DA_losses, DA_loss)
-            del loss
-
-        debug_str = f"Epoch[{epoch_num:02d}]({loop_num}/{loops_num}): "+ \
-            f"current batch sum loss = {batch_loss:.4f}, "+ \
-            f"average epoch sum loss = {epoch_losses.mean():.4f}, "+ \
-            f"current batch triplet loss = {triplet_loss:.4f}, "+ \
-            f"average epoch triplet loss = {epoch_triplet_losses.mean():.4f}, "
-
-        if args.DA != 'none':
-            debug_str+= f"current batch DA loss = {DA_loss:.4f}, "+ \
-            f"average epoch DA loss = {epoch_DA_losses.mean():.4f}, "
-
-        logging.debug(debug_str)
-    
-    del triplets_dl
-    
     info_str = f"Finished epoch {epoch_num:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "+ \
         f"average epoch sum loss = {epoch_losses.mean():.4f}, "+ \
         f"average epoch triplet loss = {epoch_triplet_losses.mean():.4f}, "
@@ -421,8 +426,9 @@ model.load_state_dict(best_model_state_dict)
 
 recalls, recalls_str = test.test(
     args, test_ds, model, test_method=args.test_method)
-logging.info(f"Recalls on {test_ds}: {recalls_str}")
 wandb.log({
-    "final_recall1": recalls[0],
-    "final_recall5": recalls[1],
-},)
+        "final_recall1": recalls[0],
+        "final_recall5": recalls[1],
+    },)
+
+logging.info(f"Recalls on {test_ds}: {recalls_str}")
