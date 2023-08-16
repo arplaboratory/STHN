@@ -61,11 +61,7 @@ class GeoLocalizationNet(nn.Module):
             # Concatenate conv layer to the aggregation layer
             actual_conv_output_dim = int(args.conv_output_dim / args.netvlad_clusters)
             logging.debug(f"Last conv layer dim: {actual_conv_output_dim}")
-            if args.add_bn:
-                self.conv_layer = nn.Sequential(nn.Conv2d(args.features_dim, actual_conv_output_dim, 1, bias=False),
-                                                nn.BatchNorm2d(actual_conv_output_dim),)
-            else:
-                self.conv_layer = nn.Conv2d(args.features_dim, actual_conv_output_dim, 1)
+            self.conv_layer = nn.Conv2d(args.features_dim, actual_conv_output_dim, 1)
             args.features_dim = actual_conv_output_dim
 
         if args.non_local:
@@ -207,12 +203,6 @@ def get_backbone(args):
             else:
                 logging.debug(f"Train only conv4_x and conv5_x of the {args.backbone.split('conv')[0]}")
             layers = list(backbone.children())[:-2]
-
-        if args.remove_relu is True and (args.backbone.startswith("resnet50") or args.backbone.startswith("resnet101")):
-            last_layer = layers[-1][-1]
-            last_layer = nn.Sequential(*list(last_layer.modules())[1:-1])
-            layers[-1][-1] = last_layer
-
     elif args.backbone == "vgg16":
         if args.pretrain in ['places', 'gldv2']:
             backbone = get_pretrained_model(args)
