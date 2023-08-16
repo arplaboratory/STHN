@@ -13,21 +13,18 @@ import numpy as np
 from tqdm import tqdm
 import torch.nn as nn
 import multiprocessing
-from os.path import join
+from os.path import join, isdir
 from datetime import datetime
 import torchvision.transforms as transforms
 from torch.utils.data.dataloader import DataLoader
-import copy
 import wandb
 from uuid import uuid4
+from model.Deit import deit_small_distilled_patch16_224, deit_base_distilled_patch16_384
 
 torch.backends.cudnn.benchmark = True  # Provides a speedup
 
 # Initial setup: parser, logging...
 args = parser.parse_arguments()
-if args.use_extended_data:
-    raise NotImplementedError("Please use train_extended.py")
-    
 start_time = datetime.now()
 args.save_dir = join(
     "logs",
@@ -37,7 +34,7 @@ args.save_dir = join(
 commons.setup_logging(args.save_dir)
 commons.make_deterministic(args.seed)
 logging.info(f"Arguments: {args}")
-wandb.init(project="VTL", entity="xjh19971", config=vars(args))
+wandb.init(project="STGL", entity="xjh19971", config=vars(args))
 logging.info(f"The outputs are being saved in {args.save_dir}")
 logging.info(
     f"Using {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs"
@@ -63,39 +60,28 @@ test_ds = datasets_ws.BaseDataset(
 logging.info(f"Test set: {test_ds}")
 
 # Initialize model
-model = network.GeoLocalizationNet(args)
-model.to(args.device)
+if args.backbone == "deitBase":
+    args.features_dim = args.fc_output_dim
+    model = deit_base_distilled_patch16_384(img_size=args.resize, num_classes=args.features_dim)
+elif args.backbone == "deit":
+    args.features_dim = args.fc_output_dim
+    model = deit_small_distilled_patch16_224(img_size=args.resize, num_classes=args.features_dim)
+else:
+    model = network.GeoLocalizationNet(args)
+model = model.to(args.device)
 domain_classifier = None
-if args.DA.startswith("DANN"):
+if args.DA:
     domain_classifier = model.create_domain_classifier(args)
+    domain_classifier = domain_classifier.to(args.device)
 
 if args.aggregation in ["netvlad", "crn"]:  # If using NetVLAD layer, initialize it
     if not args.resume:
         train_ds.is_inference = True
         model.aggregation.initialize_netvlad_layer(
-                args, train_ds, model.backbone)
+            args, train_ds, model.backbone)
     args.features_dim *= args.netvlad_clusters
 
-if args.separate_branch:
-    logging.info('Backbone has separated branched for database and query')
-    model_db = copy.deepcopy(model)
-    model_db = torch.nn.DataParallel(model_db)
-    if torch.cuda.device_count() >= 2:
-        # When using more than 1GPU, use sync_batchnorm for torch.nn.DataParallel
-        model_db = convert_model(model_db)
-        model_db = model_db.to(args.device)
-
 model = torch.nn.DataParallel(model)
-if torch.cuda.device_count() >= 2:
-    # When using more than 1GPU, use sync_batchnorm for torch.nn.DataParallel
-    model = convert_model(model)
-    model = model.to(args.device)
-
-if domain_classifier is not None:
-    domain_classifier = torch.nn.DataParallel(domain_classifier)
-    # When using more than 1GPU, use sync_batchnorm for torch.nn.DataParallel
-    domain_classifier = convert_model(domain_classifier)
-    domain_classifier = domain_classifier.to(args.device)
 
 # Setup Optimizer and Loss
 if args.aggregation == "crn":
@@ -109,95 +95,51 @@ if args.aggregation == "crn":
             if not m[0].startswith("crn")
         ]
     )
-    if args.separate_branch:
-        net_db_params = list(model_db.module.backbone.parameters()) + list(
-        [
-            m[1]
-            for m in model_db.module.aggregation.named_parameters()
-            if not m[0].startswith("crn")
-        ]
-    )
     if args.optim == "adam":
-        if args.separate_branch:
-            optimizer = torch.optim.Adam(
-                [
-                    {"params": crn_params, "lr": args.lr_crn_layer},
-                    {"params": net_params, "lr": args.lr_crn_net},
-                    {"params": net_db_params, "lr": args.lr_crn_net},
-                ]
-            )
-        else:
-            optimizer = torch.optim.Adam(
-                [
-                    {"params": crn_params, "lr": args.lr_crn_layer},
-                    {"params": net_params, "lr": args.lr_crn_net},
-                ]
-            )
+        optimizer = torch.optim.Adam(
+            [
+                {"params": crn_params, "lr": args.lr_crn_layer},
+                {"params": net_params, "lr": args.lr_crn_net},
+            ]
+        )
         logging.info("You're using CRN with Adam, it is advised to use SGD")
     elif args.optim == "sgd":
-        if args.separate_branch:
-            optimizer = torch.optim.SGD(
-                [
-                    {
-                        "params": crn_params,
-                        "lr": args.lr_crn_layer,
-                        "momentum": 0.9,
-                        "weight_decay": 0.001,
-                    },
-                    {
-                        "params": net_params,
-                        "lr": args.lr_crn_net,
-                        "momentum": 0.9,
-                        "weight_decay": 0.001,
-                    },
-                    {
-                        "params": net_db_params,
-                        "lr": args.lr_crn_net,
-                        "momentum": 0.9,
-                        "weight_decay": 0.001,
-                    },
-                ]
-            )
-        else:
-            optimizer = torch.optim.SGD(
-                [
-                    {
-                        "params": crn_params,
-                        "lr": args.lr_crn_layer,
-                        "momentum": 0.9,
-                        "weight_decay": 0.001,
-                    },
-                    {
-                        "params": net_params,
-                        "lr": args.lr_crn_net,
-                        "momentum": 0.9,
-                        "weight_decay": 0.001,
-                    },
-                ]
-            )
+        optimizer = torch.optim.SGD(
+            [
+                {
+                    "params": crn_params,
+                    "lr": args.lr_crn_layer,
+                    "momentum": 0.9,
+                    "weight_decay": 0.001,
+                },
+                {
+                    "params": net_params,
+                    "lr": args.lr_crn_net,
+                    "momentum": 0.9,
+                    "weight_decay": 0.001,
+                },
+            ]
+        )
 else:
     if args.optim == "adam":
-        if args.separate_branch:
-            if domain_classifier is not None:
-                optimizer = torch.optim.Adam(list(model.parameters()) + list(model_db.parameters()) + list(domain_classifier.parameters()), lr=args.lr, weight_decay=args.weight_decay)
-            else:
-                optimizer = torch.optim.Adam(list(model.parameters()) + list(model_db.parameters()), lr=args.lr, weight_decay=args.weight_decay)
+        if domain_classifier is not None:
+            optimizer = torch.optim.Adam(list(model.parameters()) + list(domain_classifier.parameters()), lr=args.lr)
         else:
-            if domain_classifier is not None:
-                optimizer = torch.optim.Adam(list(model.parameters()) + list(domain_classifier.parameters()), lr=args.lr, weight_decay=args.weight_decay)
-            else:
-                optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+            optimizer = torch.optim.Adam(list(model.parameters()), lr=args.lr)
+    elif args.optim == 'adamw':
+        if domain_classifier is not None:
+            optimizer = torch.optim.AdamW(list(model.parameters()) + list(domain_classifier.parameters()), args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.03,
+                                        amsgrad=False)
+        else:
+            optimizer = torch.optim.AdamW(list(model.parameters()), args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.03,
+                                        amsgrad=False)
     elif args.optim == "sgd":
-        if args.separate_branch:
-            if domain_classifier is not None:
-                optimizer = torch.optim.SGD(list(model.parameters()) + list(model_db.parameters()) + list(domain_classifier.parameters()), lr=args.lr, momentum=0.9, weight_decay=0.001)
-            else:
-                optimizer = torch.optim.SGD(list(model.parameters()) + list(model_db.parameters()), lr=args.lr, momentum=0.9, weight_decay=0.001)
+        if domain_classifier is not None:
+            optimizer = torch.optim.SGD(list(model.parameters()) + list(domain_classifier.parameters()), lr=args.lr, momentum=0.9, weight_decay=0.001)
         else:
-            if domain_classifier is not None:
-                optimizer = torch.optim.SGD(list(model.parameters()) + list(domain_classifier.parameters()), lr=args.lr, momentum=0.9, weight_decay=0.001)
-            else:
-                optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.001)
+            optimizer = torch.optim.SGD(list(model.parameters()), lr=args.lr, momentum=0.9, weight_decay=0.001)
+    else:
+        raise NotImplementedError()
 
 if args.criterion == "triplet":
     criterion_triplet = nn.TripletMarginLoss(
@@ -206,40 +148,23 @@ elif args.criterion == "sare_ind":
     criterion_triplet = sare_ind
 elif args.criterion == "sare_joint":
     criterion_triplet = sare_joint
-
-logging.info(f'Domain adapataion: {args.DA}')
-if args.DA.startswith('DANN'):
-    criterion_DA = torch.nn.NLLLoss(reduction='sum')
+else:
+    raise NotImplementedError("Criterion not found for triplets!")
 
 # Resume model, optimizer, and other training parameters
 if args.resume:
     if args.aggregation != "crn":
-        if args.separate_branch:
-            (
-                model,
-                model_db,
-                optimizer,
-                best_r5,
-                start_epoch_num,
-                not_improved_num,
-            ) = util.resume_train_separate(args, model, model_db, optimizer, DA=domain_classifier)
-        else:
-            (
-                model,
-                optimizer,
-                best_r5,
-                start_epoch_num,
-                not_improved_num,
-            ) = util.resume_train(args, model, optimizer, DA=domain_classifier)
+        (
+            model,
+            optimizer,
+            best_r5,
+            start_epoch_num,
+            not_improved_num,
+        ) = util.resume_train(args, model, optimizer)
     else:
         # CRN uses pretrained NetVLAD, then requires loading with strict=False and
         # does not load the optimizer from the checkpoint file.
-        if args.separate_branch:
-            model, _, best_r5, start_epoch_num, not_improved_num = util.resume_train_separate(
-            args, model, model_db, strict=False, DA=domain_classifier
-        )
-        else:
-            model, _, best_r5, start_epoch_num, not_improved_num = util.resume_train(
+        model, _, best_r5, start_epoch_num, not_improved_num = util.resume_train(
             args, model, strict=False, DA=domain_classifier
         )
     logging.info(
@@ -248,25 +173,33 @@ if args.resume:
 else:
     best_r5 = start_epoch_num = not_improved_num = 0
 
-if args.backbone.startswith("vit"):
-    logging.info(f"Output dimension of the model is {args.features_dim}")
-else:
-    model = model.eval()
-    logging.info(
-        f"Output dimension of the model is {args.features_dim}"
-    )
-    # logging.info(
-    #     f"Output dimension of the model is {args.features_dim}, with {util.get_flops(model, args.resize)}"
-    # )
+# if args.backbone.startswith("vit"):
+#     logging.info(f"Output dimension of the model is {args.features_dim}")
+# else:
+#     logging.info(
+#         f"Output dimension of the model is {args.features_dim}, with {util.get_flops(model, args.resize)}"
+#     )
+
+if torch.cuda.device_count() >= 2:
+    # When using more than 1GPU, use sync_batchnorm for torch.nn.DataParallel
+    model = convert_model(model)
+    model = model.cuda()
+    if domain_classifier is not None:
+        # When using more than 1GPU, use sync_batchnorm for torch.nn.DataParallel
+        domain_classifier = convert_model(domain_classifier)
+        domain_classifier = domain_classifier.cuda()
 
 # Training loop
 for epoch_num in range(start_epoch_num, args.epochs_num):
+    if args.optim == 'adamw':
+        adjust_learning_rate(optimizer, epoch_num, args)
+
     logging.info(f"Start training epoch: {epoch_num:02d}")
 
     epoch_start_time = datetime.now()
     epoch_losses = np.zeros((0, 1), dtype=np.float32)
     epoch_triplet_losses = np.zeros((0, 1), dtype=np.float32)
-    if args.DA != 'none':
+    if args.DA:
         p = epoch_num / args.epochs_num # p in [0, 1)
         alpha = 2. / (1. + np.exp(-10 * p)) - 1
         epoch_DA_losses = np.zeros((0, 1), dtype=np.float32)
@@ -277,74 +210,46 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
 
         # Compute triplets to use in the triplet loss
         train_ds.is_inference = True
-        if args.separate_branch:
-            train_ds.compute_triplets(args, model, model_db)
-        else:
-            train_ds.compute_triplets(args, model)
+        train_ds.compute_triplets(args, model)
         train_ds.is_inference = False
 
-        triplets_dl = DataLoader(
-            dataset=train_ds,
-            num_workers=args.num_workers,
-            batch_size=args.train_batch_size,
-            collate_fn=datasets_ws.collate_fn,
-            pin_memory=(args.device == "cuda"),
-            drop_last=True,
-        )
+            triplets_dl = DataLoader(
+                dataset=train_ds,
+                num_workers=args.num_workers,
+                batch_size=args.train_batch_size,
+                collate_fn=datasets_ws.collate_fn,
+                pin_memory=(args.device == "cuda"),
+                drop_last=True,
+            )
+        else:
+            raise NotImplementedError()
 
-        model = model.train()
-        if args.separate_branch:
-            model_db = model_db.train()
+        model.train()
 
         # images shape: (train_batch_size*12)*3*H*W ; by default train_batch_size=4, H=512, W=512
         # triplets_local_indexes shape: (train_batch_size*10)*3 ; because 10 triplets per query
-        for images, triplets_local_indexes, _ in tqdm(triplets_dl, ncols=100):
+        for images, triplets_local_indexes, _, _ in tqdm(triplets_dl, ncols=100):
 
             # Flip all triplets or none
             if args.horizontal_flip:
                 images = transforms.RandomHorizontalFlip()(images)
 
             # Compute features of all images (images contains queries, positives and negatives)
-            if args.separate_branch:
-                # model is for query and model_db is for database
-                # query1 + pos1 + neg1s(neg_num) + query2 + pos2 + neg2(neg_num) + ...
-                # Extract query image
-                query_images_index = np.arange(0, len(images), 1 + 1 + args.negs_num_per_query)
+            if args.DA:
                 images_index = np.arange(0, len(images))
+                query_images_index = np.arange(0, len(images), 1 + 1 + args.negs_num_per_query)
                 database_images_index = np.setdiff1d(images_index, query_images_index, assume_unique=True)
-                query_images = images[query_images_index]
-                database_images = images[database_images_index]
-                if args.DA.startswith('DANN'):
-                    database_feature, database_reverse_x = model_db(database_images.to(args.device), is_train=True, alpha=alpha)
-                    positive_images_index_local = np.arange(0, len(database_reverse_x), 1 + args.negs_num_per_query)
-                    if args.DA_only_positive:
-                        database_reverse_x = database_reverse_x[positive_images_index_local]
-                    database_domain_label = domain_classifier(database_reverse_x)
-                    query_feature, query_reverse_x = model(query_images.to(args.device), is_train=True, alpha=alpha)
-                    query_domain_label = domain_classifier(query_reverse_x)
+                positive_images_index = np.arange(1, len(images), 1 + 1 + args.negs_num_per_query)
+                features, reverse_x = model(images.to(args.device), is_train=True)
+                if args.DA_only_positive:
+                    database_reverse_x = reverse_x[positive_images_index]
                 else:
-                    database_feature = model_db(database_images.to(args.device), is_train=True)
-                    query_feature = model(query_images.to(args.device), is_train=True)
-                features = torch.empty((len(images), query_feature.shape[1])).to(args.device)
-                features[query_images_index] = query_feature
-                features[database_images_index] = database_feature
-                del database_feature, query_feature
+                    database_reverse_x = reverse_x[database_images_index]
+                query_reverse_x = reverse_x[query_images_index]
+                database_domain_label = domain_classifier(database_reverse_x)
+                query_domain_label = domain_classifier(query_reverse_x)
             else:
-                if args.DA.startswith('DANN'):
-                    images_index = np.arange(0, len(images))
-                    query_images_index = np.arange(0, len(images), 1 + 1 + args.negs_num_per_query)
-                    database_images_index = np.setdiff1d(images_index, query_images_index, assume_unique=True)
-                    positive_images_index = np.arange(1, len(images), 1 + 1 + args.negs_num_per_query)
-                    features, reverse_x = model(images.to(args.device), is_train=True)
-                    if args.DA_only_positive:
-                        database_reverse_x = reverse_x[positive_images_index]
-                    else:
-                        database_reverse_x = reverse_x[database_images_index]
-                    query_reverse_x = reverse_x[query_images_index]
-                    database_domain_label = domain_classifier(database_reverse_x)
-                    query_domain_label = domain_classifier(query_reverse_x)
-                else:
-                    features = model(images.to(args.device), is_train=True)
+                features = model(images.to(args.device), is_train=True)
             loss_triplet = 0
 
             if args.criterion == "triplet":
@@ -391,7 +296,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
             del features
             loss_triplet /= args.train_batch_size * args.negs_num_per_query
 
-            if args.DA.startswith('DANN'):
+            if args.DA:
                 query_target_label = torch.zeros(query_domain_label.shape[0]).long().to(args.device)
                 if args.DA_only_positive:
                     # Positive sample num = query sample num
@@ -414,7 +319,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
             batch_loss = loss.item()
             epoch_triplet_losses = np.append(epoch_triplet_losses, triplet_loss)
             epoch_losses = np.append(epoch_losses, batch_loss)
-            if args.DA != 'none':
+            if args.DA:
                 DA_loss = loss_DA.item()
                 epoch_DA_losses = np.append(epoch_DA_losses, DA_loss)
             del loss
@@ -442,10 +347,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     logging.info(info_str)
 
     # Compute recalls on validation set
-    if args.separate_branch:
-        recalls, recalls_str = test.test(args, val_ds, model, model_db)
-    else:
-        recalls, recalls_str = test.test(args, val_ds, model)
+    recalls, recalls_str = test.test(args, val_ds, model)
     logging.info(f"Recalls on val set {val_ds}: {recalls_str}")
 
     is_best = recalls[1] > best_r5
@@ -456,7 +358,6 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
         {
             "epoch_num": epoch_num,
             "model_state_dict": model.state_dict(),
-            "model_db_state_dict": model_db.state_dict() if args.separate_branch else None,
             "DA_state_dict": domain_classifier.state_dict() if domain_classifier is not None else None,
             "optimizer_state_dict": optimizer.state_dict(),
             "recalls": recalls,
@@ -467,7 +368,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
         filename="last_model.pth",
     )
 
-    if args.DA != 'none':
+    if args.DA:
         wandb.log({
                 "epoch_num": epoch_num,
                 "recall1": recalls[0],
@@ -517,22 +418,11 @@ best_model_state_dict = torch.load(join(args.save_dir, "best_model.pth"))[
     "model_state_dict"
 ]
 model.load_state_dict(best_model_state_dict)
-if args.separate_branch:
-    best_model_db_state_dict = torch.load(join(args.save_dir, "best_model.pth"))[
-        "model_db_state_dict"
-    ]
-    model_db.load_state_dict(best_model_db_state_dict)
 
-if args.separate_branch:
-    recalls, recalls_str = test.test(
-        args, test_ds, model, model_db=model_db, test_method=args.test_method)
-else:
-    recalls, recalls_str = test.test(
-        args, test_ds, model, model_db=model, test_method=args.test_method)
-
-wandb.log({
-        "final_recall1": recalls[0],
-        "final_recall5": recalls[1],
-    },)
-        
+recalls, recalls_str = test.test(
+    args, test_ds, model, test_method=args.test_method)
 logging.info(f"Recalls on {test_ds}: {recalls_str}")
+wandb.log({
+    "final_recall1": recalls[0],
+    "final_recall5": recalls[1],
+},)

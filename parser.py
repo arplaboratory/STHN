@@ -120,9 +120,7 @@ def parse_arguments():
     )
     parser.add_argument(
         "--DA",
-        type=str,
-        default='none',
-        choices=['none', 'DANN_before', 'DANN_after', 'DANN_before_conv'],
+        action="store_true",
         help="Domain adaptation"
     )
     parser.add_argument(
@@ -151,11 +149,6 @@ def parse_arguments():
         type=int,
         default=1,
         help="Calculate the position from weighted averaged best n. If n = 1, then it is equivalent to top 1"
-    )
-    parser.add_argument(
-        "--separate_branch",
-        action="store_true",
-        help="Have two separate branches"
     )
     parser.add_argument(
         "--weight_decay",
@@ -474,12 +467,6 @@ def parse_arguments():
 
     if args.use_best_n < 0:
         raise ValueError("use_best_n must be large than or equal to 0")
-    
-    if args.separate_branch and args.criterion in ["sare_joint", "sare_ind"]:
-        raise ValueError("separate_branch currently only supports triplet loss")
-
-    if args.separate_branch and (args.train_batch_size % torch.cuda.device_count() != 0 or args.infer_batch_size % torch.cuda.device_count() != 0):
-        raise ValueError("separate_branch requires the batch size is the times of gpu number")
 
     if args.fc_output_dim is not None and args.conv_output_dim is not None:
         raise ValueError("fc_output_dim and conv_output_dim cannot be used at the same time")
