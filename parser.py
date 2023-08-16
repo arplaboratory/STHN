@@ -14,13 +14,6 @@ def parse_arguments():
         help="Use extended data from pix2pix",
     )
     parser.add_argument(
-        "--G_test_norm",
-        type=str,
-        default="batch",
-        choices=["batch", "instance"],
-        help="Test norm for G",
-    )
-    parser.add_argument(
         "--G_tanh",
         action="store_true",
         help="tanh for G",

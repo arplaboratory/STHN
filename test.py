@@ -436,10 +436,7 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=Fa
 def test_translation_pix2pix(args, eval_ds, model, visual_current=False, visual_image_num=10, epoch_num=None):
     """Compute PSNR of the given dataset and compute the recalls."""
     
-    if args.G_test_norm == "batch":
-        model.netG = model.netG.eval()
-    elif args.G_test_norm == "instance":
-        model.netG = model.netG.train()
+    model.netG = model.netG.eval()
     psnr_sum = 0
     psnr_count = 0
     save_dir = None
@@ -507,10 +504,7 @@ def test_translation_pix2pix(args, eval_ds, model, visual_current=False, visual_
 def test_translation_pix2pix_generate_h5(args, eval_ds, model, exclude_test_region=None):
     """Compute PSNR of the given dataset and compute the recalls."""
     
-    if args.G_test_norm == "batch":
-        model.netG = model.netG.eval()
-    elif args.G_test_norm == "instance":
-        model.netG = model.netG.train()
+    model.netG = model.netG.eval()
     
     save_path = os.path.join(args.save_dir, "train_queries.h5")
 
@@ -525,7 +519,7 @@ def test_translation_pix2pix_generate_h5(args, eval_ds, model, exclude_test_regi
         eval_dataloader = DataLoader(
             dataset=eval_ds,
             num_workers=args.num_workers,
-            batch_size=16 if args.G_test_norm == "batch" else 1,
+            batch_size=16,
             pin_memory=(args.device == "cuda"),
             shuffle=False
         )
