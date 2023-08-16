@@ -99,12 +99,19 @@ class BaseDataset(data.Dataset):
         self.database_name_dict = {}
         self.queries_name_dict = {}
 
-        # Duplicated elements are removed below
+        # Duplicated elements are added
         for index, database_image_name in enumerate(database_folder_h5_df["image_name"]):
-            self.database_name_dict[database_image_name.decode(
-                "UTF-8")] = index
+            database_image_name_decoded = database_image_name.decode("UTF-8")
+            while database_image_name_decoded in self.database_name_dict:
+                northing = [str(float(database_image_name_decoded.split("@")[2])+0.00001)]
+                queries_image_name_decoded = "@".join(list(database_image_name_decoded.split("@")[:2]) + northing + list(database_image_name_decoded.split("@")[3:]))
+            self.database_name_dict[database_image_name_decoded] = index
         for index, queries_image_name in enumerate(queries_folder_h5_df["image_name"]):
-            self.queries_name_dict[queries_image_name.decode("UTF-8")] = index
+            queries_image_name_decoded = queries_image_name.decode("UTF-8")
+            while queries_image_name_decoded in self.queries_name_dict:
+                northing = [str(float(queries_image_name_decoded.split("@")[2])+0.00001)]
+                queries_image_name_decoded = "@".join(list(queries_image_name_decoded.split("@")[:2]) + northing + list(queries_image_name_decoded.split("@")[3:]))
+            self.queries_name_dict[queries_image_name_decoded] = index
 
         # Read paths and UTM coordinates for all images.
         # database_folder = join(self.dataset_folder, "database")
