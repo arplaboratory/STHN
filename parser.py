@@ -99,6 +99,7 @@ def parse_arguments():
         action="store_true",
         help="Domain adaptation"
     )
+    #####################################################################
     parser.add_argument(
         "--use_extended_data",
         action="store_true",
@@ -120,11 +121,6 @@ def parse_arguments():
         type=int,
         default=1,
         help="Calculate the position from weighted averaged best n. If n = 1, then it is equivalent to top 1"
-    )
-    parser.add_argument(
-        "--weight_decay",
-        type=float,
-        default=0.0
     )
     parser.add_argument(
         "--train_batch_size",
