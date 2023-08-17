@@ -58,44 +58,44 @@ def create_h5_file(args, name, split, sample_num):
     if args.region_num == 2:
         # train at left half and val at right half
         if split == 'train':
-            database_queries_region = [valid_region[0] + args.crop_width//2,
-                                    valid_region[1] + args.crop_width//2,
-                                    valid_region[2] - args.crop_width//2,
-                                    (valid_region[1] + valid_region[3])//2 - args.crop_width//2]  # top, left, bottom, right
+            database_queries_region = [valid_region[0] + args.sample_width//2,
+                                    valid_region[1] + args.sample_width//2,
+                                    valid_region[2] - args.sample_width//2,
+                                    (valid_region[1] + valid_region[3])//2 - args.sample_width//2]  # top, left, bottom, right
             print(f'Train region: {database_queries_region}')
         elif split == 'val':
-            database_queries_region = [valid_region[0] + args.crop_width//2,
-                                    (valid_region[1] + valid_region[3])//2 + args.crop_width//2,
-                                    valid_region[2] - args.crop_width//2,
-                                    valid_region[3] - args.crop_width//2]  # top, left, bottom, right
+            database_queries_region = [valid_region[0] + args.sample_width//2,
+                                    (valid_region[1] + valid_region[3])//2 + args.sample_width//2,
+                                    valid_region[2] - args.sample_width//2,
+                                    valid_region[3] - args.sample_width//2]  # top, left, bottom, right
             print(f'Val region: {database_queries_region}')
         else:
             raise ValueError('Generate test option is false. Please add --generate_test to generate test set.')
     elif args.region_num == 3:
         if split == 'train': # bottom left
-            database_queries_region = [(valid_region[0] + valid_region[2])//2 + args.crop_width//2,
-                                        valid_region[1] + args.crop_width//2,
-                                        valid_region[2] - args.crop_width//2,
-                                        (valid_region[1] + valid_region[3])//2 - args.crop_width//2]  # top, left, bottom, right
+            database_queries_region = [(valid_region[0] + valid_region[2])//2 + args.sample_width//2,
+                                        valid_region[1] + args.sample_width//2,
+                                        valid_region[2] - args.sample_width//2,
+                                        (valid_region[1] + valid_region[3])//2 - args.sample_width//2]  # top, left, bottom, right
             print(f'Train region: {database_queries_region}')
         elif split == 'val': # bottom right
-            database_queries_region = [(valid_region[0] + valid_region[2])//2 + args.crop_width//2,
-                                       (valid_region[1] + valid_region[3])//2 + args.crop_width//2,
-                                        valid_region[2] - args.crop_width//2,
-                                        valid_region[3] - args.crop_width//2]  # top, left, bottom, right
+            database_queries_region = [(valid_region[0] + valid_region[2])//2 + args.sample_width//2,
+                                       (valid_region[1] + valid_region[3])//2 + args.sample_width//2,
+                                        valid_region[2] - args.sample_width//2,
+                                        valid_region[3] - args.sample_width//2]  # top, left, bottom, right
             print(f'Val region: {database_queries_region}')
         else: # top
-            database_queries_region = [valid_region[0] + args.crop_width//2,
-                                       valid_region[1] + args.crop_width//2,
-                                      (valid_region[0] + valid_region[2])//2 - args.crop_width//2,
-                                       valid_region[3] - args.crop_width//2]  # top, left, bottom, right
+            database_queries_region = [valid_region[0] + args.sample_width//2,
+                                       valid_region[1] + args.sample_width//2,
+                                      (valid_region[0] + valid_region[2])//2 - args.sample_width//2,
+                                       valid_region[3] - args.sample_width//2]  # top, left, bottom, right
             print(f'Test region: {database_queries_region}')
     else:
         # train, val and test at the entire region
-        database_queries_region = [valid_region[0] + args.crop_width//2,
-                        valid_region[1] + args.crop_width//2,
-                        valid_region[2] - args.crop_width//2,
-                        valid_region[3] - args.crop_width//2]  # top, left, bottom, right
+        database_queries_region = [valid_region[0] + args.sample_width//2,
+                        valid_region[1] + args.sample_width//2,
+                        valid_region[2] - args.sample_width//2,
+                        valid_region[3] - args.sample_width//2]  # top, left, bottom, right
         if split == 'train':
             print(f'Train region: {database_queries_region}')
         elif split == 'val':
@@ -135,8 +135,31 @@ def create_h5_file(args, name, split, sample_num):
         for i in tqdm(range(len(cood_y))):
             name = f'@{cood_y[i]}@{cood_x[i]}'
             img_names.append(name)
-            img_np = image[cood_y[i]-args.crop_width//2: cood_y[i]+args.crop_width //
-                           2, cood_x[i]-args.crop_width//2: cood_x[i]+args.crop_width//2, :]
+            # Boundary condition
+            top = cood_y[i]-args.crop_width//2
+            top_pad = 0
+            if top < valid_region[0]:
+                top_pad = valid_region[0]-top
+                top = valid_region[0]
+            print(top)
+            left = cood_x[i]-args.crop_width//2
+            left_pad = 0
+            if left < valid_region[1]:
+                left_pad = valid_region[1]-left
+                left = valid_region[1]
+            bottom = cood_y[i]+args.crop_width//2
+            bottom_pad = 0
+            if bottom > valid_region[2]-1:
+                bottom_pad = bottom - (valid_region[2]-1)
+                bottom = valid_region[2]-1
+            right = cood_x[i]+args.crop_width//2
+            right_pad = 0
+            if right > valid_region[3]-1:
+                right_pad = right - (valid_region[3]-1)
+                right = valid_region[3]-1
+            img_np = image[top: bottom,
+                           left: right, :]
+            img_np = np.pad(img_np, ((top_pad, bottom_pad),(left_pad, right_pad),(0,0)))
             img_np = np.expand_dims(img_np, axis=0)
             size_np = np.expand_dims(
                 np.array([img_np.shape[1], img_np.shape[2]]), axis=0)
@@ -145,8 +168,8 @@ def create_h5_file(args, name, split, sample_num):
                     hf.create_dataset(
                         "image_data",
                         data=img_np,
-                        chunks=(1, 512, 512, 3),
-                        maxshape=(None, 512, 512, 3),
+                        chunks=(1, args.crop_width, args.crop_width, 3),
+                        maxshape=(None, args.crop_width, args.crop_width, 3),
                         compression="lzf",
                     )  # write the data to hdf5 file
                     hf.create_dataset(
@@ -160,8 +183,8 @@ def create_h5_file(args, name, split, sample_num):
                     hf.create_dataset(
                         "image_data",
                         data=img_np,
-                        chunks=(1, 512, 512, 3),
-                        maxshape=(None, 512, 512, 3),
+                        chunks=(1, args.crop_width, args.crop_width, 3),
+                        maxshape=(None, args.crop_width, args.crop_width, 3),
                     )  # write the data to hdf5 file
                     hf.create_dataset(
                         "image_size", data=size_np, chunks=True, maxshape=(None, 2)
@@ -212,6 +235,7 @@ if __name__ == "__main__":
         help="The index of queries flight you want to use. For satellite map, it is forced to be 0"
     )
     parser.add_argument("--crop_width", type=int, default=512)
+    parser.add_argument("--sample_width", type=int, default=512)
     parser.add_argument("--train_sample_num", type=int, default=10000)
     parser.add_argument("--val_sample_num", type=int, default=10000)
     parser.add_argument("--compress", action="store_true")
