@@ -141,7 +141,6 @@ def create_h5_file(args, name, split, sample_num):
             if top < valid_region[0]:
                 top_pad = valid_region[0]-top
                 top = valid_region[0]
-            print(top)
             left = cood_x[i]-args.crop_width//2
             left_pad = 0
             if left < valid_region[1]:
