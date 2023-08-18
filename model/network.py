@@ -273,20 +273,6 @@ def get_output_channels_dim(model):
     return model(torch.ones([1, 3, 224, 224])).shape[1]
 
 
-class GenerativeNet(nn.Module):
-    def __init__(self, args, input_channel_num, output_channel_num):
-        super().__init__()
-        self.model_name = args.G_net
-        if args.G_net == 'unet':
-            self.model = UnetGenerator(input_channel_num, output_channel_num, 8, norm=args.GAN_norm, upsample=args.GAN_upsample)
-        else:
-            raise NotImplementedError()
-    
-    def forward(self, x):
-        x = self.model(x)
-        return x
-    
-
 class pix2pix():
     def __init__(self, args, input_channel_num, output_channel_num, for_training=False):
         super().__init__()
