@@ -18,6 +18,8 @@ from model.functional import ReverseLayerF
 from model.pix2pix_networks.networks import UnetGenerator, GANLoss, NLayerDiscriminator, get_scheduler
 from model.sync_batchnorm import convert_model
 
+from model.Deit import deit_base_distilled_patch16_384, deit_small_distilled_patch16_224
+
 # Pretrained models on Google Landmarks v2 and Places 365
 PRETRAINED_MODELS = {
     'resnet18_places'  : '1DnEQXhmPxtBUrRc81nAvT8z17bk-GBj5',
@@ -72,7 +74,7 @@ class GeoLocalizationNet(nn.Module):
 
     def create_domain_classifier(self, args):
         domain_classifier = None
-        domain_classifier = nn.Sequential(nn.Linear(args.conv_output_dim, 100, bias=False),
+        domain_classifier = nn.Sequential(nn.Linear(args.fc_output_dim, 100, bias=False),
                                                 nn.BatchNorm1d(100),
                                                 nn.ReLU(True),
                                                 nn.Linear(100, 2),
@@ -87,20 +89,13 @@ class GeoLocalizationNet(nn.Module):
         if self.arch_name.startswith("vit"):
             x = x.last_hidden_state[:, 0, :]
             return x
-        if hasattr(self, "conv_layer"):
-            x = self.conv_layer(x)
         x_after = self.aggregation(x)
         if is_train is True:
-            if self.DA == 'none':
+            if not self.DA:
                 return x_after
-            elif self.DA.startswith('DANN_before'):
-                if self.DA == 'DANN_before':
-                    reverse_x = ReverseLayerF.apply(x.view(x.shape[0], -1), alpha)
-                elif self.DA == 'DANN_before_conv':
-                    reverse_x = ReverseLayerF.apply(x, alpha)
-            elif self.DA == 'DANN_after':
+            else:
                 reverse_x = ReverseLayerF.apply(x_after, alpha)
-            return x_after, reverse_x
+                return x_after, reverse_x
         return x_after
 
 

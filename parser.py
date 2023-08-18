@@ -266,12 +266,6 @@ def parse_arguments():
         help="Output dimension of fully connected layer. If None, don't use a fully connected layer.",
     )
     parser.add_argument(
-        "--conv_output_dim",
-        type=int,
-        default=None,
-        help="Output dimension of conv layer. If None, don't use a conv layer.",
-    )
-    parser.add_argument(
         "--unfreeze",
         action='store_true',
         help="Unfreeze the first few layers for backbone",
@@ -434,9 +428,6 @@ def parse_arguments():
 
     if args.use_best_n < 0:
         raise ValueError("use_best_n must be large than or equal to 0")
-
-    if args.fc_output_dim is not None and args.conv_output_dim is not None:
-        raise ValueError("fc_output_dim and conv_output_dim cannot be used at the same time")
 
     if args.GAN_save_freq < 0:
         raise ValueError()
