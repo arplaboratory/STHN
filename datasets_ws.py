@@ -457,35 +457,28 @@ class TripletsDataset(BaseDataset):
             self.queries_folder_h5_df = h5py.File(
                 self.queries_folder_h5_path, "r")
 
-        query_index, best_positive_index, neg_indexes = torch.split(
-            self.triplets_global_indexes[index], (1,
-                                                  1, self.negs_num_per_query)
-        )
+        query_index, best_positive_index, neg_indexes = torch.split(self.triplets_global_indexes[index], (1, 1, self.negs_num_per_query) )
 
         if self.args.G_contrast and self.split!="extended": # Avoid double CE for extended dataset (TGM has already generated enhanced results)
-            query = self.query_transform(
-                transforms.functional.adjust_contrast(self._find_img_in_h5(query_index, "queries"), contrast_factor=3))
+            query = self.query_transform(transforms.functional.adjust_contrast(self._find_img_in_h5(query_index, "queries"), contrast_factor=3))
         else:
-            query = self.query_transform(
-                self._find_img_in_h5(query_index, "queries"))
+            query = self.query_transform(self._find_img_in_h5(query_index, "queries"))
                 
-        positive = self.resized_transform(
-            self._find_img_in_h5(best_positive_index, "database")
-        )
-        negatives = [
-            self.resized_transform(self._find_img_in_h5(i, "database"))
-            for i in neg_indexes
-        ]
+        positive = self.resized_transform(self._find_img_in_h5(best_positive_index, "database"))
+        negatives = [self.resized_transform(self._find_img_in_h5(i, "database")) for i in neg_indexes]
         images = torch.stack((query, positive, *negatives), 0)
+        if self.negs_num_per_query == 1:
+            utm = torch.cat((torch.tensor(self.queries_utms[query_index]).unsqueeze(0),
+                             torch.tensor(self.database_utms[best_positive_index]).unsqueeze(0),
+                             torch.tensor(self.database_utms[neg_indexes]).unsqueeze(0)), dim=0)
+        else:
+            utm = torch.cat((torch.tensor(self.queries_utms[query_index]).unsqueeze(0),
+                           torch.tensor(self.database_utms[best_positive_index]).unsqueeze(0),
+                           torch.tensor(self.database_utms[neg_indexes])),dim=0)
         triplets_local_indexes = torch.empty((0, 3), dtype=torch.int)
         for neg_num in range(len(neg_indexes)):
-            triplets_local_indexes = torch.cat(
-                (
-                    triplets_local_indexes,
-                    torch.tensor([0, 1, 2 + neg_num]).reshape(1, 3),
-                )
-            )
-        return images, triplets_local_indexes, self.triplets_global_indexes[index]
+            triplets_local_indexes = torch.cat((triplets_local_indexes,torch.tensor([0, 1, 2 + neg_num]).reshape(1, 3)))
+        return images, triplets_local_indexes, self.triplets_global_indexes[index], utm
 
     def __len__(self):
         if self.is_inference:
@@ -916,9 +909,12 @@ class TranslationDataset(BaseDataset):
         self.compute_pairs_random(args)
 
     def get_best_positive_index(self, query_index):
-        if len(self.hard_positives_per_query[query_index]) > 1:
-            best_positive_index = random.choice(self.hard_positives_per_query[query_index]).item()
-        else:
+        try:
+            if len(self.hard_positives_per_query[query_index]) > 1:
+                best_positive_index = random.choice(self.hard_positives_per_query[query_index]).item()
+            else:
+                best_positive_index = self.hard_positives_per_query[query_index].item()
+        except TypeError:
             best_positive_index = self.hard_positives_per_query[query_index].item()
         return best_positive_index
 
