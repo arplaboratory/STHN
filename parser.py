@@ -91,7 +91,7 @@ def parse_arguments():
     parser.add_argument(
         "--lambda_DA",
         type=float,
-        default=1.0,
+        default=0.1,
         help="Domain adaptation loss weight"
     )
     parser.add_argument(
