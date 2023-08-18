@@ -556,7 +556,7 @@ class TripletsDataset(BaseDataset):
             neg_indexes = np.expand_dims(neg_indexes, 0)
         return neg_indexes
 
-    def compute_triplets_random(self, args, model, model_db):
+    def compute_triplets_random(self, args, model):
         self.triplets_global_indexes = []
         # Take 1000 random queries
         sampled_queries_indexes = np.random.choice(
@@ -572,24 +572,13 @@ class TripletsDataset(BaseDataset):
         positives_indexes = list(np.unique(positives_indexes))
 
         # Compute the cache only for queries and their positives, in order to find the best positive
-        if model_db is not None:
-            subset_db_ds = Subset(
-                self, positives_indexes
-            )
-            subset_qr_ds = Subset(
-                self, list(sampled_queries_indexes + self.database_num)
-            )
-            cache = self.compute_cache(
-                args, model, model_db, [subset_db_ds, subset_qr_ds], (len(self), args.features_dim)
-            )
-        else:
-            subset_ds = Subset(
-                self, positives_indexes +
-                list(sampled_queries_indexes + self.database_num)
-            )
-            cache = self.compute_cache(
-                args, model, model_db, subset_ds, (len(self), args.features_dim)
-            )
+        subset_ds = Subset(
+            self, positives_indexes +
+            list(sampled_queries_indexes + self.database_num)
+        )
+        cache = self.compute_cache(
+            args, model, subset_ds, (len(self), args.features_dim)
+        )
 
         # This loop's iterations could be done individually in the __getitem__(). This way is slower but clearer (and yields same results)
         for query_index in tqdm(sampled_queries_indexes, ncols=100):
@@ -628,7 +617,7 @@ class TripletsDataset(BaseDataset):
         self.triplets_global_indexes = torch.tensor(
             self.triplets_global_indexes)
 
-    def compute_triplets_full(self, args, model, model_db):
+    def compute_triplets_full(self, args, model):
         self.triplets_global_indexes = []
         # Take 1000 random queries
         sampled_queries_indexes = np.random.choice(
@@ -637,24 +626,13 @@ class TripletsDataset(BaseDataset):
         # Take all database indexes
         database_indexes = list(range(self.database_num))
         # Compute features for all images and store them in cache
-        if model_db is not None:
-            subset_db_ds = Subset(
-                self, database_indexes
-            )
-            subset_qr_ds = Subset(
-                self, list(sampled_queries_indexes + self.database_num)
-            )
-            cache = self.compute_cache(
-                args, model, model_db, [subset_db_ds, subset_qr_ds], (len(self), args.features_dim)
-            )
-        else:
-            subset_ds = Subset(
-                self, database_indexes +
-                list(sampled_queries_indexes + self.database_num)
-            )
-            cache = self.compute_cache(
-                args, model, model_db, subset_ds, (len(self), args.features_dim)
-            )
+        subset_ds = Subset(
+            self, database_indexes +
+            list(sampled_queries_indexes + self.database_num)
+        )
+        cache = self.compute_cache(
+            args, model, subset_ds, (len(self), args.features_dim)
+        )
 
         # This loop's iterations could be done individually in the __getitem__(). This way is slower but clearer (and yields same results)
         for query_index in tqdm(sampled_queries_indexes, ncols=100):
@@ -695,7 +673,7 @@ class TripletsDataset(BaseDataset):
         self.triplets_global_indexes = torch.tensor(
             self.triplets_global_indexes)
 
-    def compute_triplets_partial(self, args, model, model_db):
+    def compute_triplets_partial(self, args, model):
         self.triplets_global_indexes = []
         # Take 1000 random queries
         if self.mining == "partial":
