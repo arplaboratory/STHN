@@ -15,6 +15,7 @@ from sklearn.neighbors import NearestNeighbors
 from torch.utils.data.dataloader import DataLoader
 import h5py
 import time
+import random
 
 base_transform = transforms.Compose(
     [
@@ -101,7 +102,7 @@ class BaseDataset(data.Dataset):
             database_image_name_decoded = database_image_name.decode("UTF-8")
             while database_image_name_decoded in self.database_name_dict:
                 northing = [str(float(database_image_name_decoded.split("@")[2])+0.00001)]
-                queries_image_name_decoded = "@".join(list(database_image_name_decoded.split("@")[:2]) + northing + list(database_image_name_decoded.split("@")[3:]))
+                database_image_name_decoded = "@".join(list(database_image_name_decoded.split("@")[:2]) + northing + list(database_image_name_decoded.split("@")[3:]))
             self.database_name_dict[database_image_name_decoded] = index
         for index, queries_image_name in enumerate(queries_folder_h5_df["image_name"]):
             queries_image_name_decoded = queries_image_name.decode("UTF-8")
@@ -915,7 +916,10 @@ class TranslationDataset(BaseDataset):
         self.compute_pairs_random(args)
 
     def get_best_positive_index(self, query_index):
-        best_positive_index = self.hard_positives_per_query[query_index].item()
+        if len(self.hard_positives_per_query[query_index]) > 1:
+            best_positive_index = random.choice(self.hard_positives_per_query[query_index]).item()
+        else:
+            best_positive_index = self.hard_positives_per_query[query_index].item()
         return best_positive_index
 
     def compute_pairs_random(self, args):
