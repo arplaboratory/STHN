@@ -796,33 +796,6 @@ class RAMEfficient2DMatrix:
         else:
             return self.matrix[index]
 
-class RAMEfficient2DMatrixGPU:
-    """This class behaves similarly to a numpy.ndarray initialized
-    with np.zeros(), but is implemented to save RAM when the rows
-    within the 2D array are sparse. In this case it's needed because
-    we don't always compute features for each image, just for few of
-    them"""
-
-    def __init__(self, shape, dtype=torch.float32, device=None):
-        self.shape = shape
-        self.dtype = dtype
-        self.device = device
-        self.matrix = [None] * shape[0]
-
-    def __len__(self):
-        return len(self.matrix)
-
-    def __setitem__(self, indexes, vals):
-        assert vals.shape[1] == self.shape[1], f"{vals.shape[1]} {self.shape[1]}"
-        for i, val in zip(indexes, vals):
-            self.matrix[i] = val.type(self.dtype).to(self.device)
-
-    def __getitem__(self, index):
-        if hasattr(index, "__len__"):
-            return torch.stack([self.matrix[i] for i in index])
-        else:
-            return self.matrix[index]
-
 class TranslationDataset(BaseDataset):
     """Dataset used for training, it is used to compute the pairs
     for image-to-image translation training.
