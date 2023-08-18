@@ -92,7 +92,7 @@ train_ds = datasets_ws.TranslationDataset(
 logging.info(f"Train query set: {train_ds}")
 
 val_ds = datasets_ws.TranslationDataset(
-    args, args.datasets_folder, args.dataset_name, "val", clean_black_region=False)
+    args, args.datasets_folder, args.dataset_name, "val", clean_black_region=True)
 logging.info(f"Val set: {val_ds}")
 
 test_ds = datasets_ws.TranslationDataset(
