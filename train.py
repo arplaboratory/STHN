@@ -148,7 +148,7 @@ def train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num):
         f"current batch triplet loss = {triplet_loss:.4f}, "+ \
         f"average epoch triplet loss = {epoch_triplet_losses.mean():.4f}, "
 
-    if args.DA != 'none':
+    if args.DA:
         debug_str+= f"current batch DA loss = {DA_loss:.4f}, "+ \
         f"average epoch DA loss = {epoch_DA_losses.mean():.4f}, "
 
