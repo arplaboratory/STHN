@@ -37,7 +37,7 @@ def path_to_pil_img(path):
 
 
 def collate_fn(batch):
-    """Creates mini-batch tensors from the list of tuples (images,
+    """Creates mini-batch tensors from the list of tuples (images, 
         triplets_local_indexes, triplets_global_indexes).
         triplets_local_indexes are the indexes referring to each triplet within images.
         triplets_global_indexes are the global indexes of each image.
@@ -52,16 +52,13 @@ def collate_fn(batch):
         triplets_local_indexes: torch tensor of shape (batch_size*10, 3).
         triplets_global_indexes: torch tensor of shape (batch_size, 12).
     """
-    images = torch.cat([e[0] for e in batch])
-    triplets_local_indexes = torch.cat([e[1][None] for e in batch])
+    images                  = torch.cat([e[0] for e in batch])
+    triplets_local_indexes  = torch.cat([e[1][None] for e in batch])
     triplets_global_indexes = torch.cat([e[2][None] for e in batch])
-    for i, (local_indexes, global_indexes) in enumerate(
-        zip(triplets_local_indexes, triplets_global_indexes)
-    ):
-        local_indexes += (
-            len(global_indexes) * i
-        )  # Increment local indexes by offset (len(global_indexes) is 12)
-    return images, torch.cat(tuple(triplets_local_indexes)), triplets_global_indexes
+    utms = torch.cat([e[3] for e in batch], dim=0)
+    for i, (local_indexes, global_indexes) in enumerate(zip(triplets_local_indexes, triplets_global_indexes)):
+        local_indexes += len(global_indexes) * i  # Increment local indexes by offset (len(global_indexes) is 12)
+    return images, torch.cat(tuple(triplets_local_indexes)), triplets_global_indexes, utms
 
 class BaseDataset(data.Dataset):
     """Dataset with images from database and queries, used for inference (testing and building cache)."""
@@ -183,7 +180,7 @@ class BaseDataset(data.Dataset):
             self.queries_folder_h5_df = h5py.File(
                 self.queries_folder_h5_path, "r")
         if self.is_index_in_queries(index):
-            if self.args.G_contrast:
+            if self.args.G_contrast and self.split!="extended":
                 img = self.query_transform(
                     transforms.functional.adjust_contrast(self._find_img_in_h5(index), contrast_factor=3))
             else:
@@ -371,35 +368,17 @@ class TripletsDataset(BaseDataset):
             ]
         )
 
-        self.query_transform = transforms.Compose(
-            [
-                transforms.Grayscale(num_output_channels=3),
-                transforms.ColorJitter(brightness=args.brightness)
-                if args.brightness != None
-                else identity_transform,
-                transforms.ColorJitter(contrast=args.contrast)
-                if args.contrast != None
-                else identity_transform,
-                transforms.ColorJitter(saturation=args.saturation)
-                if args.saturation != None
-                else identity_transform,
-                transforms.ColorJitter(hue=args.hue)
-                if args.hue != None
-                else identity_transform,
-                transforms.RandomPerspective(args.rand_perspective)
-                if args.rand_perspective != None
-                else identity_transform,
-                transforms.RandomResizedCrop(
-                    size=self.resize, scale=(1 - args.random_resized_crop, 1)
-                )
-                if args.random_resized_crop != None
-                else identity_transform,
-                transforms.RandomRotation(degrees=args.random_rotation)
-                if args.random_rotation != None
-                else identity_transform,
+        self.query_transform = transforms.Compose([
+                transforms.ColorJitter(brightness=args.brightness)       if args.brightness          != None else identity_transform,
+                transforms.ColorJitter(contrast=args.contrast)           if args.contrast            != None else identity_transform,
+                transforms.ColorJitter(saturation=args.saturation)       if args.saturation          != None else identity_transform,
+                transforms.ColorJitter(hue=args.hue)                     if args.hue                 != None else identity_transform,
+                transforms.RandomPerspective(args.rand_perspective)      if args.rand_perspective    != None else identity_transform,
+                transforms.RandomResizedCrop(size=self.resize, scale=(1-args.random_resized_crop, 1))  \
+                                                                         if args.random_resized_crop != None else identity_transform,
+                transforms.RandomRotation(degrees=args.random_rotation)  if args.random_rotation     != None else identity_transform,
                 self.resized_transform,
-            ]
-        )
+        ])
 
         # Find hard_positives_per_query, which are within train_positives_dist_threshold (10 meters)
         knn = NearestNeighbors(n_jobs=-1)
@@ -942,7 +921,7 @@ class TranslationDataset(BaseDataset):
             self.pairs_global_indexes[index], (1, 1)
         )
 
-        if self.args.G_contrast:
+        if self.args.G_contrast and self.split!="extended":
             query = self.query_transform(
                 transforms.functional.adjust_contrast(self._find_img_in_h5(query_index, "queries"), contrast_factor=3))
         else:
