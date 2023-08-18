@@ -290,7 +290,7 @@ class BaseDataset(data.Dataset):
             real_path = path[len("queries_"):]
             image_index = self.queries_name_dict[real_path]
             image = queries_folder_h5_df["image_data"][image_index]
-            if np.count_nonzero(image==0):
+            if np.count_nonzero(image==0) > 50:
                 queries_with_black_region.append(index)
         queries_folder_h5_df.close()
         return queries_with_black_region
@@ -795,6 +795,7 @@ class RAMEfficient2DMatrix:
             return np.array([self.matrix[i] for i in index])
         else:
             return self.matrix[index]
+
 
 class TranslationDataset(BaseDataset):
     """Dataset used for training, it is used to compute the pairs
