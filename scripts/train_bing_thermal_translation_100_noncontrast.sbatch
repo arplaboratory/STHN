@@ -5,8 +5,8 @@
 #SBATCH --time=24:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=64GB
-#SBATCH --job-name=train_thermal
-#SBATCH --output=train_thermal.out
+#SBATCH --job-name=train_tgm
+#SBATCH --output=train_tgm.out
 
 eval "$(conda shell.bash hook)"
 conda activate STGL
