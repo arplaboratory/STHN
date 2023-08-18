@@ -282,6 +282,10 @@ elif args.criterion == "sare_joint":
 else:
     raise NotImplementedError("Criterion not found for triplets!")
 
+logging.info(f'Domain adapataion: {args.DA}')
+if args.DA:
+    criterion_DA = torch.nn.NLLLoss(reduction='sum')
+
 # Resume model, optimizer, and other training parameters
 if args.resume:
     if args.aggregation != "crn":
