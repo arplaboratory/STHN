@@ -45,7 +45,7 @@ train_ds = datasets_ws.TranslationDataset(
     args, args.datasets_folder, args.dataset_name, "extended", loading_queries=False)
 logging.info(f"Extended set: {train_ds}")
 
-TB_test_region = [650, 1900, 2575, 9250]
+TB_test_region = [270, 1400, 2710, 9400]
 ######################################### TEST on TEST SET #########################################
 test.test_translation_pix2pix_generate_h5(args, train_ds, model, exclude_test_region=TB_test_region)
 
