@@ -11,4 +11,4 @@
 eval "$(conda shell.bash hook)"
 conda activate STGL
 
-python3 eval_pix2pix_generate_h5_exclude.py --resume='logs/default/'$1'/last_model.pth' --dataset_name=satellite_0_thermalmapping_135 --datasets_folder ./datasets --G_net unet_deep --GAN_upsample bilinear --GAN_resize 512 512
+python3 eval_pix2pix_generate_h5_exclude.py --resume='logs/default/'$1'/last_model.pth' --dataset_name=satellite_0_satellite_0 --datasets_folder ./datasets --G_net unet --GAN_upsample bilinear --GAN_resize 512 512
