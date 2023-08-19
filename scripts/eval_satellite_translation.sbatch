@@ -8,4 +8,7 @@
 #SBATCH --job-name=generate_extended
 #SBATCH --output=generate_extended.out
 
+eval "$(conda shell.bash hook)"
+conda activate STGL
+
 python3 eval_pix2pix_generate_h5.py --resume='logs/default/'$1'/last_model.pth' --dataset_name=satellite_0_thermalmapping_135 --datasets_folder ./datasets --G_net unet_deep --G_gray --GAN_upsample bilinear --GAN_resize 512 512
