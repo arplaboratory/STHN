@@ -42,8 +42,8 @@ model.setup()
 
 ######################################### DATASETS #########################################
 train_ds = datasets_ws.TranslationDataset(
-    args, args.datasets_folder, args.dataset_name, "extended", loading_queries=False)
-logging.info(f"Extended set: {train_ds}")
+    args, args.datasets_folder, args.dataset_name, "train", loading_queries=False)
+logging.info(f"Train set: {train_ds}")
 
 TB_test_region = [270, 1400, 2710, 9400]
 ######################################### TEST on TEST SET #########################################
