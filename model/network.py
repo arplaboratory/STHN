@@ -82,7 +82,7 @@ class GeoLocalizationNet(nn.Module):
         return domain_classifier
 
 
-    def forward(self, x, is_train=False, alpha=1.0):
+    def forward(self, x, is_train=False, alpha=None):
         x = self.backbone(x)
         if self.self_att:
             x = self.non_local(x)

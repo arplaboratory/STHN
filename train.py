@@ -23,7 +23,7 @@ from model.Deit import deit_small_distilled_patch16_224, deit_base_distilled_pat
 from util import adjust_learning_rate
 torch.backends.cudnn.benchmark = True  # Provides a speedup
 
-def train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num):
+def train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num, alpha = None):
     global epoch_losses, epoch_triplet_losses
     if args.DA:
         global epoch_DA_losses
@@ -60,7 +60,7 @@ def train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num):
             query_images_index = np.arange(0, len(images), 1 + 1 + args.negs_num_per_query)
             database_images_index = np.setdiff1d(images_index, query_images_index, assume_unique=True)
             positive_images_index = np.arange(1, len(images), 1 + 1 + args.negs_num_per_query)
-            features, reverse_x = model(images.to(args.device), is_train=True)
+            features, reverse_x = model(images.to(args.device), is_train=True, alpha=alpha)
             if args.DA_only_positive:
                 database_reverse_x = reverse_x[positive_images_index]
             else:
@@ -69,7 +69,7 @@ def train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num):
             database_domain_label = domain_classifier(database_reverse_x)
             query_domain_label = domain_classifier(query_reverse_x)
         else:
-            features = model(images.to(args.device), is_train=True)
+            features = model(images.to(args.device), is_train=True, alpha=alpha)
         loss_triplet = 0
 
         if args.criterion == "triplet":
@@ -113,7 +113,6 @@ def train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num):
                     features[n_i: n_i + 1],
                 )
 
-        del features
         loss_triplet /= args.train_batch_size * args.negs_num_per_query
 
         if args.DA:
@@ -345,11 +344,11 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     # How many loops should an epoch last (default is 5000/1000=5)
     loops_num = math.ceil(args.queries_per_epoch / args.cache_refresh_rate)
     for loop_num in range(loops_num):
-        train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num)
+        train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num, alpha if args.DA else None)
 
     if args.use_extended_data:
         for loop_num in range(loops_num):
-             train_loop(args, model, optimizer, extended_ds, criterion_triplet, loop_num)
+             train_loop(args, model, optimizer, extended_ds, criterion_triplet, loop_num, alpha if args.DA else None)
 
     info_str = f"Finished epoch {epoch_num:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "+ \
         f"average epoch sum loss = {epoch_losses.mean():.4f}, "+ \
