@@ -20,7 +20,7 @@ from torch.utils.data.dataloader import DataLoader
 import wandb
 from uuid import uuid4
 from model.Deit import deit_small_distilled_patch16_224, deit_base_distilled_patch16_384
-
+from util import adjust_learning_rate
 torch.backends.cudnn.benchmark = True  # Provides a speedup
 
 def train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num):
@@ -190,6 +190,10 @@ test_ds = datasets_ws.BaseDataset(
     args, args.datasets_folder, args.dataset_name, "test")
 logging.info(f"Test set: {test_ds}")
 
+if args.use_extended_data:
+    extended_ds = datasets_ws.BaseDataset(
+        args, args.datasets_folder, args.dataset_name, "extended")
+    logging.info(f"Extended set: {test_ds}")
 # Initialize model
 if args.backbone == "deitBase":
     args.features_dim = args.fc_output_dim
