@@ -117,11 +117,7 @@ def train_loop(args, model, optimizer, train_ds, criterion_triplet, loop_num, al
 
         if args.DA:
             query_target_label = torch.zeros(query_domain_label.shape[0]).long().to(args.device)
-            if args.DA_only_positive:
-                # Positive sample num = query sample num
-                database_target_label = torch.ones(query_domain_label.shape[0]).long().to(args.device)
-            else:
-                database_target_label = torch.ones(database_domain_label.shape[0]).long().to(args.device)
+            database_target_label = torch.ones(database_domain_label.shape[0]).long().to(args.device)
             loss_DA = criterion_DA(query_domain_label, query_target_label) + \
                         criterion_DA(database_domain_label, database_target_label)
             loss_DA /= query_domain_label.shape[0] + database_domain_label.shape[0]
@@ -193,6 +189,7 @@ if args.use_extended_data:
     extended_ds = datasets_ws.TripletsDataset(
         args, args.datasets_folder, args.dataset_name, "extended", args.negs_num_per_query)
     logging.info(f"Extended set: {extended_ds}")
+    
 # Initialize model
 if args.backbone == "deitBase":
     args.features_dim = args.fc_output_dim
