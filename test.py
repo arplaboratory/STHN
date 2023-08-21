@@ -393,8 +393,15 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=Fa
             if error >= 50 and visualize: # Wrong results
                 database_index = prediction[sort_idx[0]]
                 database_img = eval_ds._find_img_in_h5(database_index, "database")
-                if args.G_contrast:
-                    query_img = transforms.functional.adjust_contrast(eval_ds._find_img_in_h5(query_index, "queries"), contrast_factor=3)
+                if args.G_contrast!="none":
+                    if args.G_contrast == "manual":
+                        query_img = transforms.functional.adjust_contrast(eval_ds._find_img_in_h5(query_index, "queries"), contrast_factor=3)
+                    elif args.G_contrast == "autocontrast":
+                        query_img = transforms.functional.autocontrast(eval_ds._find_img_in_h5(query_index, "queries"))
+                    elif args.G_contrast == "equalize":
+                        query_img = transforms.functional.equalize(eval_ds._find_img_in_h5(query_index, "queries"))
+                    else:
+                        raise NotImplementedError()
                 else:
                     query_img = eval_ds._find_img_in_h5(query_index, "queries")
                 result = Image.new(database_img.mode, (524, 524), (255, 0, 0))
@@ -405,8 +412,15 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=Fa
             elif error <= 35 and visualize: # Wrong results
                 database_index = prediction[sort_idx[0]]
                 database_img = eval_ds._find_img_in_h5(database_index, "database")
-                if args.G_contrast:
-                    query_img = transforms.functional.adjust_contrast(eval_ds._find_img_in_h5(query_index, "queries"), contrast_factor=3)
+                if args.G_contrast!="none":
+                    if args.G_contrast == "manual":
+                        query_img = transforms.functional.adjust_contrast(eval_ds._find_img_in_h5(query_index, "queries"), contrast_factor=3)
+                    elif args.G_contrast == "autocontrast":
+                        query_img = transforms.functional.autocontrast(eval_ds._find_img_in_h5(query_index, "queries"))
+                    elif args.G_contrast == "equalize":
+                        query_img = transforms.functional.equalize(eval_ds._find_img_in_h5(query_index, "queries"))
+                    else:
+                        raise NotImplementedError()
                 else:
                     query_img = eval_ds._find_img_in_h5(query_index, "queries")
                 result = Image.new(database_img.mode, (524, 524), (0, 255, 0))

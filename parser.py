@@ -17,7 +17,9 @@ def parse_arguments():
     )
     parser.add_argument(
         "--G_contrast",
-        action="store_true",
+        type=str,
+        default="none",
+        choices=["none", "manual", "autocontrast", "equalize"],
         help="G_contrast"
     )
     # Parameters for GAN
@@ -431,4 +433,8 @@ def parse_arguments():
 
     if args.GAN_save_freq < 0:
         raise ValueError()
+
+    if args.G_contrast and args.auto_contrast:
+        raise ValueError()
+    
     return args
