@@ -18,6 +18,7 @@ import torchvision.transforms as transforms
 from torch.utils.data.dataloader import DataLoader
 import wandb
 from uuid import uuid4
+from model.functional import calculate_psnr
 
 torch.backends.cudnn.benchmark = True  # Provides a speedup
 VISUAL_IMAGE_NUM = 10
@@ -133,8 +134,8 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     for loop_num in range(loops_num):
         train_loop(args, model, train_ds, loop_num)
 
-    for loop_num in range(loops_num):
-        train_loop(args, model, val_ds, loop_num)
+    # for loop_num in range(loops_num):
+    #     train_loop(args, model, val_ds, loop_num)
     
     info_str = f"Finished epoch {epoch_num:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "+ \
         f"average epoch sum GAN loss = {epoch_losses_GAN.mean():.4f}, "+ \
@@ -147,9 +148,11 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     else:
         visual_current = False
 
-    if visual_current:
-        _, _ = test.test_translation_pix2pix(args, val_ds, model, visual_current, visual_image_num=VISUAL_IMAGE_NUM, epoch_num=epoch_num)
+    psnr_list, psnr_str = test.test_translation_pix2pix(args, val_ds, model, visual_current, visual_image_num=VISUAL_IMAGE_NUM, epoch_num=epoch_num)
+    logging.info(f"Recalls on val set {val_ds}: {psnr_str}")
 
+    is_best = psnr_list[0] > best_psnr
+    
     wandb.log({
             "epoch_num": epoch_num,
             "GAN_loss": epoch_losses_GAN.mean(),
@@ -167,7 +170,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
             "optimizer_netG_state_dict": model.optimizer_G.state_dict(),
             "not_improved_num": not_improved_num,
         },
-        False,
+        is_best,
         filename="last_model.pth",
     )
         
