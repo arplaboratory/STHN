@@ -174,20 +174,32 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
         filename="last_model.pth",
     )
         
-    if args.GAN_save_freq != 0 and epoch_num % args.GAN_save_freq == 0:
-        util.save_checkpoint(
-        args,
-        {
-            "epoch_num": epoch_num,
-            "model_netD_state_dict": model.netD.state_dict(),
-            "model_netG_state_dict": model.netG.state_dict(),
-            "optimizer_netD_state_dict": model.optimizer_D.state_dict(),
-            "optimizer_netG_state_dict": model.optimizer_G.state_dict(),
-            "not_improved_num": not_improved_num,
-        },
-        False,
-        filename=f"last_model_{epoch_num}.pth"
-    )
+    # if args.GAN_save_freq != 0 and epoch_num % args.GAN_save_freq == 0:
+    #     util.save_checkpoint(
+    #     args,
+    #     {
+    #         "epoch_num": epoch_num,
+    #         "model_netD_state_dict": model.netD.state_dict(),
+    #         "model_netG_state_dict": model.netG.state_dict(),
+    #         "optimizer_netD_state_dict": model.optimizer_D.state_dict(),
+    #         "optimizer_netG_state_dict": model.optimizer_G.state_dict(),
+    #         "not_improved_num": not_improved_num,
+    #     },
+    #     False,
+    #     filename=f"last_model_{epoch_num}.pth"
+    # )
+
+    if is_best:
+        logging.info(
+            f"Improved: previous best PSNR = {best_psnr:.1f}, current R@5 = {psnr_list[0]:.1f}"
+        )
+        best_psnr = psnr_list[0]
+        not_improved_num = 0
+    else:
+        not_improved_num += 1
+        logging.info(
+            f"Not improved: {not_improved_num}: best R@5 = {best_psnr:.1f}, current R@5 = {psnr_list[0]:.1f}"
+        )
 
 logging.info(
     f"Trained for {epoch_num+1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}"
