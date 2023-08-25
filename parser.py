@@ -22,6 +22,11 @@ def parse_arguments():
         choices=["none", "manual", "autocontrast", "equalize"],
         help="G_contrast"
     )
+    parser.add_argument(
+        "--force_ce",
+        action="store_true",
+        help="Force CE in extended dataset"
+    )
     # Parameters for GAN
     parser.add_argument(
         "--GAN_epochs_decay",

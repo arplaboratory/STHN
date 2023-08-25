@@ -181,7 +181,7 @@ class BaseDataset(data.Dataset):
             self.queries_folder_h5_df = h5py.File(
                 self.queries_folder_h5_path, "r")
         if self.is_index_in_queries(index):
-            if self.args.G_contrast!="none" and self.split!="extended":
+            if self.args.G_contrast!="none" and (self.args.force_ce or self.split!="extended"):
                 if self.args.G_contrast == "manual":
                     img = self.query_transform(
                         transforms.functional.adjust_contrast(self._find_img_in_h5(index), contrast_factor=3))
@@ -468,7 +468,7 @@ class TripletsDataset(BaseDataset):
 
         query_index, best_positive_index, neg_indexes = torch.split(self.triplets_global_indexes[index], (1, 1, self.negs_num_per_query) )
 
-        if self.args.G_contrast!="none" and self.split!="extended": # Avoid double CE for extended dataset (TGM has already generated enhanced results)
+        if self.args.G_contrast!="none" and (self.args.force_ce or self.split!="extended"): # Avoid double CE for extended dataset (TGM has already generated enhanced results)
             if self.args.G_contrast=="manual":
                 query = self.query_transform(transforms.functional.adjust_contrast(self._find_img_in_h5(query_index, "queries"), contrast_factor=3))
             elif self.args.G_contrast=="autocontrast":
@@ -883,7 +883,7 @@ class TranslationDataset(BaseDataset):
             self.pairs_global_indexes[index], (1, 1)
         )
 
-        if self.args.G_contrast!="none" and self.split!="extended":
+        if self.args.G_contrast!="none" and (self.args.force_ce or self.split!="extended"):
             if self.args.G_contrast=="manual":
                 query = self.query_transform(
                     transforms.functional.adjust_contrast(self._find_img_in_h5(query_index, "queries"), contrast_factor=3))
