@@ -134,8 +134,8 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     for loop_num in range(loops_num):
         train_loop(args, model, train_ds, loop_num)
 
-    # for loop_num in range(loops_num):
-    #     train_loop(args, model, val_ds, loop_num)
+    for loop_num in range(loops_num):
+        train_loop(args, model, val_ds, loop_num)
     
     info_str = f"Finished epoch {epoch_num:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "+ \
         f"average epoch sum GAN loss = {epoch_losses_GAN.mean():.4f}, "+ \
