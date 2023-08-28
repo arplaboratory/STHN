@@ -657,9 +657,12 @@ class TripletsDataset(BaseDataset):
                 args, query_index, cache, query_features
             )
             # Choose 1000 random database images (neg_indexes)
-            neg_indexes = np.random.choice(
-                self.database_num, self.neg_samples_num, replace=False
-            )
+            try:
+                neg_indexes = np.random.choice(
+                    self.database_num, self.neg_samples_num, replace=False
+                )
+            except Exception:
+                neg_indexes = np.arange(self.database_num)
             # Remove the eventual soft_positives from neg_indexes
             soft_positives = self.soft_positives_per_query[query_index]
             neg_indexes = np.setdiff1d(
