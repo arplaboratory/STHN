@@ -90,8 +90,8 @@ class BaseDataset(data.Dataset):
             self.queries_folder_h5_path = join(
                 datasets_folder, dataset_name, split + "_database.h5"
             ) 
-        database_folder_h5_df = h5py.File(self.database_folder_h5_path, "r")
-        queries_folder_h5_df = h5py.File(self.queries_folder_h5_path, "r")
+        database_folder_h5_df = h5py.File(self.database_folder_h5_path, "r", swmr=True)
+        queries_folder_h5_df = h5py.File(self.queries_folder_h5_path, "r", swmr=True)
 
         # Map name to index
         self.database_name_dict = {}
@@ -177,9 +177,9 @@ class BaseDataset(data.Dataset):
         # Init
         if self.database_folder_h5_df is None:
             self.database_folder_h5_df = h5py.File(
-                self.database_folder_h5_path, "r")
+                self.database_folder_h5_path, "r", swmr=True)
             self.queries_folder_h5_df = h5py.File(
-                self.queries_folder_h5_path, "r")
+                self.queries_folder_h5_path, "r", swmr=True)
         if self.is_index_in_queries(index):
             if self.args.G_contrast!="none" and (self.args.force_ce or self.split!="extended"):
                 if self.args.G_contrast == "manual":
@@ -294,7 +294,7 @@ class BaseDataset(data.Dataset):
         
     def find_black_region(self):
         # Only for thermal
-        queries_folder_h5_df = h5py.File(self.queries_folder_h5_path, "r")
+        queries_folder_h5_df = h5py.File(self.queries_folder_h5_path, "r", swmr=True)
         queries_with_black_region = []
         for index, path in enumerate(self.queries_paths):
             real_path = path[len("queries_"):]
@@ -323,9 +323,9 @@ class PCADataset(BaseDataset):
         # Init
         if self.database_folder_h5_df is None:
             self.database_folder_h5_df = h5py.File(
-                self.database_folder_h5_path, "r")
+                self.database_folder_h5_path, "r", swmr=True)
             self.queries_folder_h5_df = h5py.File(
-                self.queries_folder_h5_path, "r")
+                self.queries_folder_h5_path, "r", swmr=True)
         img = self._find_img_in_h5(index)
         img = base_transform(img)
         # PCA resize or not?
@@ -462,9 +462,9 @@ class TripletsDataset(BaseDataset):
         # Init
         if self.database_folder_h5_df is None:
             self.database_folder_h5_df = h5py.File(
-                self.database_folder_h5_path, "r")
+                self.database_folder_h5_path, "r", swmr=True)
             self.queries_folder_h5_df = h5py.File(
-                self.queries_folder_h5_path, "r")
+                self.queries_folder_h5_path, "r", swmr=True)
 
         query_index, best_positive_index, neg_indexes = torch.split(self.triplets_global_indexes[index], (1, 1, self.negs_num_per_query) )
 
@@ -875,9 +875,9 @@ class TranslationDataset(BaseDataset):
         # Init
         if self.database_folder_h5_df is None:
             self.database_folder_h5_df = h5py.File(
-                self.database_folder_h5_path, "r")
+                self.database_folder_h5_path, "r", swmr=True)
             self.queries_folder_h5_df = h5py.File(
-                self.queries_folder_h5_path, "r")
+                self.queries_folder_h5_path, "r", swmr=True)
 
         query_index, best_positive_index = torch.split(
             self.pairs_global_indexes[index], (1, 1)
