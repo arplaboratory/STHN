@@ -170,7 +170,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
             "optimizer_netG_state_dict": model.optimizer_G.state_dict(),
             "not_improved_num": not_improved_num,
         },
-        is_best,
+        True,
         filename="last_model.pth",
     )
         
