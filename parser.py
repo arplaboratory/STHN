@@ -108,6 +108,11 @@ def parse_arguments():
     )
     #####################################################################
     parser.add_argument(
+        "--use_sparse_database",
+        action="store_true",
+        help="Use sparse database",
+    )
+    parser.add_argument(
         "--use_extended_data",
         action="store_true",
         help="Use extended data from pix2pix",
