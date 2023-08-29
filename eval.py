@@ -115,6 +115,10 @@ else:
         args, model, full_features_dim)
 
 ######################################### DATASETS #########################################
+if args.use_sparse_database:
+    logging.info("Using sparse sampling database. Reset the train and val positive threshold to 363 (sqrt(2*256^2))")
+    args.val_positive_dist_threshold = 363
+    args.train_positives_dist_threshold = 363
 test_ds = datasets_ws.BaseDataset(
     args, args.datasets_folder, args.dataset_name, "test")
 logging.info(f"Test set: {test_ds}")
