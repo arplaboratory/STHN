@@ -636,9 +636,14 @@ class TripletsDataset(BaseDataset):
     def compute_triplets_full(self, args, model):
         self.triplets_global_indexes = []
         # Take 1000 random queries
-        sampled_queries_indexes = np.random.choice(
-            self.queries_num, args.cache_refresh_rate, replace=False
-        )
+        try:
+            sampled_queries_indexes = np.random.choice(
+                self.queries_num, args.cache_refresh_rate, replace=False
+            )
+        except Exception:
+            sampled_queries_indexes = np.random.choice(
+                self.queries_num, args.cache_refresh_rate, replace=True
+            )
         # Take all database indexes
         database_indexes = list(range(self.database_num))
         # Compute features for all images and store them in cache
