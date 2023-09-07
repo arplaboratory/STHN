@@ -109,8 +109,10 @@ def parse_arguments():
     #####################################################################
     parser.add_argument(
         "--use_sparse_database",
-        action="store_true",
-        help="Use sparse database",
+        type=int,
+        default=-1,
+        choices=[512, 256, 128, 64],
+        help="Domain adaptation loss weight"
     )
     parser.add_argument(
         "--use_extended_data",

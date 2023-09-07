@@ -28,7 +28,7 @@ from datetime import datetime
 from torch.utils.model_zoo import load_url
 from google_drive_downloader import GoogleDriveDownloader as gdd
 import copy
-
+import numpy as np
 import test
 import util
 import commons
@@ -59,6 +59,10 @@ args.save_dir = join(
 )
 commons.setup_logging(args.save_dir)
 commons.make_deterministic(args.seed)
+if args.use_sparse_database!= -1:
+    logging.info(f"Using sparse sampling database. Reset the train and val positive threshold to {np.ceiling(np.sqrt(2*(args.use_sparse_database/2)**2))}")
+    args.val_positive_dist_threshold = np.ceiling(np.sqrt(2*(args.use_sparse_database/2)**2))
+    args.train_positives_dist_threshold = np.ceiling(np.sqrt(2*(args.use_sparse_database/2)**2))
 logging.info(f"Arguments: {args}")
 logging.info(f"The outputs are being saved in {args.save_dir}")
 
@@ -115,10 +119,6 @@ else:
         args, model, full_features_dim)
 
 ######################################### DATASETS #########################################
-if args.use_sparse_database:
-    logging.info("Using sparse sampling database. Reset the train and val positive threshold to 363 (sqrt(2*256^2))")
-    args.val_positive_dist_threshold = 363
-    args.train_positives_dist_threshold = 363
 test_ds = datasets_ws.BaseDataset(
     args, args.datasets_folder, args.dataset_name, "test")
 logging.info(f"Test set: {test_ds}")

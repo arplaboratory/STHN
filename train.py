@@ -159,10 +159,10 @@ args.save_dir = join(
 )
 commons.setup_logging(args.save_dir)
 commons.make_deterministic(args.seed)
-if args.use_sparse_database:
-    logging.info("Using sparse sampling database. Reset the train and val positive threshold to 363 (sqrt(2*256^2))")
-    args.val_positive_dist_threshold = 363
-    args.train_positives_dist_threshold = 363
+if args.use_sparse_database!= -1:
+    logging.info(f"Using sparse sampling database. Reset the train and val positive threshold to {np.ceiling(np.sqrt(2*(args.use_sparse_database/2)**2))}")
+    args.val_positive_dist_threshold = np.ceiling(np.sqrt(2*(args.use_sparse_database/2)**2))
+    args.train_positives_dist_threshold = np.ceiling(np.sqrt(2*(args.use_sparse_database/2)**2))
 logging.info(f"Arguments: {args}")
 wandb.init(project="STGL", entity="xjh19971", config=vars(args))
 logging.info(f"The outputs are being saved in {args.save_dir}")
