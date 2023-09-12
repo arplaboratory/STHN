@@ -506,7 +506,10 @@ class TripletsDataset(BaseDataset):
     def compute_triplets(self, args, model):
         self.is_inference = True
         if self.mining == "full":
-            self.compute_triplets_full(args, model)
+            if args.prior_location_threshold == -1:
+                self.compute_triplets_full(args, model)
+            else:
+                self.compute_triplets_full_prior(args, model)
         elif self.mining == "partial" or self.mining == "msls_weighted":
             self.compute_triplets_partial(args, model)
         elif self.mining == "random":
@@ -613,15 +616,11 @@ class TripletsDataset(BaseDataset):
 
             # Remove hard_negatives
             if args.prior_location_threshold == -1:
-                neg_indexes = np.setdiff1d(neg_indexes, soft_positives, assume_unique=True)[
-                    : self.negs_num_per_query
-                ]
+                neg_indexes = np.setdiff1d(neg_indexes, soft_positives, assume_unique=True)[: self.negs_num_per_query]
             else:
                 neg_indexes = np.setdiff1d(neg_indexes, soft_positives, assume_unique=True)
                 hard_negatives = self.hard_negatives_per_query[query_index]
-                neg_indexes = np.intersect1d(neg_indexes, hard_negatives, assume_unique=True)[
-                    : self.negs_num_per_query
-                ]
+                neg_indexes = np.intersect1d(neg_indexes, hard_negatives, assume_unique=True)[: self.negs_num_per_query]
             
             self.triplets_global_indexes.append(
                 (query_index, best_positive_index, *neg_indexes)
@@ -675,9 +674,8 @@ class TripletsDataset(BaseDataset):
 
             # Remove the eventual hard_negatives from neg_indexes
             if args.prior_location_threshold != -1:
-                hard_negatives = self.hard_negatives_per_query[query_index]
-                neg_indexes = np.intersect1d(neg_indexes, hard_negatives, assume_unique=True)
-
+                raise NotImplementedError()
+                
             # Concatenate neg_indexes with the previous top 10 negatives (neg_cache)
             neg_indexes = np.unique(
                 np.concatenate([self.neg_cache[query_index], neg_indexes])
@@ -747,8 +745,7 @@ class TripletsDataset(BaseDataset):
 
             # Remove the eventual hard_negatives from neg_indexes
             if args.prior_location_threshold != -1:
-                hard_negatives = self.hard_negatives_per_query[query_index]
-                neg_indexes = np.intersect1d(neg_indexes, hard_negatives, assume_unique=True)
+                raise NotImplementedError()
 
             # Take all database images that are negatives and are within the sampled database images (aka database_indexes)
             neg_indexes = self.get_hardest_negatives_indexes(
@@ -757,6 +754,82 @@ class TripletsDataset(BaseDataset):
             self.triplets_global_indexes.append(
                 (query_index, best_positive_index, *neg_indexes)
             )
+
+        # Remove Tmp memory for faiss
+        del cache
+
+        # self.triplets_global_indexes is a tensor of shape [1000, 12]
+        self.triplets_global_indexes = torch.tensor(
+            self.triplets_global_indexes)
+        
+    def compute_triplets_full_prior(self, args, model):
+        if args.prior_location_threshold == -1:
+            raise ValueError()
+        
+        self.triplets_global_indexes = []
+        # Take 1000 random queries
+        try:
+            sampled_queries_indexes = np.random.choice(
+                self.queries_num, args.cache_refresh_rate, replace=False
+            )
+        except Exception:
+            sampled_queries_indexes = np.random.choice(
+                self.queries_num, args.cache_refresh_rate, replace=True
+            )
+        # Take all database indexes within prior location threshold
+        database_indexes = []
+        for query_index in sampled_queries_indexes:
+            neg_indexes = np.setdiff1d(neg_indexes, soft_positives, assume_unique=True)
+            hard_negatives = self.hard_negatives_per_query[query_index]
+            neg_indexes = np.intersect1d(neg_indexes, hard_negatives, assume_unique=True)
+            database_indexes = database_indexes + list(neg_indexes)
+        database_indexes = list(np.unique(database_indexes))
+        
+        # Compute features for all images and store them in cache
+        subset_ds = Subset(
+            self, database_indexes +
+            list(sampled_queries_indexes + self.database_num)
+        )
+        cache = self.compute_cache(
+            args, model, subset_ds, (len(self), args.features_dim)
+        )
+
+        # This loop's iterations could be done individually in the __getitem__(). This way is slower but clearer (and yields same results)
+        for query_index in tqdm(sampled_queries_indexes, ncols=100):
+            query_features = self.get_query_features(query_index, cache)
+            best_positive_index = self.get_best_positive_index(
+                args, query_index, cache, query_features
+            )
+            # Choose 1000 random database images (neg_indexes)
+            try:
+                neg_indexes = np.random.choice(
+                    self.database_num, self.neg_samples_num, replace=False
+                )
+            except Exception:
+                neg_indexes = np.arange(self.database_num)
+            # Remove the eventual soft_positives from neg_indexes
+            soft_positives = self.soft_positives_per_query[query_index]
+            neg_indexes = np.setdiff1d(
+                neg_indexes, soft_positives, assume_unique=True)
+
+            # Remove the eventual hard_negatives from neg_indexes
+            if args.prior_location_threshold != -1:
+                hard_negatives = self.hard_negatives_per_query[query_index]
+                neg_indexes = np.intersect1d(neg_indexes, hard_negatives, assume_unique=True)
+            else:
+                raise NotImplementedError()
+
+            # Concatenate neg_indexes with the previous top 10 negatives (neg_cache)
+            neg_indexes = np.unique(
+                np.concatenate([self.neg_cache[query_index], neg_indexes])
+            )
+            # Search the hardest negatives
+            neg_indexes = self.get_hardest_negatives_indexes(
+                args, cache, query_features, neg_indexes
+            )
+            # Update nearest negatives in neg_cache
+            self.neg_cache[query_index] = neg_indexes
+            self.triplets_global_indexes.append((query_index, best_positive_index, *neg_indexes))
 
         # Remove Tmp memory for faiss
         del cache
