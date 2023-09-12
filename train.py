@@ -165,8 +165,6 @@ if args.use_sparse_database!= -1:
     args.train_positives_dist_threshold = np.ceil(np.sqrt(2*(args.use_sparse_database/2)**2))
 if args.prior_location_threshold!= -1:
     logging.info(f"Using prior location threshold {args.prior_location_threshold}. Note that the recall values are calculated in the nearby region")
-    args.val_positive_dist_threshold = np.ceil(np.sqrt(2*(args.use_sparse_database/2)**2))
-    args.train_positives_dist_threshold = np.ceil(np.sqrt(2*(args.use_sparse_database/2)**2))
 logging.info(f"Arguments: {args}")
 wandb.init(project="STGL", entity="xjh19971", config=vars(args))
 logging.info(f"The outputs are being saved in {args.save_dir}")
