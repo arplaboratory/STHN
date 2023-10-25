@@ -390,7 +390,7 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=Fa
                     best_position = (y, x)
             actual_position = eval_ds.queries_utms[query_index]
             error = np.linalg.norm((actual_position[0]-best_position[0], actual_position[1]-best_position[1]))
-            if error >= 50 and visualize: # Wrong results
+            if error >= args.val_positive_dist_threshold and visualize: # Wrong results
                 database_index = prediction[sort_idx[0]]
                 database_img = eval_ds._find_img_in_h5(database_index, "database")
                 if args.G_contrast!="none":
@@ -407,9 +407,9 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=Fa
                 result = Image.new(database_img.mode, (524, 524), (255, 0, 0))
                 result.paste(database_img, (6, 6))
                 database_img = result
-                database_img.save(f"{save_dir}/{query_index}_wrong_d.png")
-                query_img.save(f"{save_dir}/{query_index}_wrong_q.png")
-            elif error <= 35 and visualize: # Wrong results
+                database_img.save(f"{save_dir}/{query_index}_{best_position}_wrong_d.png")
+                query_img.save(f"{save_dir}/{query_index}_{actual_position}_wrong_q.png")
+            elif error <= args.train_positives_dist_threshold and visualize: # Wrong results
                 database_index = prediction[sort_idx[0]]
                 database_img = eval_ds._find_img_in_h5(database_index, "database")
                 if args.G_contrast!="none":
@@ -520,7 +520,7 @@ def test_translation_pix2pix_generate_h5(args, eval_ds, model, exclude_test_regi
     
     model.netG = model.netG.eval()
     
-    save_path = os.path.join(args.save_dir, "train_queries.h5")
+    save_path = os.path.join(args.save_dir, "extended_queries.h5")
 
     with torch.no_grad():
         # For database use "hard_resize", although it usually has no effect because database images have same resolution
