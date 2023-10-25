@@ -10,6 +10,6 @@
 eval "$(conda shell.bash hook)"
 conda activate STGL
 
-python3 eval.py --resume='logs/global_retrieval/'$1'/best_model.pth' --dataset_name=satellite_0_thermalmapping_135_nocontrast_sparse_exclusion --datasets_folder ./datasets --aggregation gem --infer_batch_size 16 --backbone $2 --fc_output_dim $3 --G_contrast $4 --use_sparse_data
+python3 eval.py --resume='logs/global_retrieval/'$1'/best_model.pth' --dataset_name=satellite_0_thermalmapping_135_nocontrast_sparse_exclusion --datasets_folder ./datasets --aggregation gem --infer_batch_size 16 --backbone $2 --fc_output_dim $3 --G_contrast $4 --use_sparse_database
 
-python3 eval.py --resume='logs/global_retrieval/'$1'/best_model.pth' --dataset_name=satellite_0_thermalmapping_135_nocontrast_sparse_exclusion --datasets_folder ./datasets --aggregation gem --infer_batch_size 16 --prior_location_threshold=2048 --backbone $2 --fc_output_dim $3 --G_contrast $4 --use_sparse_data
+python3 eval.py --resume='logs/global_retrieval/'$1'/best_model.pth' --dataset_name=satellite_0_thermalmapping_135_nocontrast_sparse_exclusion --datasets_folder ./datasets --aggregation gem --infer_batch_size 16 --prior_location_threshold=2048 --backbone $2 --fc_output_dim $3 --G_contrast $4 --use_sparse_database
