@@ -608,19 +608,23 @@ class TripletsDataset(BaseDataset):
 
             # Choose some random database images, from those remove the soft_positives, and then take the first 10 images as neg_indexes
             soft_positives = self.soft_positives_per_query[query_index]
-            neg_indexes = np.random.choice(
-                self.database_num,
-                size=self.negs_num_per_query + len(soft_positives),
-                replace=False,
-            )
 
             # Remove hard_negatives
             if args.prior_location_threshold == -1:
+                neg_indexes = np.random.choice(
+                    self.database_num,
+                    size=self.negs_num_per_query + len(soft_positives),
+                    replace=False,
+                    )
                 neg_indexes = np.setdiff1d(neg_indexes, soft_positives, assume_unique=True)[: self.negs_num_per_query]
             else:
-                neg_indexes = np.setdiff1d(neg_indexes, soft_positives, assume_unique=True)
                 hard_negatives = self.hard_negatives_per_query[query_index]
-                neg_indexes = np.intersect1d(neg_indexes, hard_negatives, assume_unique=True)[: self.negs_num_per_query]
+                neg_indexes = np.setdiff1d(hard_negatives, soft_positives, assume_unique=True)
+                neg_indexes = np.random.choice(
+                    neg_indexes,
+                    size=self.negs_num_per_query,
+                    replace=False,
+                    )
             
             self.triplets_global_indexes.append(
                 (query_index, best_positive_index, *neg_indexes)
@@ -776,14 +780,16 @@ class TripletsDataset(BaseDataset):
             sampled_queries_indexes = np.random.choice(
                 self.queries_num, args.cache_refresh_rate, replace=True
             )
+            
         # Take all database indexes within prior location threshold
-        database_indexes = []
-        for query_index in sampled_queries_indexes:
-            neg_indexes = np.setdiff1d(neg_indexes, soft_positives, assume_unique=True)
+        database_indexes = set()
+        for query_index in tqdm(sampled_queries_indexes, ncols=100):
+            soft_positives = self.soft_positives_per_query[query_index]
             hard_negatives = self.hard_negatives_per_query[query_index]
-            neg_indexes = np.intersect1d(neg_indexes, hard_negatives, assume_unique=True)
-            database_indexes = database_indexes + list(neg_indexes)
-        database_indexes = list(np.unique(database_indexes))
+            neg_indexes = np.setdiff1d(hard_negatives, soft_positives, assume_unique=True)
+            for neg_index in neg_indexes:
+                database_indexes.add(neg_index)
+        database_indexes = list(database_indexes)
         
         # Compute features for all images and store them in cache
         subset_ds = Subset(
@@ -800,24 +806,9 @@ class TripletsDataset(BaseDataset):
             best_positive_index = self.get_best_positive_index(
                 args, query_index, cache, query_features
             )
-            # Choose 1000 random database images (neg_indexes)
-            try:
-                neg_indexes = np.random.choice(
-                    self.database_num, self.neg_samples_num, replace=False
-                )
-            except Exception:
-                neg_indexes = np.arange(self.database_num)
-            # Remove the eventual soft_positives from neg_indexes
             soft_positives = self.soft_positives_per_query[query_index]
-            neg_indexes = np.setdiff1d(
-                neg_indexes, soft_positives, assume_unique=True)
-
-            # Remove the eventual hard_negatives from neg_indexes
-            if args.prior_location_threshold != -1:
-                hard_negatives = self.hard_negatives_per_query[query_index]
-                neg_indexes = np.intersect1d(neg_indexes, hard_negatives, assume_unique=True)
-            else:
-                raise NotImplementedError()
+            hard_negatives = self.hard_negatives_per_query[query_index]
+            neg_indexes = np.setdiff1d(hard_negatives, soft_positives, assume_unique=True)
 
             # Concatenate neg_indexes with the previous top 10 negatives (neg_cache)
             neg_indexes = np.unique(
