@@ -160,9 +160,9 @@ args.save_dir = join(
 commons.setup_logging(args.save_dir)
 commons.make_deterministic(args.seed)
 if args.use_sparse_database!= -1:
-    logging.info(f"Using sparse sampling database. Reset the train and val positive threshold to {np.ceil(np.sqrt(2*(args.use_sparse_database/2)**2))}")
-    args.val_positive_dist_threshold = np.ceil(np.sqrt(2*(args.use_sparse_database/2)**2))
-    args.train_positives_dist_threshold = np.ceil(np.sqrt(2*(args.use_sparse_database/2)**2))
+    logging.info(f"Using sparse sampling database. Reset the train and val positive threshold to {np.ceil(np.sqrt(2*(args.use_sparse_database)**2))}")
+    args.val_positive_dist_threshold = np.ceil(np.sqrt(2*(args.use_sparse_database)**2))
+    args.train_positives_dist_threshold = np.ceil(np.sqrt(2*(args.use_sparse_database)**2))
 if args.prior_location_threshold!= -1:
     logging.info(f"Using prior location threshold {args.prior_location_threshold}. Note that the recall values are calculated in the nearby region")
 logging.info(f"Arguments: {args}")
