@@ -108,6 +108,11 @@ def parse_arguments():
     )
     #####################################################################
     parser.add_argument(
+        "--remove_duplicates",
+        action="store_true",
+        help="Domain adaptation loss weight"
+    )
+    parser.add_argument(
         "--use_sparse_database",
         type=int,
         default=-1,
@@ -355,7 +360,7 @@ def parse_arguments():
     parser.add_argument(
         "--recall_values",
         type=int,
-        default=[1, 5, 10, 20],
+        default=[1, 5, 10, 20, 30, 50, 100],
         nargs="+",
         help="Recalls to be computed, such as R@5.",
     )
