@@ -108,11 +108,6 @@ def parse_arguments():
     )
     #####################################################################
     parser.add_argument(
-        "--remove_duplicates",
-        action="store_true",
-        help="Domain adaptation loss weight"
-    )
-    parser.add_argument(
         "--use_sparse_database",
         type=int,
         default=-1,
