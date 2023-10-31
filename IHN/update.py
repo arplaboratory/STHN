@@ -153,6 +153,58 @@ class CNN_weight_64(nn.Module):
         x = self.layer10(x)
         return x, weight
 
+class CNN_128(nn.Module):
+    def __init__(self, input_dim=256, hidden_dim=256):
+        super(CNN_128, self).__init__()
+
+        outputdim = input_dim
+        self.layer1 = nn.Sequential(nn.Conv2d(164, outputdim, 3, padding=1, stride=1),
+                                    nn.GroupNorm(num_groups=outputdim//8, num_channels=outputdim), nn.ReLU(), nn.MaxPool2d(kernel_size = 2, stride=2))
+
+        input_dim = outputdim
+        outputdim = input_dim
+        self.layer2 = nn.Sequential(nn.Conv2d(input_dim, outputdim, 3, padding=1, stride=1),
+                                    nn.GroupNorm(num_groups=(outputdim) // 8, num_channels=outputdim), nn.ReLU(), nn.MaxPool2d(kernel_size = 2, stride=2))
+
+        input_dim = input_dim
+        outputdim = input_dim
+        self.layer3 = nn.Sequential(nn.Conv2d(input_dim, outputdim, 3, padding=1, stride=1),
+                                    nn.GroupNorm(num_groups=(outputdim) // 8, num_channels=outputdim), nn.ReLU(),
+                                    nn.MaxPool2d(kernel_size = 2, stride=2))
+
+        input_dim = input_dim
+        outputdim = input_dim
+        self.layer4 = nn.Sequential(nn.Conv2d(input_dim, outputdim, 3, padding=1, stride=1),
+                                    nn.GroupNorm(num_groups=(outputdim) // 8, num_channels=outputdim), nn.ReLU(),
+                                    nn.MaxPool2d(kernel_size = 2, stride=2))
+        input_dim = input_dim
+        outputdim = input_dim
+        self.layer5 = nn.Sequential(nn.Conv2d(input_dim, outputdim, 3, padding=1, stride=1),
+                                    nn.GroupNorm(num_groups=(outputdim) // 8, num_channels=outputdim), nn.ReLU(),
+                                    nn.MaxPool2d(kernel_size = 2, stride=2))
+        input_dim = input_dim
+        outputdim = input_dim
+        self.layer6 = nn.Sequential(nn.Conv2d(input_dim, outputdim, 3, padding=1, stride=1),
+                                    nn.GroupNorm(num_groups=(outputdim) // 8, num_channels=outputdim), nn.ReLU(),
+                                    nn.MaxPool2d(kernel_size = 2, stride=2))
+
+        outputdim_final = outputdim
+        self.layer10 = nn.Sequential(nn.Conv2d(outputdim_final, outputdim_final, 3,  padding=1, stride=1), nn.GroupNorm(num_groups=(outputdim_final) // 8, num_channels=outputdim_final),
+                                     nn.ReLU(), nn.Conv2d(outputdim_final, 2, 1))
+
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.layer5(x)
+        x = self.layer6(x)
+        x = self.layer10(x)
+
+        return x
+
+
 class CNN_64(nn.Module):
     def __init__(self, input_dim=256, hidden_dim=256):
         super(CNN_64, self).__init__()
@@ -251,9 +303,15 @@ class GMA(nn.Module):
             
         if sz==64:
             if self.args.weight:
-                self.cnn_weight = CNN_weight_64(80)
+                self.cnn_weight = CNN_weight_64(128)
             else:
-                self.cnn = CNN_64(80)
+                self.cnn = CNN_64(128)
+        
+        if sz==128:
+            if self.args.weight:
+                raise NotImplementedError()
+            else:
+                self.cnn = CNN_128(64)
 
     def forward(self, corr, flow):      
         if self.args.weight:

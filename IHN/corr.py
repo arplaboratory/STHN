@@ -11,12 +11,12 @@ except:
 
 
 class CorrBlock:
-    def __init__(self, fmap1, fmap2, num_levels=4, radius=4, sz=32):
+    def __init__(self, fmap1, fmap2, num_levels=4, radius=4):
         self.num_levels = num_levels
         self.radius = radius
         self.corr_pyramid = []
 
-        corr = CorrBlock.corr(fmap1, fmap2,sz)
+        corr = CorrBlock.corr(fmap1, fmap2)
         batch, h1, w1, dim, h2, w2 = corr.shape
         corr = corr.reshape(batch * h1 * w1, dim, h2, w2)
 
@@ -49,7 +49,7 @@ class CorrBlock:
         return out.permute(0, 3, 1, 2).contiguous().float()
 
     @staticmethod
-    def corr(fmap1, fmap2, sz):
+    def corr(fmap1, fmap2):
         batch, dim, ht, wd = fmap1.shape
         fmap1 = fmap1.view(batch, dim, ht * wd)
         fmap2 = fmap2.view(batch, dim, ht * wd)

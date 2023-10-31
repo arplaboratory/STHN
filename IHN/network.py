@@ -18,10 +18,10 @@ class IHN(nn.Module):
         self.context_dim = 128
         self.fnet1 = BasicEncoderQuarter(output_dim=256, norm_fn='instance')
         if self.args.lev0:
-            sz = 32
+            sz = 64
             self.update_block_4 = GMA(self.args, sz)
         if self.args.lev1:
-            sz = 64
+            sz = 128
             self.update_block_2 = GMA(self.args, sz)
 
     def get_flow_now_4(self, four_point):
@@ -93,16 +93,17 @@ class IHN(nn.Module):
         image2 = image2.contiguous()
 
         with autocast(enabled=self.args.mixed_precision):
-            fmap1_32, fmap1_64 = self.fnet1(image1)
-            fmap2_32, _ = self.fnet1(image2)
-        fmap1 = fmap1_32.float()
-        fmap2 = fmap2_32.float()
+            fmap1_64, fmap1_128 = self.fnet1(image1)
+            fmap2_64, _ = self.fnet1(image2)
+        fmap1 = fmap1_64.float()
+        fmap2 = fmap2_64.float()
 
-        corr_fn = CorrBlock(fmap1, fmap2, num_levels=2, radius=4, sz=32)
+        corr_fn = CorrBlock(fmap1, fmap2, num_levels=2, radius=4)
         coords0, coords1 = self.initialize_flow_4(image1)
-        sz = fmap1_32.shape
+        sz = fmap1_64.shape
         self.sz = sz
-        four_point_disp = torch.zeros((sz[0], 2, 6, 6)).to(fmap1.device) # 2, 2, 2 for 128, 2, 4, 4, for 256, 2, 6, 6 for 384
+        four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
+        four_point_predictions = []
 
         for itr in range(iters_lev0):
             corr = corr_fn(coords1)
@@ -114,6 +115,7 @@ class IHN(nn.Module):
                     delta_four_point = self.update_block_4(corr, flow)
                     
             four_point_disp =  four_point_disp + delta_four_point
+            four_point_predictions.append(four_point_disp)
             coords1 = self.get_flow_now_4(four_point_disp)
 
 
@@ -124,11 +126,11 @@ class IHN(nn.Module):
             image2 = warp(image2, flow_med)
                       
             with autocast(enabled=self.args.mixed_precision):
-                _, fmap2_64 = self.fnet1(image2)
-            fmap1 = fmap1_64.float()
-            fmap2 = fmap2_64.float()
+                _, fmap2_128 = self.fnet1(image2)
+            fmap1 = fmap1_128.float()
+            fmap2 = fmap2_128.float()
             
-            corr_fn = CorrBlock(fmap1, fmap2, num_levels = 2, radius= 4, sz = 32)
+            corr_fn = CorrBlock(fmap1, fmap2, num_levels = 2, radius= 4)
             coords0, coords1 = self.initialize_flow_2(image1)                
             sz = fmap1.shape
             self.sz = sz
@@ -142,13 +144,15 @@ class IHN(nn.Module):
                         delta_four_point, weight = self.update_block_2(corr, flow)
                     else:
                         delta_four_point = self.update_block_2(corr, flow)
-                four_point_disp = four_point_disp + delta_four_point            
+                four_point_disp = four_point_disp + delta_four_point
+                four_point_predictions.append(four_point_disp)            
                 coords1 = self.get_flow_now_2(four_point_disp)            
             
             four_point_disp = four_point_disp + four_point_disp_med
 
-
-        return four_point_disp
+        if test_mode:
+            return four_point_disp
+        return four_point_predictions
 
 
 

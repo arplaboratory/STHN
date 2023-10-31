@@ -124,7 +124,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='ggearth', help='dataset')
 
     parser.add_argument('--lev0', default=True, action='store_true', help='warp no')
-    parser.add_argument('--lev1', default=True, action='store_true', help='warp once')
+    parser.add_argument('--lev1', default=False, action='store_true', help='warp once')
     parser.add_argument('--iters_lev0', type=int, default=6)
     parser.add_argument('--iters_lev1', type=int, default=6)
     
@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--lr', type=float, default=0.0004)
     parser.add_argument('--num_steps', type=int, default=120000)
-    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--image_size', type=int, nargs='+', default=[512, 512])
     parser.add_argument('--wdecay', type=float, default=0.00001)
     parser.add_argument('--epsilon', type=float, default=1e-8)

@@ -17,7 +17,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 
 marginal = 32
-patch_size = 384
+patch_size = 256
 
 class homo_dataset(data.Dataset):
     def __init__(self):
