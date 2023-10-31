@@ -8,6 +8,8 @@ import random
 import sys
 import torch.optim as optim
 from PIL import Image
+import logging
+import wandb
 
 def bilinear_sampler(img, coords, mode='bilinear', mask=False):
     """ Wrapper for grid_sample, uses pixel coordinates """
@@ -125,6 +127,10 @@ class Logger:
                 self.running_loss_dict[key] = []
             self.running_loss_dict[key].append(metrics[key])
         if self.total_steps % self.args.print_freq == self.args.print_freq-1:
+            wandb.log({
+                "step": self.total_steps,
+                "mace": np.mean(self.running_loss_dict['mace'])
+            },)
             self._print_training_status()
             self.running_loss_dict = {}
             

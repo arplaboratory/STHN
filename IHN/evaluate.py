@@ -41,14 +41,11 @@ def validate_process(model, args):
         four_pr = model(image1, image2, iters_lev0 = args.iters_lev0, iters_lev1 = args.iters_lev1, test_mode=True)
         mace = torch.sum((four_pr[0, :, :, :].cpu() - flow_4cor) ** 2, dim=0).sqrt()
         mace_list.append(mace.view(-1).numpy())
-        torch.cuda.empty_cache()
-        if i_batch>300:
-            break
 
     model.train()
     mace = np.mean(np.concatenate(mace_list))
     print("Validation MACE: %f" % mace)
-    return {'chairs_mace': mace}
+    return {'val_mace': mace}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

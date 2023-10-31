@@ -16,6 +16,8 @@ from utils import *
 from evaluate import validate_process
 import datasets_4cor_img as datasets
 
+import wandb
+
 def main(args):
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 
@@ -64,6 +66,7 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
             save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=255), './watch/' + 'train_img1.bmp')
             save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=255), './watch/' + 'train_img2.bmp')
             save_img(torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=255), './watch/' + 'train_img2w.bmp')
+            raise KeyboardInterrupt()
 
         optimizer.zero_grad()
 
@@ -85,8 +88,8 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
         # Validate
         if logger.total_steps % args.val_freq == args.val_freq - 1:
             validate(model, args, logger)
-            plot_train(logger, args)
-            plot_val(logger, args)
+            # plot_train(logger, args)
+            # plot_val(logger, args)
             PATH = args.output + f'/{logger.total_steps+1}_{args.name}.pth'
             checkpoint = {
                 "net": model.state_dict(),
@@ -102,6 +105,10 @@ def validate(model, args, logger):
     results = {}
     # Evaluate results
     results.update(validate_process(model, args))
+    wandb.log({
+                "step": logger.total_steps,
+                "val_mace": results['val_mace']
+            },)
     # Record results in logger
     for key in results.keys():
         if key not in logger.val_results_dict.keys():
@@ -119,9 +126,8 @@ if __name__ == "__main__":
     parser.add_argument('--restore_ckpt', help="restore checkpoint")
     
     parser.add_argument('--gpuid', type=int, nargs='+', default = [0])
-    parser.add_argument('--output', type=str, default='results/ggearth_6_6', help='output directory to save checkpoints and plots')
-    parser.add_argument('--logname', type=str, default='ggearth_6_6.log', help='printing frequency')
-    parser.add_argument('--dataset', type=str, default='ggearth', help='dataset')
+    parser.add_argument('--output', type=str, default='IHN_results/satellite', help='output directory to save checkpoints and plots')
+    parser.add_argument('--logname', type=str, default='satellite.log', help='printing frequency')
 
     parser.add_argument('--lev0', default=True, action='store_true', help='warp no')
     parser.add_argument('--lev1', default=False, action='store_true', help='warp once')
@@ -133,7 +139,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--lr', type=float, default=0.0004)
     parser.add_argument('--num_steps', type=int, default=120000)
-    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--image_size', type=int, nargs='+', default=[512, 512])
     parser.add_argument('--wdecay', type=float, default=0.00001)
     parser.add_argument('--epsilon', type=float, default=1e-8)
@@ -161,7 +167,7 @@ if __name__ == "__main__":
         help="The threshold of search region from prior knowledge for train and test. If -1, then no prior knowledge"
     )
     parser.add_argument("--val_positive_dist_threshold",
-                    type=int, default=0.1, help="_")
+                    type=int, default=100, help="_")
     parser.add_argument(
         "--G_contrast",
         type=str,
@@ -173,6 +179,7 @@ if __name__ == "__main__":
 
     setup_seed(1024)
 
+    wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
     sys.stdout = Logger_(args.logname, sys.stdout)
 
     if not os.path.isdir(args.output):

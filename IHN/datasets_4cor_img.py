@@ -16,7 +16,7 @@ import logging
 from PIL import Image
 import torchvision.transforms as transforms
 
-marginal = 32
+marginal = 0
 patch_size = 256
 
 class homo_dataset(data.Dataset):
@@ -28,7 +28,7 @@ class homo_dataset(data.Dataset):
         self.image_list_img2 = []
         self.dataset=[]
 
-    def __getitem__(self, query_PIL_image, database_PIL_image):
+    def __getitem__(self, query_PIL_image, database_PIL_image, query_utm, database_utm):
         if not self.init_seed:
             worker_info = torch.utils.data.get_worker_info()
             if worker_info is not None:
@@ -37,14 +37,15 @@ class homo_dataset(data.Dataset):
                 random.seed(worker_info.id)
                 self.init_seed = True
 
-        img1 = np.array(database_PIL_image)
-        img2 = np.array(query_PIL_image) # img2 warp to img1
+        img1 = np.array(query_PIL_image)
+        img2 = np.array(database_PIL_image) # img1 warp to img2
 
         (height, width, _) = img1.shape
 
         y = random.randint(marginal, height - marginal - patch_size)
         x = random.randint(marginal, width - marginal - patch_size)
-
+        t = np.float32(np.array(database_utm - query_utm))
+        
         top_left_point = (x, y)
         bottom_right_point = (patch_size + x, patch_size + y)
 
@@ -64,15 +65,15 @@ class homo_dataset(data.Dataset):
 
                 perturbed_four_points_cord.append((four_points_cord[i][0] + t1,
                                                   four_points_cord[i][1] + t2))
-
+                
             y_grid, x_grid = np.mgrid[0:img1.shape[0], 0:img1.shape[1]]
             point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
-
-            org = np.float32(four_points_cord)
-            dst = np.float32(perturbed_four_points_cord)
+            org = np.float32(four_points_cord) + t
+            dst = np.float32(perturbed_four_points_cord) 
             H = cv2.getPerspectiveTransform(org, dst)
             H_inverse = np.linalg.inv(H)
         except:
+            raise KeyError()
             perturbed_four_points_cord = []
             for i in range(4):
                 t1 = 32//(i+1)
@@ -90,7 +91,10 @@ class homo_dataset(data.Dataset):
             H_inverse = np.linalg.inv(H)
 
         warped_image = cv2.warpPerspective(img2, H_inverse, (img1.shape[1], img1.shape[0]))
-
+        img1_pil = Image.fromarray(img1)
+        warped_pil = Image.fromarray(warped_image)
+        img1_pil.save(f"{database_utm}data.png")
+        warped_pil.save(f"{query_utm}query.png")
         img_patch_ori = img1[top_left_point[1]:bottom_right_point[1], top_left_point[0]:bottom_right_point[0], :]
         img_patch_pert = warped_image[top_left_point[1]:bottom_right_point[1], top_left_point[0]:bottom_right_point[0],:]
 
@@ -119,7 +123,7 @@ class homo_dataset(data.Dataset):
         img2 = torch.from_numpy((img_patch_pert)).float().permute(2, 0, 1)
         flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
 
-        ### homo
+        ### homo BUT NOT USED !!!!!!!!!!!!!
         four_point_org = torch.zeros((2, 2, 2))
         four_point_org[:, 0, 0] = torch.Tensor([0, 0])
         four_point_org[:, 0, 1] = torch.Tensor([patch_size - 1, 0])
@@ -279,7 +283,10 @@ class MYDATA(homo_dataset):
         pos_index = random.choice(self.get_positive_indexes(index))
         pos_img = self._find_img_in_h5(pos_index, database_queries_split="database")
         
-        return super(MYDATA, self).__getitem__(img, pos_img)
+        query_utm = torch.tensor(self.queries_utms[index]).unsqueeze(0)
+        database_utm = torch.tensor(self.database_utms[pos_index]).unsqueeze(0)
+    
+        return super(MYDATA, self).__getitem__(img, pos_img, query_utm, database_utm)
 
     def _find_img_in_h5(self, index, database_queries_split=None):
         # Find inside index for h5
@@ -315,7 +322,7 @@ class MYDATA(homo_dataset):
 def fetch_dataloader(args, split='train'):
     train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split)
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                    pin_memory=True, shuffle=True, num_workers=8, drop_last=False)
+                                    pin_memory=True, shuffle=True, num_workers=1, drop_last=False)
     logging.info(f"{split} set: {train_dataset}")
     return train_loader
 
