@@ -8,6 +8,7 @@ import time
 import torch
 import torchvision
 from torch.cuda.amp import GradScaler
+from tqdm import tqdm
 
 from network import IHN
 from utils import *
@@ -20,6 +21,7 @@ def main(args):
 
     model = IHN(args)
     model.cuda()
+    model = torch.nn.DataParallel(model)
     model.train()
     print(f"Parameter Count: {count_parameters(model)}")
     optimizer, scheduler = fetch_optimizer(args, model)
@@ -51,9 +53,9 @@ def main(args):
 
 
 def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
-    for i_batch, data_blob in enumerate(train_loader):
+    for i_batch, data_blob in tqdm(enumerate(train_loader)):
         tic = time.time()
-        image1, image2, image2w, flow,  H  = [x.cuda() for x in data_blob]
+        image1, image2, flow,  H  = [x.cuda() for x in data_blob]
         image2_w = warp(image2, flow)
 
         if i_batch==0:
@@ -132,7 +134,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=0.0004)
     parser.add_argument('--num_steps', type=int, default=120000)
     parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--image_size', type=int, nargs='+', default=[128, 128])
+    parser.add_argument('--image_size', type=int, nargs='+', default=[512, 512])
     parser.add_argument('--wdecay', type=float, default=0.00001)
     parser.add_argument('--epsilon', type=float, default=1e-8)
     parser.add_argument('--clip', type=float, default=1.0)
@@ -160,7 +162,13 @@ if __name__ == "__main__":
     )
     parser.add_argument("--val_positive_dist_threshold",
                     type=int, default=0.1, help="_")
-    
+    parser.add_argument(
+        "--G_contrast",
+        type=str,
+        default="none",
+        choices=["none", "manual", "autocontrast", "equalize"],
+        help="G_contrast"
+    )
     args = parser.parse_args()
 
     setup_seed(1024)

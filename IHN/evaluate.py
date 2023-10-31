@@ -18,7 +18,7 @@ def validate_process(model, args):
     model.eval()
     mace_list = []
     args.batch_size = 1
-    val_dataset = datasets.fetch_dataloader(args, split='validation')
+    val_dataset = datasets.fetch_dataloader(args, split='val')
     for i_batch, data_blob in enumerate(val_dataset):
         image1, image2, flow_gt,  H  = [x.to(model.device) for x in data_blob]
         flow_gt = flow_gt.squeeze(0)

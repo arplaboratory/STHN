@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 import torch.utils.data as data
-import torchgeometry as tgm
+import kornia.geometry.transform as tgm
 
 import random
 from glob import glob
@@ -14,9 +14,10 @@ import h5py
 from sklearn.neighbors import NearestNeighbors
 import logging
 from PIL import Image
+import torchvision.transforms as transforms
 
 marginal = 32
-patch_size = 128
+patch_size = 384
 
 class homo_dataset(data.Dataset):
     def __init__(self):
@@ -27,7 +28,7 @@ class homo_dataset(data.Dataset):
         self.image_list_img2 = []
         self.dataset=[]
 
-    def __getitem__(self, query_index, database_index):
+    def __getitem__(self, query_PIL_image, database_PIL_image):
         if not self.init_seed:
             worker_info = torch.utils.data.get_worker_info()
             if worker_info is not None:
@@ -35,16 +36,9 @@ class homo_dataset(data.Dataset):
                 np.random.seed(worker_info.id)
                 random.seed(worker_info.id)
                 self.init_seed = True
-                
-        # Init
-        if self.database_folder_h5_df is None:
-            self.database_folder_h5_df = h5py.File(
-                self.database_folder_h5_path, "r", swmr=True)
-            self.queries_folder_h5_df = h5py.File(
-                self.queries_folder_h5_path, "r", swmr=True)
 
-        img1 = cv2.imread(self.image_list_img1[index])
-        img2 = cv2.imread(self.image_list_img2[index])
+        img1 = np.array(database_PIL_image)
+        img2 = np.array(query_PIL_image) # img2 warp to img1
 
         (height, width, _) = img1.shape
 
@@ -128,17 +122,17 @@ class homo_dataset(data.Dataset):
         ### homo
         four_point_org = torch.zeros((2, 2, 2))
         four_point_org[:, 0, 0] = torch.Tensor([0, 0])
-        four_point_org[:, 0, 1] = torch.Tensor([128 - 1, 0])
-        four_point_org[:, 1, 0] = torch.Tensor([0, 128 - 1])
-        four_point_org[:, 1, 1] = torch.Tensor([128 - 1, 128 - 1])
+        four_point_org[:, 0, 1] = torch.Tensor([patch_size - 1, 0])
+        four_point_org[:, 1, 0] = torch.Tensor([0, patch_size - 1])
+        four_point_org[:, 1, 1] = torch.Tensor([patch_size - 1, patch_size - 1])
 
         four_point = torch.zeros((2, 2, 2))
         four_point[:, 0, 0] = flow[:, 0, 0] + torch.Tensor([0, 0])
-        four_point[:, 0, 1] = flow[:, 0, -1] + torch.Tensor([128 - 1, 0])
-        four_point[:, 1, 0] = flow[:, -1, 0] + torch.Tensor([0, 128 - 1])
-        four_point[:, 1, 1] = flow[:, -1, -1] + torch.Tensor([128 - 1, 128 - 1])
-        four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0)
-        four_point = four_point.flatten(1).permute(1, 0).unsqueeze(0)
+        four_point[:, 0, 1] = flow[:, 0, -1] + torch.Tensor([patch_size - 1, 0])
+        four_point[:, 1, 0] = flow[:, -1, 0] + torch.Tensor([0, patch_size - 1])
+        four_point[:, 1, 1] = flow[:, -1, -1] + torch.Tensor([patch_size - 1, patch_size - 1])
+        four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
+        four_point = four_point.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
         H = tgm.get_perspective_transform(four_point_org, four_point)
         H = H.squeeze()
 
@@ -147,6 +141,7 @@ class homo_dataset(data.Dataset):
 class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train"):
         super(MYDATA, self).__init__()
+        self.args = args
         # Redirect datafolder path to h5
         self.database_folder_h5_path = join(
             datasets_folder, dataset_name, split + "_database.h5"
@@ -230,21 +225,21 @@ class MYDATA(homo_dataset):
         queries_folder_h5_df.close()
         
         # Some queries might have no positive, we should remove those queries.
-        queries_without_any_hard_positive = np.where(
+        queries_without_any_soft_positive = np.where(
             np.array([len(p)
-                     for p in self.hard_positives_per_query], dtype=object) == 0
+                     for p in self.soft_positives_per_query], dtype=object) == 0
         )[0]
-        if len(queries_without_any_hard_positive) != 0:
+        if len(queries_without_any_soft_positive) != 0:
             logging.info(
-                f"There are {len(queries_without_any_hard_positive)} queries without any positives "
+                f"There are {len(queries_without_any_soft_positive)} queries without any positives "
                 + "within the training set. They won't be considered as they're useless for training."
             )
         # Remove queries without positives
-        self.hard_positives_per_query = np.delete(
-            self.hard_positives_per_query, queries_without_any_hard_positive
+        self.soft_positives_per_query = np.delete(
+            self.soft_positives_per_query, queries_without_any_soft_positive
         )
         self.queries_paths = np.delete(
-            self.queries_paths, queries_without_any_hard_positive
+            self.queries_paths, queries_without_any_soft_positive
         )
 
         # Recompute images_paths and queries_num because some queries might have been removed
@@ -252,15 +247,39 @@ class MYDATA(homo_dataset):
             list(self.queries_paths)
         self.queries_num = len(self.queries_paths)
     
-    def get_positive_indexes(self, args, query_index):
+    def get_positive_indexes(self, query_index):
         positive_indexes = self.soft_positives_per_query[query_index]
         return positive_indexes
      
     def __len__(self):
-        return int(len(self.image_list_img1))
+        return self.queries_num
     
     def __getitem__(self, index):
-        return super().__getitem__(index)
+        # Init
+        if self.database_folder_h5_df is None:
+            self.database_folder_h5_df = h5py.File(
+                self.database_folder_h5_path, "r", swmr=True)
+            self.queries_folder_h5_df = h5py.File(
+                self.queries_folder_h5_path, "r", swmr=True)
+            
+        # Queries
+        if self.args.G_contrast!="none" and (self.args.force_ce or self.split!="extended"):
+            if self.args.G_contrast == "manual":
+                img = transforms.functional.adjust_contrast(self._find_img_in_h5(index, database_queries_split="queries"), contrast_factor=3)
+            elif self.args.G_contrast == "autocontrast":
+                img = transforms.functional.autocontrast(self._find_img_in_h5(index, database_queries_split="queries"))
+            elif self.args.G_contrast == "equalize":
+                img =  transforms.functional.equalize(self._find_img_in_h5(index, database_queries_split="queries"))
+            else:
+                raise NotImplementedError()
+        else:
+            img = self._find_img_in_h5(index, database_queries_split="queries")
+        
+        # Positives
+        pos_index = random.choice(self.get_positive_indexes(index))
+        pos_img = self._find_img_in_h5(pos_index, database_queries_split="database")
+        
+        return super(MYDATA, self).__getitem__(img, pos_img)
 
     def _find_img_in_h5(self, index, database_queries_split=None):
         # Find inside index for h5
@@ -296,6 +315,7 @@ class MYDATA(homo_dataset):
 def fetch_dataloader(args, split='train'):
     train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split)
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                    pin_memory=True, shuffle=True, num_workers=8, drop_last=False)       
+                                    pin_memory=True, shuffle=True, num_workers=8, drop_last=False)
+    logging.info(f"{split} set: {train_dataset}")
     return train_loader
 

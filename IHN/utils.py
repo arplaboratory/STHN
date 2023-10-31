@@ -7,6 +7,7 @@ from skimage import io
 import random
 import sys
 import torch.optim as optim
+from PIL import Image
 
 def bilinear_sampler(img, coords, mode='bilinear', mask=False):
     """ Wrapper for grid_sample, uses pixel coordinates """
@@ -33,7 +34,8 @@ def save_img(img, path):
     npimg = img.detach().cpu().numpy()
     npimg = np.transpose(npimg, (1, 2, 0))
     npimg = npimg.astype(np.uint8)
-    io.imsave(path, npimg)
+    img = Image.fromarray(npimg)
+    img.save(path)
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -129,7 +131,7 @@ class Logger:
 def sequence_loss(four_preds, flow_gt, H, gamma, args):
     """ Loss function defined over sequence of flow predictions """
 
-    flow_4cor = torch.zeros((four_preds[0].shape[0], 2, 2, 2)).to(four_preds[0].device)
+    flow_4cor = torch.zeros((four_preds.shape[0], 2, 2, 2)).to(four_preds[0].device)
     flow_4cor[:,:, 0, 0]  = flow_gt[:,:, 0, 0]
     flow_4cor[:,:, 0, 1] = flow_gt[:,:,  0, -1]
     flow_4cor[:,:, 1, 0] = flow_gt[:,:, -1, 0]

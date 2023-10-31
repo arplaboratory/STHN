@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchgeometry as tgm
+import kornia.geometry.transform as tgm
 from update import GMA
 from extractor import BasicEncoderQuarter
 from corr import CorrBlock
@@ -35,8 +35,8 @@ class IHN(nn.Module):
         four_point_org = four_point_org.unsqueeze(0)
         four_point_org = four_point_org.repeat(self.sz[0], 1, 1, 1)
         four_point_new = four_point_org + four_point
-        four_point_org = four_point_org.flatten(2).permute(0, 2, 1)
-        four_point_new = four_point_new.flatten(2).permute(0, 2, 1)
+        four_point_org = four_point_org.flatten(2).permute(0, 2, 1).contiguous()
+        four_point_new = four_point_new.flatten(2).permute(0, 2, 1).contiguous()
         H = tgm.get_perspective_transform(four_point_org, four_point_new)
         gridy, gridx = torch.meshgrid(torch.linspace(0, self.sz[3]-1, steps=self.sz[3]), torch.linspace(0, self.sz[2]-1, steps=self.sz[2]))
         points = torch.cat((gridx.flatten().unsqueeze(0), gridy.flatten().unsqueeze(0), torch.ones((1, self.sz[3] * self.sz[2]))),
@@ -59,8 +59,8 @@ class IHN(nn.Module):
         four_point_org = four_point_org.unsqueeze(0)
         four_point_org = four_point_org.repeat(self.sz[0], 1, 1, 1)
         four_point_new = four_point_org + four_point
-        four_point_org = four_point_org.flatten(2).permute(0, 2, 1)
-        four_point_new = four_point_new.flatten(2).permute(0, 2, 1)
+        four_point_org = four_point_org.flatten(2).permute(0, 2, 1).contiguous()
+        four_point_new = four_point_new.flatten(2).permute(0, 2, 1).contiguous()
         H = tgm.get_perspective_transform(four_point_org, four_point_new)
         gridy, gridx = torch.meshgrid(torch.linspace(0, self.sz[3]-1, steps=self.sz[3]), torch.linspace(0, self.sz[2]-1, steps=self.sz[2]))
         points = torch.cat((gridx.flatten().unsqueeze(0), gridy.flatten().unsqueeze(0), torch.ones((1, self.sz[3] * self.sz[2]))),
@@ -102,7 +102,7 @@ class IHN(nn.Module):
         coords0, coords1 = self.initialize_flow_4(image1)
         sz = fmap1_32.shape
         self.sz = sz
-        four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
+        four_point_disp = torch.zeros((sz[0], 2, 6, 6)).to(fmap1.device) # 2, 2, 2 for 128, 2, 4, 4, for 256, 2, 6, 6 for 384
 
         for itr in range(iters_lev0):
             corr = corr_fn(coords1)
