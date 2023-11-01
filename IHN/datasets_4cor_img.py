@@ -183,6 +183,7 @@ class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train"):
         super(MYDATA, self).__init__()
         self.args = args
+        self.dataset_name = dataset_name
         # Redirect datafolder path to h5
         self.database_folder_h5_path = join(
             datasets_folder, dataset_name, split + "_database.h5"
@@ -325,6 +326,9 @@ class MYDATA(homo_dataset):
     
         return super(MYDATA, self).__getitem__(img, pos_img, query_utm, database_utm)
 
+    def __repr__(self):
+        return f"< {self.__class__.__name__}, {self.dataset_name} - #database: {self.database_num}; #queries: {self.queries_num} >"
+    
     def _find_img_in_h5(self, index, database_queries_split=None):
         # Find inside index for h5
         if database_queries_split is None:
@@ -358,8 +362,12 @@ class MYDATA(homo_dataset):
 
 def fetch_dataloader(args, split='train'):
     train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split)
-    train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                    pin_memory=True, shuffle=True, num_workers=8, drop_last=False)
-    logging.info(f"{split} set: {train_dataset}")
+    if split == 'train':
+        train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
+                                        pin_memory=True, shuffle=True, num_workers=8, drop_last=True)
+    elif split == 'val':
+        train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
+                                pin_memory=True, shuffle=False, num_workers=8, drop_last=False)
+    print(f"{split} set: {train_dataset}")
     return train_loader
 
