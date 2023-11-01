@@ -20,13 +20,14 @@ marginal = 0
 patch_size = 256
 
 class homo_dataset(data.Dataset):
-    def __init__(self):
+    def __init__(self, permute=False):
 
         self.is_test = False
         self.init_seed = True
         self.image_list_img1 = []
         self.image_list_img2 = []
         self.dataset=[]
+        self.permute = permute
 
     def __getitem__(self, query_PIL_image, database_PIL_image, query_utm, database_utm):
         if not self.init_seed:
@@ -41,106 +42,141 @@ class homo_dataset(data.Dataset):
         img2 = np.array(database_PIL_image) # img1 warp to img2
 
         (height, width, _) = img1.shape
-
-        y = random.randint(marginal, height - marginal - patch_size)
-        x = random.randint(marginal, width - marginal - patch_size)
         t = np.float32(np.array(database_utm - query_utm))
+        t[0][0], t[0][1] = t[0][1], t[0][0] # Swap!
         
-        top_left_point = (x, y)
-        bottom_right_point = (patch_size + x, patch_size + y)
+        if self.permute:
+            y = random.randint(marginal, height - marginal - patch_size)
+            x = random.randint(marginal, width - marginal - patch_size)
+            
+            top_left_point = (x, y)
+            bottom_right_point = (patch_size + x, patch_size + y)
 
-        perturbed_four_points_cord = []
-
-        top_left_point_cord = (x, y)
-        bottom_left_point_cord = (x, patch_size + y - 1)
-        bottom_right_point_cord = (patch_size + x - 1, patch_size + y - 1)
-        top_right_point_cord = (x + patch_size - 1, y)
-        four_points_cord = [top_left_point_cord, bottom_left_point_cord, bottom_right_point_cord, top_right_point_cord]
-
-        try:
             perturbed_four_points_cord = []
-            for i in range(4):
-                t1 = random.randint(-marginal, marginal)
-                t2 = random.randint(-marginal, marginal)
 
-                perturbed_four_points_cord.append((four_points_cord[i][0] + t1,
-                                                  four_points_cord[i][1] + t2))
-                
-            y_grid, x_grid = np.mgrid[0:img1.shape[0], 0:img1.shape[1]]
+            top_left_point_cord = (x, y)
+            bottom_left_point_cord = (x, patch_size + y - 1)
+            bottom_right_point_cord = (patch_size + x - 1, patch_size + y - 1)
+            top_right_point_cord = (x + patch_size - 1, y)
+            four_points_cord = [top_left_point_cord, bottom_left_point_cord, bottom_right_point_cord, top_right_point_cord]
+
+            try:
+                perturbed_four_points_cord = []
+                for i in range(4):
+                    t1 = random.randint(-marginal, marginal)
+                    t2 = random.randint(-marginal, marginal)
+
+                    perturbed_four_points_cord.append((four_points_cord[i][0] + t1,
+                                                    four_points_cord[i][1] + t2))
+                    
+                y_grid, x_grid = np.mgrid[0:img1.shape[0], 0:img1.shape[1]]
+                point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
+                org = np.float32(four_points_cord) - t
+                dst = np.float32(perturbed_four_points_cord) 
+                H = cv2.getPerspectiveTransform(org, dst)
+                H_inverse = np.linalg.inv(H)
+            except:
+                raise KeyError()
+                # perturbed_four_points_cord = []
+                # for i in range(4):
+                #     t1 = 32//(i+1)
+                #     t2 = -32//(i+1)
+
+                #     perturbed_four_points_cord.append((four_points_cord[i][0] + t1,
+                #                                       four_points_cord[i][1] + t2))
+
+                # y_grid, x_grid = np.mgrid[0:img1.shape[0], 0:img1.shape[1]]
+                # point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
+
+                # org = np.float32(four_points_cord)
+                # dst = np.float32(perturbed_four_points_cord)
+                # H = cv2.getPerspectiveTransform(org, dst)
+                # H_inverse = np.linalg.inv(H)
+
+            warped_image = cv2.warpPerspective(img2, H_inverse, (img1.shape[1], img1.shape[0]))
+            # img1_pil = Image.fromarray(img1)
+            # warped_pil = Image.fromarray(warped_image)
+            # img1_pil.save(f"{database_utm}data.png")
+            # warped_pil.save(f"{query_utm}query.png")
+            img_patch_ori = img1[top_left_point[1]:bottom_right_point[1], top_left_point[0]:bottom_right_point[0], :]
+            img_patch_pert = warped_image[top_left_point[1]:bottom_right_point[1], top_left_point[0]:bottom_right_point[0],:]
+
+            point_transformed_branch1 = cv2.perspectiveTransform(np.array([point], dtype=np.float64), H).squeeze()
+
+            diff_branch1 = point_transformed_branch1 - np.array(point, dtype=np.float64)
+            diff_x_branch1 = diff_branch1[:, 0]
+            diff_y_branch1 = diff_branch1[:, 1]
+
+            diff_x_branch1 = diff_x_branch1.reshape((img1.shape[0], img1.shape[1]))
+            diff_y_branch1 = diff_y_branch1.reshape((img1.shape[0], img1.shape[1]))
+
+            pf_patch_x_branch1 = diff_x_branch1[top_left_point[1]:bottom_right_point[1],
+                                top_left_point[0]:bottom_right_point[0]]
+
+            pf_patch_y_branch1 = diff_y_branch1[top_left_point[1]:bottom_right_point[1],
+                                top_left_point[0]:bottom_right_point[0]]
+
+            pf_patch = np.zeros((patch_size, patch_size, 2))
+            pf_patch[:, :, 0] = pf_patch_x_branch1
+            pf_patch[:, :, 1] = pf_patch_y_branch1
+
+            img_patch_ori = img_patch_ori[:, :, ::-1].copy()
+            img_patch_pert = img_patch_pert[:, :, ::-1].copy()
+            img1 = torch.from_numpy((img_patch_ori)).float().permute(2, 0, 1)
+            img2 = torch.from_numpy((img_patch_pert)).float().permute(2, 0, 1)
+            flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
+
+            ### homo BUT NOT USED !!!!!!!!!!!!!
+            four_point_org = torch.zeros((2, 2, 2))
+            four_point_org[:, 0, 0] = torch.Tensor([0, 0])
+            four_point_org[:, 0, 1] = torch.Tensor([patch_size - 1, 0])
+            four_point_org[:, 1, 0] = torch.Tensor([0, patch_size - 1])
+            four_point_org[:, 1, 1] = torch.Tensor([patch_size - 1, patch_size - 1])
+
+            four_point = torch.zeros((2, 2, 2))
+            four_point[:, 0, 0] = flow[:, 0, 0] + torch.Tensor([0, 0])
+            four_point[:, 0, 1] = flow[:, 0, -1] + torch.Tensor([patch_size - 1, 0])
+            four_point[:, 1, 0] = flow[:, -1, 0] + torch.Tensor([0, patch_size - 1])
+            four_point[:, 1, 1] = flow[:, -1, -1] + torch.Tensor([patch_size - 1, patch_size - 1])
+            four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
+            four_point = four_point.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
+            H = tgm.get_perspective_transform(four_point_org, four_point)
+            H = H.squeeze()
+        else:
+            img1, img2 = torch.tensor(img1).float().permute(2, 0, 1), torch.tensor(img2).float().permute(2, 0, 1)
+            img1 = img1[:,128:384,128:384]
+            img2 = img2[:,128:384,128:384]
+            t_tensor = torch.Tensor(t).squeeze(0)
+            y_grid, x_grid = np.mgrid[0:img1.shape[1], 0:img1.shape[2]]
             point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
-            org = np.float32(four_points_cord) + t
-            dst = np.float32(perturbed_four_points_cord) 
-            H = cv2.getPerspectiveTransform(org, dst)
-            H_inverse = np.linalg.inv(H)
-        except:
-            raise KeyError()
-            perturbed_four_points_cord = []
-            for i in range(4):
-                t1 = 32//(i+1)
-                t2 = -32//(i+1)
+            four_point_org = torch.zeros((2, 2, 2))
+            four_point_org[:, 0, 0] = torch.Tensor([0, 0])
+            four_point_org[:, 0, 1] = torch.Tensor([256 - 1, 0])
+            four_point_org[:, 1, 0] = torch.Tensor([0, 256 - 1])
+            four_point_org[:, 1, 1] = torch.Tensor([256 - 1, 256 - 1])
+            four_point_1 = torch.zeros((2, 2, 2))
+            four_point_1[:, 0, 0] = t_tensor + torch.Tensor([0, 0])
+            four_point_1[:, 0, 1] = t_tensor + torch.Tensor([256 - 1, 0])
+            four_point_1[:, 1, 0] = t_tensor + torch.Tensor([0, 256 - 1])
+            four_point_1[:, 1, 1] = t_tensor + torch.Tensor([256 - 1, 256 - 1])
+            four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
+            four_point_1 = four_point_1.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
+            H = tgm.get_perspective_transform(four_point_org, four_point_1)
+            H = H.squeeze()
+            
+            point_transformed_branch1 = cv2.perspectiveTransform(np.array([point], dtype=np.float64), H.numpy()).squeeze()
+            diff_branch1 = point_transformed_branch1 - np.array(point, dtype=np.float64)
+            diff_x_branch1 = diff_branch1[:, 0]
+            diff_y_branch1 = diff_branch1[:, 1]
 
-                perturbed_four_points_cord.append((four_points_cord[i][0] + t1,
-                                                  four_points_cord[i][1] + t2))
-
-            y_grid, x_grid = np.mgrid[0:img1.shape[0], 0:img1.shape[1]]
-            point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
-
-            org = np.float32(four_points_cord)
-            dst = np.float32(perturbed_four_points_cord)
-            H = cv2.getPerspectiveTransform(org, dst)
-            H_inverse = np.linalg.inv(H)
-
-        warped_image = cv2.warpPerspective(img2, H_inverse, (img1.shape[1], img1.shape[0]))
-        img1_pil = Image.fromarray(img1)
-        warped_pil = Image.fromarray(warped_image)
-        img1_pil.save(f"{database_utm}data.png")
-        warped_pil.save(f"{query_utm}query.png")
-        img_patch_ori = img1[top_left_point[1]:bottom_right_point[1], top_left_point[0]:bottom_right_point[0], :]
-        img_patch_pert = warped_image[top_left_point[1]:bottom_right_point[1], top_left_point[0]:bottom_right_point[0],:]
-
-        point_transformed_branch1 = cv2.perspectiveTransform(np.array([point], dtype=np.float64), H).squeeze()
-
-        diff_branch1 = point_transformed_branch1 - np.array(point, dtype=np.float64)
-        diff_x_branch1 = diff_branch1[:, 0]
-        diff_y_branch1 = diff_branch1[:, 1]
-
-        diff_x_branch1 = diff_x_branch1.reshape((img1.shape[0], img1.shape[1]))
-        diff_y_branch1 = diff_y_branch1.reshape((img1.shape[0], img1.shape[1]))
-
-        pf_patch_x_branch1 = diff_x_branch1[top_left_point[1]:bottom_right_point[1],
-                             top_left_point[0]:bottom_right_point[0]]
-
-        pf_patch_y_branch1 = diff_y_branch1[top_left_point[1]:bottom_right_point[1],
-                             top_left_point[0]:bottom_right_point[0]]
-
-        pf_patch = np.zeros((patch_size, patch_size, 2))
-        pf_patch[:, :, 0] = pf_patch_x_branch1
-        pf_patch[:, :, 1] = pf_patch_y_branch1
-
-        img_patch_ori = img_patch_ori[:, :, ::-1].copy()
-        img_patch_pert = img_patch_pert[:, :, ::-1].copy()
-        img1 = torch.from_numpy((img_patch_ori)).float().permute(2, 0, 1)
-        img2 = torch.from_numpy((img_patch_pert)).float().permute(2, 0, 1)
-        flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
-
-        ### homo BUT NOT USED !!!!!!!!!!!!!
-        four_point_org = torch.zeros((2, 2, 2))
-        four_point_org[:, 0, 0] = torch.Tensor([0, 0])
-        four_point_org[:, 0, 1] = torch.Tensor([patch_size - 1, 0])
-        four_point_org[:, 1, 0] = torch.Tensor([0, patch_size - 1])
-        four_point_org[:, 1, 1] = torch.Tensor([patch_size - 1, patch_size - 1])
-
-        four_point = torch.zeros((2, 2, 2))
-        four_point[:, 0, 0] = flow[:, 0, 0] + torch.Tensor([0, 0])
-        four_point[:, 0, 1] = flow[:, 0, -1] + torch.Tensor([patch_size - 1, 0])
-        four_point[:, 1, 0] = flow[:, -1, 0] + torch.Tensor([0, patch_size - 1])
-        four_point[:, 1, 1] = flow[:, -1, -1] + torch.Tensor([patch_size - 1, patch_size - 1])
-        four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
-        four_point = four_point.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
-        H = tgm.get_perspective_transform(four_point_org, four_point)
-        H = H.squeeze()
-
-        return img2, img1, flow, H 
+            diff_x_branch1 = diff_x_branch1.reshape((img1.shape[1], img1.shape[2]))
+            diff_y_branch1 = diff_y_branch1.reshape((img1.shape[1], img1.shape[2]))
+            pf_patch = np.zeros((256, 256, 2))
+            pf_patch[:, :, 0] = diff_x_branch1
+            pf_patch[:, :, 1] = diff_y_branch1
+            flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
+            H = H.squeeze()
+        return img2, img1, flow, H, query_utm, database_utm
 
 class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train"):
@@ -322,7 +358,7 @@ class MYDATA(homo_dataset):
 def fetch_dataloader(args, split='train'):
     train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split)
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                    pin_memory=True, shuffle=True, num_workers=1, drop_last=False)
+                                    pin_memory=True, shuffle=True, num_workers=0, drop_last=False)
     logging.info(f"{split} set: {train_dataset}")
     return train_loader
 

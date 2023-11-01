@@ -57,7 +57,7 @@ def main(args):
 def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
     for i_batch, data_blob in tqdm(enumerate(train_loader)):
         tic = time.time()
-        image1, image2, flow,  H  = [x.cuda() for x in data_blob]
+        image1, image2, flow,  H, query_utm, database_utm  = [x.cuda() for x in data_blob]
         image2_w = warp(image2, flow)
 
         if i_batch==0:
@@ -66,7 +66,9 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
             save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=255), './watch/' + 'train_img1.bmp')
             save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=255), './watch/' + 'train_img2.bmp')
             save_img(torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=255), './watch/' + 'train_img2w.bmp')
-            raise KeyboardInterrupt()
+            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=255),
+                             torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=255), 
+                             './watch/' + 'train_overlap.png')
 
         optimizer.zero_grad()
 
@@ -139,7 +141,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--lr', type=float, default=0.0004)
     parser.add_argument('--num_steps', type=int, default=120000)
-    parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--image_size', type=int, nargs='+', default=[512, 512])
     parser.add_argument('--wdecay', type=float, default=0.00001)
     parser.add_argument('--epsilon', type=float, default=1e-8)
@@ -167,7 +169,7 @@ if __name__ == "__main__":
         help="The threshold of search region from prior knowledge for train and test. If -1, then no prior knowledge"
     )
     parser.add_argument("--val_positive_dist_threshold",
-                    type=int, default=100, help="_")
+                    type=int, default=50, help="_")
     parser.add_argument(
         "--G_contrast",
         type=str,
@@ -177,7 +179,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    setup_seed(1024)
+    setup_seed(5)
 
     wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
     sys.stdout = Logger_(args.logname, sys.stdout)

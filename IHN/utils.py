@@ -10,6 +10,7 @@ import torch.optim as optim
 from PIL import Image
 import logging
 import wandb
+import matplotlib.pyplot as plt
 
 def bilinear_sampler(img, coords, mode='bilinear', mask=False):
     """ Wrapper for grid_sample, uses pixel coordinates """
@@ -39,6 +40,19 @@ def save_img(img, path):
     img = Image.fromarray(npimg)
     img.save(path)
 
+def save_overlap_img(img1, img2, path):
+    npimg = img1.detach().cpu().numpy()
+    npimg = np.transpose(npimg, (1, 2, 0))
+    img1 = npimg.astype(np.uint8)
+    npimg = img2.detach().cpu().numpy()
+    npimg = np.transpose(npimg, (1, 2, 0))
+    img2 = npimg.astype(np.uint8)
+    plt.figure(dpi=200)
+    plt.axis('off')
+    plt.imshow(img2)
+    plt.imshow(img1, alpha=0.35)
+    plt.savefig(path, bbox_inches='tight')
+    
 def setup_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
