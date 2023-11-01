@@ -77,6 +77,7 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
         four_pred = model(image1, image2, iters_lev0=args.iters_lev0, iters_lev1=args.iters_lev1)
 
         loss, metrics = sequence_loss(four_pred, flow, H, args.gamma, args) 
+        metrics["lr"] = scheduler.get_lr()
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
 

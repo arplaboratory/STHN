@@ -143,7 +143,8 @@ class Logger:
         if self.total_steps % self.args.print_freq == self.args.print_freq-1:
             wandb.log({
                 "step": self.total_steps,
-                "mace": np.mean(self.running_loss_dict['mace'])
+                "mace": np.mean(self.running_loss_dict['mace']),
+                "lr": np.mean(np.array(self.running_loss_dict['lr']))
             },)
             self._print_training_status()
             self.running_loss_dict = {}

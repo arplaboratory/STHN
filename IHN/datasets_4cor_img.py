@@ -305,7 +305,7 @@ class MYDATA(homo_dataset):
                 self.queries_folder_h5_path, "r", swmr=True)
             
         # Queries
-        if self.args.G_contrast!="none" and (self.args.force_ce or self.split!="extended"):
+        if self.args.G_contrast!="none" and self.split!="extended":
             if self.args.G_contrast == "manual":
                 img = transforms.functional.adjust_contrast(self._find_img_in_h5(index, database_queries_split="queries"), contrast_factor=3)
             elif self.args.G_contrast == "autocontrast":
