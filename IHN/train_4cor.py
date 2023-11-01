@@ -38,15 +38,17 @@ def main(args):
         scheduler.load_state_dict(save_model['scheduler'])
         
     train_loader = datasets.fetch_dataloader(args, split="train")
+    if os.path.exists(os.path.join(args.datasets_folder, args.dataset_name, "extended_database.h5")):
+        extended_loader = datasets.fetch_dataloader(args, split="extended")
+    else:
+        extended_loader = None
     scaler = GradScaler(enabled=args.mixed_precision)
     logger = Logger(model, scheduler, args)
 
     while logger.total_steps <= args.num_steps:
         train(model, train_loader, optimizer, scheduler, logger, scaler, args)
-        if logger.total_steps >= args.num_steps:
-            plot_train(logger, args)
-            plot_val(logger, args)
-            break
+        if extended_loader is not None:
+            train(model, extended_loader, optimizer, scheduler, logger, scaler, args)
 
     PATH = args.output + f'/{args.name}.pth'
     torch.save(model.state_dict(), PATH)

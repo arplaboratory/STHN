@@ -362,7 +362,7 @@ class MYDATA(homo_dataset):
 
 def fetch_dataloader(args, split='train'):
     train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split)
-    if split == 'train':
+    if split == 'train' or split == 'extended':
         train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
                                         pin_memory=True, shuffle=True, num_workers=8, drop_last=True)
     elif split == 'val':
