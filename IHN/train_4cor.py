@@ -179,7 +179,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    setup_seed(5)
+    setup_seed(1024)
 
     wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
     sys.stdout = Logger_(args.logname, sys.stdout)

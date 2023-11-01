@@ -46,6 +46,7 @@ class homo_dataset(data.Dataset):
         t[0][0], t[0][1] = t[0][1], t[0][0] # Swap!
         
         if self.permute:
+            raise NotImplementedError()
             y = random.randint(marginal, height - marginal - patch_size)
             x = random.randint(marginal, width - marginal - patch_size)
             
@@ -358,7 +359,7 @@ class MYDATA(homo_dataset):
 def fetch_dataloader(args, split='train'):
     train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split)
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                    pin_memory=True, shuffle=True, num_workers=0, drop_last=False)
+                                    pin_memory=True, shuffle=True, num_workers=8, drop_last=False)
     logging.info(f"{split} set: {train_dataset}")
     return train_loader
 
