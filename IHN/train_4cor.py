@@ -55,7 +55,7 @@ def main(args):
 
 
 def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
-    for i_batch, data_blob in tqdm(enumerate(train_loader)):
+    for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
         image1, image2, flow,  H, query_utm, database_utm  = [x.cuda() for x in data_blob]
         image2_w = warp(image2, flow)
@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--lr', type=float, default=0.0004)
     parser.add_argument('--num_steps', type=int, default=120000)
-    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--image_size', type=int, nargs='+', default=[512, 512])
     parser.add_argument('--wdecay', type=float, default=0.00001)
     parser.add_argument('--epsilon', type=float, default=1e-8)
