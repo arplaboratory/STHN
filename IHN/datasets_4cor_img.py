@@ -62,10 +62,10 @@ class homo_dataset(data.Dataset):
                 random.seed(worker_info.id)
                 self.init_seed = True
 
-        img1 = np.array(query_PIL_image)
-        img2 = np.array(database_PIL_image) # img1 warp to img2
+        img1 = query_PIL_image
+        img2 = database_PIL_image # img1 warp to img2
 
-        (height, width, _) = img1.shape
+        height, width = img1.size
         t = np.float32(np.array(database_utm - query_utm))
         t[0][0], t[0][1] = t[0][1], t[0][0] # Swap!
         
@@ -168,7 +168,7 @@ class homo_dataset(data.Dataset):
             H = tgm.get_perspective_transform(four_point_org, four_point)
             H = H.squeeze()
         else:
-            img1, img2 = self.query_transform(Image.fromarray(img1)), self.database_transform(Image.fromarray(img2))
+            img1, img2 = self.query_transform(img1), self.database_transform(img2)
             img1 = img1[:,128:384,128:384]
             img2 = img2[:,128:384,128:384]
             t_tensor = torch.Tensor(t).squeeze(0)
