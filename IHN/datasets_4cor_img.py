@@ -184,6 +184,7 @@ class MYDATA(homo_dataset):
         super(MYDATA, self).__init__()
         self.args = args
         self.dataset_name = dataset_name
+        self.split = split
         # Redirect datafolder path to h5
         self.database_folder_h5_path = join(
             datasets_folder, dataset_name, split + "_database.h5"
