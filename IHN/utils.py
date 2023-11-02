@@ -11,6 +11,7 @@ from PIL import Image
 import logging
 import wandb
 import matplotlib.pyplot as plt
+from datasets_4cor_img import inv_base_transforms
 
 def bilinear_sampler(img, coords, mode='bilinear', mask=False):
     """ Wrapper for grid_sample, uses pixel coordinates """
@@ -34,20 +35,15 @@ def coords_grid(batch, ht, wd):
     return coords[None].expand(batch, -1, -1, -1)
 
 def save_img(img, path):
-    npimg = img.detach().cpu().numpy()
-    npimg = np.transpose(npimg, (1, 2, 0))
-    npimg = npimg.astype(np.uint8)
-    img = Image.fromarray(npimg)
+    img = inv_base_transforms(img.detach().cpu())
     img.save(path)
 
 def save_overlap_img(img1, img2, path):
-    npimg = img1.detach().cpu().numpy()
-    npimg = np.transpose(npimg, (1, 2, 0))
-    img1 = npimg.astype(np.uint8)
-    npimg = img2.detach().cpu().numpy()
-    npimg = np.transpose(npimg, (1, 2, 0))
-    img2 = npimg.astype(np.uint8)
-    plt.figure(dpi=200)
+    img1 = inv_base_transforms(img1.detach().cpu())
+    img1 = np.array(img1)
+    img2 = inv_base_transforms(img2.detach().cpu())
+    img2 = np.array(img2)
+    plt.figure(figsize=(50,10), dpi=200)
     plt.axis('off')
     plt.imshow(img2)
     plt.imshow(img1, alpha=0.35)

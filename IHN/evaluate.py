@@ -32,9 +32,9 @@ def validate_process(model, args):
         if i_batch == 0:
             if not os.path.exists('watch'):
                 os.makedirs('watch')
-            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=255),
+            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
                     './watch/' + "b1_epoch_" + str(i_batch).zfill(5) + "_iter_" + '.bmp')
-            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=255),
+            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0),
                     './watch/' + "b2_epoch_" + str(i_batch).zfill(5) + "_iter_" + '.bmp')
 
         image1 = image1.to(model.module.device)

@@ -19,6 +19,23 @@ import torchvision.transforms as transforms
 marginal = 0
 patch_size = 256
 
+imagenet_mean = [0.485, 0.456, 0.406]
+imagenet_std = [0.229, 0.224, 0.225]
+base_transform = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
+    ]
+)
+
+inv_base_transforms = transforms.Compose(
+    [ 
+        transforms.Normalize(mean = [ -m/s for m, s in zip(imagenet_mean, imagenet_std)],
+                             std = [ 1/s for s in imagenet_std]),
+        transforms.ToPILImage()
+    ]
+)
+
 class homo_dataset(data.Dataset):
     def __init__(self, permute=False):
 
@@ -28,7 +45,14 @@ class homo_dataset(data.Dataset):
         self.image_list_img2 = []
         self.dataset=[]
         self.permute = permute
-
+        self.query_transform = transforms.Compose(
+            [
+                transforms.Grayscale(num_output_channels=3),
+                base_transform
+            ]
+        )
+        self.database_transform = base_transform
+        
     def __getitem__(self, query_PIL_image, database_PIL_image, query_utm, database_utm):
         if not self.init_seed:
             worker_info = torch.utils.data.get_worker_info()
@@ -144,7 +168,7 @@ class homo_dataset(data.Dataset):
             H = tgm.get_perspective_transform(four_point_org, four_point)
             H = H.squeeze()
         else:
-            img1, img2 = torch.tensor(img1).float().permute(2, 0, 1), torch.tensor(img2).float().permute(2, 0, 1)
+            img1, img2 = self.query_transform(Image.fromarray(img1)), self.database_transform(Image.fromarray(img2))
             img1 = img1[:,128:384,128:384]
             img2 = img2[:,128:384,128:384]
             t_tensor = torch.Tensor(t).squeeze(0)

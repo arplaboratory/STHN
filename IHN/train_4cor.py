@@ -48,7 +48,7 @@ def main(args):
     while logger.total_steps <= args.num_steps:
         train(model, train_loader, optimizer, scheduler, logger, scaler, args)
         if extended_loader is not None:
-            train(model, extended_loader, optimizer, scheduler, logger, scaler, args)
+            train(model, extended_loader, optimizer, scheduler, logger, scaler, args, train_step_limit=len(train_loader))
 
     PATH = args.output + f'/{args.name}.pth'
     torch.save(model.state_dict(), PATH)
@@ -56,7 +56,8 @@ def main(args):
     return PATH
 
 
-def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
+def train(model, train_loader, optimizer, scheduler, logger, scaler, args, train_step_limit = None):
+    count = 0
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
         image1, image2, flow,  H, query_utm, database_utm  = [x.cuda() for x in data_blob]
@@ -65,11 +66,11 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
         if i_batch==0:
             if not os.path.exists('watch'):
                 os.makedirs('watch')
-            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=255), './watch/' + 'train_img1.bmp')
-            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=255), './watch/' + 'train_img2.bmp')
-            save_img(torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=255), './watch/' + 'train_img2w.bmp')
-            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=255),
-                             torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=255), 
+            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), './watch/' + 'train_img1.bmp')
+            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), './watch/' + 'train_img2.bmp')
+            save_img(torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=0), './watch/' + 'train_img2w.bmp')
+            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
+                             torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=0), 
                              './watch/' + 'train_overlap.png')
 
         optimizer.zero_grad()
@@ -104,7 +105,11 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args):
             torch.save(checkpoint, PATH)
         if logger.total_steps >= args.num_steps:
             break
-
+        
+        if train_step_limit is not None and count >= train_step_limit: # Balance train and extended
+            break
+        else:
+            count += 1
 
 def validate(model, args, logger):
     results = {}
