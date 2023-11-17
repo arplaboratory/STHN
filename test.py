@@ -174,7 +174,7 @@ def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize"):
     return recalls, recalls_str
 
 
-def test(args, eval_ds, model, model_db=None, test_method="hard_resize", pca=None, visualize=False):
+def test(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=False):
     """Compute features of the given dataset and compute the recalls."""
 
     assert test_method in [
@@ -187,13 +187,9 @@ def test(args, eval_ds, model, model_db=None, test_method="hard_resize", pca=Non
     ], f"test_method can't be {test_method}"
 
     if args.efficient_ram_testing:
-        if model_db is not None:
-            raise NotImplementedError()
         return test_efficient_ram_usage(args, eval_ds, model, test_method)
 
     model = model.eval()
-    if model_db is not None:
-        model_db = model_db.eval()
     with torch.no_grad():
         logging.debug("Extracting database features for evaluation/testing")
         # For database use "hard_resize", although it usually has no effect because database images have same resolution
@@ -216,10 +212,7 @@ def test(args, eval_ds, model, model_db=None, test_method="hard_resize", pca=Non
                 (len(eval_ds), args.features_dim), dtype="float32")
 
         for inputs, indices in tqdm(database_dataloader, ncols=100):
-            if model_db is not None:
-                features = model_db(inputs.to(args.device))
-            else:
-                features = model(inputs.to(args.device))
+            features = model(inputs.to(args.device))
             features = features.cpu().numpy()
             if pca != None:
                 features = pca.transform(features)
@@ -397,23 +390,37 @@ def test(args, eval_ds, model, model_db=None, test_method="hard_resize", pca=Non
                     best_position = (y, x)
             actual_position = eval_ds.queries_utms[query_index]
             error = np.linalg.norm((actual_position[0]-best_position[0], actual_position[1]-best_position[1]))
-            if error >= 50 and visualize: # Wrong results
+            if error >= args.val_positive_dist_threshold and visualize: # Wrong results
                 database_index = prediction[sort_idx[0]]
                 database_img = eval_ds._find_img_in_h5(database_index, "database")
-                if args.G_contrast:
-                    query_img = transforms.functional.adjust_contrast(eval_ds._find_img_in_h5(query_index, "queries"), contrast_factor=3)
+                if args.G_contrast!="none":
+                    if args.G_contrast == "manual":
+                        query_img = transforms.functional.adjust_contrast(eval_ds._find_img_in_h5(query_index, "queries"), contrast_factor=3)
+                    elif args.G_contrast == "autocontrast":
+                        query_img = transforms.functional.autocontrast(eval_ds._find_img_in_h5(query_index, "queries"))
+                    elif args.G_contrast == "equalize":
+                        query_img = transforms.functional.equalize(eval_ds._find_img_in_h5(query_index, "queries"))
+                    else:
+                        raise NotImplementedError()
                 else:
                     query_img = eval_ds._find_img_in_h5(query_index, "queries")
                 result = Image.new(database_img.mode, (524, 524), (255, 0, 0))
                 result.paste(database_img, (6, 6))
                 database_img = result
-                database_img.save(f"{save_dir}/{query_index}_wrong_d.png")
-                query_img.save(f"{save_dir}/{query_index}_wrong_q.png")
-            elif error <= 35 and visualize: # Wrong results
+                database_img.save(f"{save_dir}/{query_index}_{best_position}_wrong_d.png")
+                query_img.save(f"{save_dir}/{query_index}_{actual_position}_wrong_q.png")
+            elif error <= args.train_positives_dist_threshold and visualize: # Wrong results
                 database_index = prediction[sort_idx[0]]
                 database_img = eval_ds._find_img_in_h5(database_index, "database")
-                if args.G_contrast:
-                    query_img = transforms.functional.adjust_contrast(eval_ds._find_img_in_h5(query_index, "queries"), contrast_factor=3)
+                if args.G_contrast!="none":
+                    if args.G_contrast == "manual":
+                        query_img = transforms.functional.adjust_contrast(eval_ds._find_img_in_h5(query_index, "queries"), contrast_factor=3)
+                    elif args.G_contrast == "autocontrast":
+                        query_img = transforms.functional.autocontrast(eval_ds._find_img_in_h5(query_index, "queries"))
+                    elif args.G_contrast == "equalize":
+                        query_img = transforms.functional.equalize(eval_ds._find_img_in_h5(query_index, "queries"))
+                    else:
+                        raise NotImplementedError()
                 else:
                     query_img = eval_ds._find_img_in_h5(query_index, "queries")
                 result = Image.new(database_img.mode, (524, 524), (0, 255, 0))
@@ -443,10 +450,7 @@ def test(args, eval_ds, model, model_db=None, test_method="hard_resize", pca=Non
 def test_translation_pix2pix(args, eval_ds, model, visual_current=False, visual_image_num=10, epoch_num=None):
     """Compute PSNR of the given dataset and compute the recalls."""
     
-    if args.G_test_norm == "batch":
-        model.netG = model.netG.eval()
-    elif args.G_test_norm == "instance":
-        model.netG = model.netG.train()
+    model.netG = model.netG.eval()
     psnr_sum = 0
     psnr_count = 0
     save_dir = None
@@ -514,12 +518,9 @@ def test_translation_pix2pix(args, eval_ds, model, visual_current=False, visual_
 def test_translation_pix2pix_generate_h5(args, eval_ds, model, exclude_test_region=None):
     """Compute PSNR of the given dataset and compute the recalls."""
     
-    if args.G_test_norm == "batch":
-        model.netG = model.netG.eval()
-    elif args.G_test_norm == "instance":
-        model.netG = model.netG.train()
+    model.netG = model.netG.eval()
     
-    save_path = os.path.join(args.save_dir, "train_queries.h5")
+    save_path = os.path.join(args.save_dir, "extended_queries.h5")
 
     with torch.no_grad():
         # For database use "hard_resize", although it usually has no effect because database images have same resolution
@@ -532,7 +533,7 @@ def test_translation_pix2pix_generate_h5(args, eval_ds, model, exclude_test_regi
         eval_dataloader = DataLoader(
             dataset=eval_ds,
             num_workers=args.num_workers,
-            batch_size=16 if args.G_test_norm == "batch" else 1,
+            batch_size=16,
             pin_memory=(args.device == "cuda"),
             shuffle=False
         )

@@ -18,6 +18,8 @@ from model.functional import ReverseLayerF
 from model.pix2pix_networks.networks import UnetGenerator, GANLoss, NLayerDiscriminator, get_scheduler
 from model.sync_batchnorm import convert_model
 
+from model.Deit import deit_base_distilled_patch16_384, deit_small_distilled_patch16_224
+
 # Pretrained models on Google Landmarks v2 and Places 365
 PRETRAINED_MODELS = {
     'resnet18_places'  : '1DnEQXhmPxtBUrRc81nAvT8z17bk-GBj5',
@@ -61,11 +63,7 @@ class GeoLocalizationNet(nn.Module):
             # Concatenate conv layer to the aggregation layer
             actual_conv_output_dim = int(args.conv_output_dim / args.netvlad_clusters)
             logging.debug(f"Last conv layer dim: {actual_conv_output_dim}")
-            if args.add_bn:
-                self.conv_layer = nn.Sequential(nn.Conv2d(args.features_dim, actual_conv_output_dim, 1, bias=False),
-                                                nn.BatchNorm2d(actual_conv_output_dim),)
-            else:
-                self.conv_layer = nn.Conv2d(args.features_dim, actual_conv_output_dim, 1)
+            self.conv_layer = nn.Conv2d(args.features_dim, actual_conv_output_dim, 1)
             args.features_dim = actual_conv_output_dim
 
         if args.non_local:
@@ -76,59 +74,28 @@ class GeoLocalizationNet(nn.Module):
 
     def create_domain_classifier(self, args):
         domain_classifier = None
-        if self.DA.startswith('DANN_before'):
-            # Input dim = backbone_output_dim * H * W
-            if self.DA == 'DANN_before':
-                domain_classifier = nn.Sequential(nn.Linear(args.features_dim * 32 * 32, 1000, bias=False),
-                                                    nn.BatchNorm1d(1000),
-                                                    nn.ReLU(True),
-                                                    nn.Linear(1000, 2),
-                                                    nn.LogSoftmax(dim=1))
-            elif self.DA == 'DANN_before_conv':
-                domain_classifier = nn.Sequential(nn.Conv2d(args.features_dim, args.features_dim * 2, kernel_size=4, stride=2, bias=False),
-                                                    nn.BatchNorm2d(args.features_dim * 2),
-                                                    nn.ReLU(True),
-                                                    nn.Conv2d(args.features_dim * 2, args.features_dim * 4, kernel_size=4, stride=2, bias=False),
-                                                    nn.BatchNorm2d(args.features_dim * 4),
-                                                    nn.ReLU(True),
-                                                    nn.Conv2d(args.features_dim * 4, args.features_dim * 8, kernel_size=4, stride=2, bias=False),
-                                                    nn.BatchNorm2d(args.features_dim * 8),
-                                                    nn.ReLU(True),
-                                                    nn.Conv2d(args.features_dim * 8, 2, kernel_size=2),
-                                                    nn.Flatten(),
-                                                    nn.LogSoftmax(dim=1))
-        elif self.DA == 'DANN_after':
-            domain_classifier = nn.Sequential(nn.Linear(args.conv_output_dim, 100, bias=False),
-                                                   nn.BatchNorm1d(100),
-                                                   nn.ReLU(True),
-                                                   nn.Linear(100, 2),
-                                                   nn.LogSoftmax(dim=1))
-        else:
-            raise NotImplementedError()
+        domain_classifier = nn.Sequential(nn.Linear(args.fc_output_dim, 100, bias=False),
+                                                nn.BatchNorm1d(100),
+                                                nn.ReLU(True),
+                                                nn.Linear(100, 2),
+                                                nn.LogSoftmax(dim=1))
         return domain_classifier
 
 
-    def forward(self, x, is_train=False, alpha=1.0):
+    def forward(self, x, is_train=False, alpha=None):
         x = self.backbone(x)
         if self.self_att:
             x = self.non_local(x)
         if self.arch_name.startswith("vit"):
             x = x.last_hidden_state[:, 0, :]
             return x
-        if hasattr(self, "conv_layer"):
-            x = self.conv_layer(x)
         x_after = self.aggregation(x)
         if is_train is True:
-            if self.DA == 'none':
+            if not self.DA:
                 return x_after
-            elif self.DA.startswith('DANN_before'):
-                if self.DA == 'DANN_before':
-                    reverse_x = ReverseLayerF.apply(x.view(x.shape[0], -1), alpha)
-                elif self.DA == 'DANN_before_conv':
-                    reverse_x = ReverseLayerF.apply(x, alpha)
-            elif self.DA == 'DANN_after':
+            else:
                 reverse_x = ReverseLayerF.apply(x_after, alpha)
-            return x_after, reverse_x
+                return x_after, reverse_x
         return x_after
 
 
@@ -231,12 +198,6 @@ def get_backbone(args):
             else:
                 logging.debug(f"Train only conv4_x and conv5_x of the {args.backbone.split('conv')[0]}")
             layers = list(backbone.children())[:-2]
-
-        if args.remove_relu is True and (args.backbone.startswith("resnet50") or args.backbone.startswith("resnet101")):
-            last_layer = layers[-1][-1]
-            last_layer = nn.Sequential(*list(last_layer.modules())[1:-1])
-            layers[-1][-1] = last_layer
-
     elif args.backbone == "vgg16":
         if args.pretrain in ['places', 'gldv2']:
             backbone = get_pretrained_model(args)
@@ -306,20 +267,6 @@ def get_output_channels_dim(model):
     """Return the number of channels in the output of a model."""
     return model(torch.ones([1, 3, 224, 224])).shape[1]
 
-
-class GenerativeNet(nn.Module):
-    def __init__(self, args, input_channel_num, output_channel_num):
-        super().__init__()
-        self.model_name = args.G_net
-        if args.G_net == 'unet':
-            self.model = UnetGenerator(input_channel_num, output_channel_num, 8, norm=args.GAN_norm, upsample=args.GAN_upsample)
-        else:
-            raise NotImplementedError()
-    
-    def forward(self, x):
-        x = self.model(x)
-        return x
-    
 
 class pix2pix():
     def __init__(self, args, input_channel_num, output_channel_num, for_training=False):
@@ -426,3 +373,249 @@ class pix2pix():
         self.scheduler_D.step()
         lr = self.optimizer_G.param_groups[0]['lr']
         logging.debug('learning rate %.7f -> %.7f' % (old_lr, lr))
+
+
+class GeoLocalizationNetRerank(nn.Module):
+    """The used networks are composed of a backbone and an aggregation layer.
+    """
+
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        self.arch_name = args.backbone
+        self.out_dim = args.local_dim
+        if args.backbone.startswith("deit"):
+            if args.backbone == 'deitBase':
+                self.backbone = deit_base_distilled_patch16_384(img_size=args.resize, num_classes=args.fc_output_dim, embed_layer=AnySizePatchEmbed)
+            else:
+                self.backbone = deit_small_distilled_patch16_224(img_size=args.resize, num_classes=args.fc_output_dim, embed_layer=AnySizePatchEmbed)
+            args.features_dim = args.fc_output_dim
+            if args.hypercolumn:
+                self.hyper_s = args.hypercolumn // 100
+                self.hyper_e = args.hypercolumn % 100
+                self.local_head = nn.Linear(self.backbone.embed_dim*(self.hyper_e-self.hyper_s), self.out_dim, bias=True)
+            else:
+                self.local_head = nn.Linear(self.backbone.embed_dim, self.out_dim, bias=True)
+        else:
+            self.backbone = get_backbone(args)
+            self.aggregation = get_aggregation(args)
+            self.self_att = False
+
+            if args.aggregation in ["gem", "spoc", "mac", "rmac"]:
+                if args.l2 == "before_pool":
+                    self.aggregation = nn.Sequential(L2Norm(), self.aggregation, Flatten())
+                elif args.l2 == "after_pool":
+                    self.aggregation = nn.Sequential(self.aggregation, L2Norm(), Flatten())
+                elif args.l2 == "none":
+                    self.aggregation = nn.Sequential(self.aggregation, Flatten())
+
+            if args.fc_output_dim != None:
+                # Concatenate fully connected layer to the aggregation layer
+                self.aggregation = nn.Sequential(self.aggregation,
+                                                 nn.Linear(args.features_dim, args.fc_output_dim),
+                                                 L2Norm())
+                args.features_dim = args.fc_output_dim
+            if args.non_local:
+                non_local_list = [NonLocalBlock(channel_feat=get_output_channels_dim(self.backbone),
+                                                channel_inner=args.channel_bottleneck)] * args.num_non_local
+                self.non_local = nn.Sequential(*non_local_list)
+                self.self_att = True
+            if args.hypercolumn:
+                self.local_head = nn.Linear(1856, self.out_dim, bias=True)
+            else:
+                self.local_head = nn.Linear(1024, self.out_dim, bias=True)
+        # ==================================================================
+        self.local_head.weight.data.normal_(mean=0.0, std=0.01)
+        self.local_head.bias.data.zero_()
+        self.multi_out = args.num_local
+        self.single = False
+        if args.rerank_model == 'r2former':
+            self.Reranker = R2Former(decoder_depth=6, decoder_num_heads=4,
+                                     decoder_embed_dim=32, decoder_mlp_ratio=4,
+                                     decoder_norm_layer=partial(nn.LayerNorm, eps=1e-6),
+                                     num_classes=2, num_patches=2 * self.multi_out,
+                                     input_dim=args.fc_output_dim, num_corr=5)
+        else:
+            print('rerank_model not implemented!')
+            raise Exception
+
+    def forward_ori(self, x):
+        x = self.backbone(x)
+        if self.self_att:
+            x = self.non_local(x)
+        if self.arch_name.startswith("vit"):
+            x = x.last_hidden_state[:, 0, :]
+            return x
+        x = self.aggregation(x)
+        return x
+
+    def res_forward(self, x):
+        # print(self.backbone)
+        # raise Exception
+        x = self.backbone[0](x)
+        x = self.backbone[1](x)
+        x = self.backbone[2](x)
+        x = self.backbone[3](x)
+        x0 = x*1 #.detach()
+
+        x = self.backbone[4](x)
+        x1 = x*1 #.detach()
+        x = self.backbone[5](x)
+        x2 = x*1 #.detach()
+        x = self.backbone[6](x)
+        x3 = x*1
+        x = self.backbone[7](x)
+        x4 = x*1  #.detach()
+
+        if self.args.hypercolumn:
+            B,C, H, W = x3.shape
+            local_feature = torch.cat([
+                F.interpolate(x0, size=(H, W), mode='bicubic'), # 64
+                F.interpolate(x1, size=(H, W), mode='bicubic'), # 256
+                F.interpolate(x2, size=(H, W), mode='bicubic'), # 512
+                x3, # 1024
+                # F.interpolate(x4, size=(H, W), mode='bicubic'),
+            ],dim=1)
+        else:
+            local_feature = x3
+
+        # x = self.avgpool(x)
+        # x = torch.flatten(x, 1)
+        # x = self.fc(x)
+        return x, local_feature, x4
+
+    def forward_cnn(self, x):
+        # with torch.no_grad():
+        B,_, H, W = x.shape
+        query_img = x.clone()
+        x, feature, feature_last = self.res_forward(x)
+        x = self.aggregation(x)
+
+        _, C, f_H, f_W = feature.shape
+        assert f_H == np.ceil(H/16).astype(int) and f_W == np.ceil(W/16).astype(int)
+        feature_reshape = feature.permute((0,2,3,1)).reshape(B, f_H*f_W, C)
+        # print(feature_last.shape, feature_reshape.shape, query_img.shape, H//32, W//32)
+        feature_last_reshape = feature_last.permute((0,2,3,1)).reshape(B, np.ceil(H/32).astype(int)*np.ceil(W/32).astype(int), 2048)
+        feature_last_reshape = F.normalize(feature_last_reshape, p=2, dim=2)
+        # print(self.aggregation)
+        fc_weight = self.aggregation[1].weight.t()
+        # fc_weight = torch.eye(2048, dtype=torch.float32).cuda()
+        sim = torch.matmul(feature_last_reshape.clamp(min=1e-6), fc_weight)
+        last_map = (sim.clamp(min=1e-6)).sum(dim=2)  # /sim.max(dim=1,keepdim=True)[0]
+        last_map_reshape = F.interpolate(last_map.reshape([B, 1, np.ceil(H/32).astype(int), np.ceil(W/32).astype(int)]),
+                                        size=(np.ceil(H/16).astype(int), np.ceil(W/16).astype(int)), mode='bicubic')
+        last_map = last_map_reshape.reshape(B, np.ceil(H/16).astype(int)*np.ceil(W/16).astype(int))
+        # print(query_img.shape, x.shape, feature.shape, feature_reshape.shape)
+        # print(sim.shape, last_map.shape, last_map_reshape.shape)
+
+        order = torch.argsort(last_map, dim=1)
+        multi_out = np.minimum(order.shape[1], self.multi_out)
+        if order.shape[1] < self.multi_out:
+            print(order.shape, last_map.shape, last_map)
+        local_features = torch.gather(input=feature_reshape,
+                                      index=order[:, -multi_out:].unsqueeze(2).repeat(1, 1, feature_reshape.shape[2]),
+                                      dim=1)
+
+        HW = max(H, W)
+        # HW = 512.
+        x_xy = torch.cat([(order[:, -multi_out:].unsqueeze(2) % np.ceil(W/16).astype(int) * 16 + 8) / 1. / HW,
+                          (order[:, -multi_out:].unsqueeze(2) // np.ceil(W/16).astype(int) * 16 + 8) / 1. / HW], dim=2)
+        x_attention = torch.sort(last_map, dim=1)[0][:, -multi_out:]
+        x_attention = (x_attention / torch.max(x_attention, dim=1, keepdim=True)[0]).reshape(x_xy.shape[0],
+                                                                                                 x_xy.shape[1], 1)
+        if self.args.finetune:
+            local_features = self.local_head(local_features.reshape(B*multi_out, C)).reshape(B, multi_out, self.out_dim)
+        else:
+            local_features = self.local_head(local_features.detach().reshape(B * multi_out, C)).reshape(B, multi_out,
+                                                                                               self.out_dim)
+        if self.single:
+            return x
+        else:
+            return x, torch.flip(torch.cat([x_xy, x_attention, local_features], dim=2),dims=(1,))
+
+    def forward_deit(self, x):
+        # with torch.no_grad():
+        B, _, H, W = x.shape
+        x_ori = x.detach()
+        x = self.backbone.patch_embed(x)
+
+        cls_tokens = self.backbone.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        dist_token = self.backbone.dist_token.expand(B, -1, -1)
+        x = torch.cat((cls_tokens, dist_token, x), dim=1)
+
+        if H != self.backbone.patch_embed.img_size[0] or W != self.backbone.patch_embed.img_size[1]:
+            grid_size = [self.backbone.patch_embed.img_size[0]//16, self.backbone.patch_embed.img_size[1]//16]
+            matrix = self.backbone.pos_embed[:, 2:].reshape((1, grid_size[0], grid_size[1],self.backbone.embed_dim)).permute((0, 3, 1, 2))
+            new_size = max(H//16, W//16)
+            if grid_size[0] >= new_size and grid_size[1] >= new_size:
+                re_matrix = matrix[:, :, (grid_size[0]//2 - new_size//2):(grid_size[0]//2 - new_size//2 + new_size),
+                            (grid_size[1]//2 - new_size//2):(grid_size[1]//2 - new_size//2+new_size)]
+            else:
+                re_matrix = pos_resize(matrix, (new_size, new_size))
+            if H >= W:
+                new_matrix = re_matrix[:, :, :, (new_size//2 - W//16//2):(new_size//2 - W//16//2 + W//16)].permute(0, 2, 3, 1).reshape([1, -1, self.backbone.pos_embed.shape[-1]])
+            else:
+                new_matrix = re_matrix[:, :, (new_size//2 - H//16//2):(new_size//2 - H//16//2 + H//16), :].permute(0, 2, 3, 1).reshape([1, -1, self.backbone.pos_embed.shape[-1]])
+            # print(new_matrix.shape,H//16, W//16,new_size)
+            new_pos_embed = torch.cat([self.backbone.pos_embed[:, :2], new_matrix], dim=1)
+            x = x + new_pos_embed
+        else:
+            x = x + self.backbone.pos_embed
+        x = self.backbone.pos_drop(x)
+
+        output_list = []
+
+        for i, blk in enumerate(self.backbone.blocks):
+            if (not self.single) and i == (len(self.backbone.blocks)-1):  # len(self.blocks)-1:
+                output = x * 1
+                y = blk.norm1(x)
+                B, N, C = y.shape
+                qkv = blk.attn.qkv(y).reshape(B, N, 3, blk.attn.num_heads, C // blk.attn.num_heads).permute(2, 0, 3, 1, 4)
+                q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
+
+                att = (q @ k.transpose(-2, -1)) * blk.attn.scale
+                att = att.softmax(dim=-1)
+                last_map = (att[:, :, :2, 2:].detach()).sum(dim=1).sum(dim=1)
+            x = blk(x)
+
+            # to support hypercolumn, not used, can be removed.
+            if (not self.single) and self.args.hypercolumn:
+                if self.hyper_s <= i < self.hyper_e:
+                    output_list.append(x*1.) # .detach()
+
+        x = self.backbone.norm(x)
+
+        x_cls = self.backbone.head(x[:, 0])
+        x_dist = self.backbone.head_dist(x[:, 1])
+
+        if self.single:
+            return self.backbone.l2_norm((x_cls + x_dist) / 2)
+        else:
+            if self.args.hypercolumn:
+                output = torch.cat(output_list, dim=2)
+            order = torch.argsort(last_map, dim=1, descending=True)
+            multi_out = np.minimum(order.shape[1], self.multi_out)
+            local_features = torch.gather(input=output,
+                                          index=order[:, :multi_out].unsqueeze(2).repeat(1, 1, output.shape[2]),
+                                          dim=1)
+            # compute attention and coordinates
+            HW = max(H, W)
+            x_xy = torch.cat([(order[:, :multi_out].unsqueeze(2) % np.ceil(W / 16).astype(int) * 16 + 8) / 1. / HW,
+                              (order[:, :multi_out].unsqueeze(2) // np.ceil(W / 16).astype(int) * 16 + 8) / 1. / HW],
+                             dim=2)
+            x_attention = torch.sort(last_map, dim=1, descending=True)[0][:, :multi_out]
+            x_attention = (x_attention / torch.max(x_attention, dim=1, keepdim=True)[0]).reshape(x_xy.shape[0],
+                                                                                                 x_xy.shape[1], 1)
+            if self.args.finetune:
+                local_features = self.local_head(local_features.reshape(B * multi_out, -1)). \
+                    reshape(B, multi_out, self.out_dim)
+            else:
+                local_features = self.local_head(local_features.detach().reshape(B * multi_out, -1)).\
+                reshape(B, multi_out, self.out_dim)
+            return self.backbone.l2_norm((x_cls + x_dist) / 2), torch.cat([x_xy, x_attention, local_features], dim=2)
+
+    def forward(self, x):
+        if self.args.backbone.startswith("deit"):
+            return self.forward_deit(x)
+        else:
+            return self.forward_cnn(x)

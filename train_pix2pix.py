@@ -18,6 +18,7 @@ import torchvision.transforms as transforms
 from torch.utils.data.dataloader import DataLoader
 import wandb
 from uuid import uuid4
+from model.functional import calculate_psnr
 
 torch.backends.cudnn.benchmark = True  # Provides a speedup
 VISUAL_IMAGE_NUM = 10
@@ -92,7 +93,7 @@ train_ds = datasets_ws.TranslationDataset(
 logging.info(f"Train query set: {train_ds}")
 
 val_ds = datasets_ws.TranslationDataset(
-    args, args.datasets_folder, args.dataset_name, "val", clean_black_region=False)
+    args, args.datasets_folder, args.dataset_name, "val", clean_black_region=True)
 logging.info(f"Val set: {val_ds}")
 
 test_ds = datasets_ws.TranslationDataset(
@@ -100,10 +101,7 @@ test_ds = datasets_ws.TranslationDataset(
 logging.info(f"Test set: {test_ds}")
 
 # Initialize model
-if args.G_gray:
-    model = network.pix2pix(args, 3, 1, for_training=True)
-else:   
-    model = network.pix2pix(args, 3, 3, for_training=True)
+model = network.pix2pix(args, 3, 1, for_training=True)
 
 model.setup()
 
@@ -150,9 +148,11 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     else:
         visual_current = False
 
-    if visual_current:
-        _, _ = test.test_translation_pix2pix(args, val_ds, model, visual_current, visual_image_num=VISUAL_IMAGE_NUM, epoch_num=epoch_num)
+    psnr_list, psnr_str = test.test_translation_pix2pix(args, val_ds, model, visual_current, visual_image_num=VISUAL_IMAGE_NUM, epoch_num=epoch_num)
+    logging.info(f"Recalls on val set {val_ds}: {psnr_str}")
 
+    is_best = psnr_list[0] > best_psnr
+    
     wandb.log({
             "epoch_num": epoch_num,
             "GAN_loss": epoch_losses_GAN.mean(),
@@ -170,24 +170,36 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
             "optimizer_netG_state_dict": model.optimizer_G.state_dict(),
             "not_improved_num": not_improved_num,
         },
-        False,
+        True,
         filename="last_model.pth",
     )
         
-    if args.GAN_save_freq != 0 and epoch_num % args.GAN_save_freq == 0:
-        util.save_checkpoint(
-        args,
-        {
-            "epoch_num": epoch_num,
-            "model_netD_state_dict": model.netD.state_dict(),
-            "model_netG_state_dict": model.netG.state_dict(),
-            "optimizer_netD_state_dict": model.optimizer_D.state_dict(),
-            "optimizer_netG_state_dict": model.optimizer_G.state_dict(),
-            "not_improved_num": not_improved_num,
-        },
-        False,
-        filename=f"last_model_{epoch_num}.pth"
-    )
+    # if args.GAN_save_freq != 0 and epoch_num % args.GAN_save_freq == 0:
+    #     util.save_checkpoint(
+    #     args,
+    #     {
+    #         "epoch_num": epoch_num,
+    #         "model_netD_state_dict": model.netD.state_dict(),
+    #         "model_netG_state_dict": model.netG.state_dict(),
+    #         "optimizer_netD_state_dict": model.optimizer_D.state_dict(),
+    #         "optimizer_netG_state_dict": model.optimizer_G.state_dict(),
+    #         "not_improved_num": not_improved_num,
+    #     },
+    #     False,
+    #     filename=f"last_model_{epoch_num}.pth"
+    # )
+
+    if is_best:
+        logging.info(
+            f"Improved: previous best PSNR = {best_psnr:.1f}, current R@5 = {psnr_list[0]:.1f}"
+        )
+        best_psnr = psnr_list[0]
+        not_improved_num = 0
+    else:
+        not_improved_num += 1
+        logging.info(
+            f"Not improved: {not_improved_num}: best R@5 = {best_psnr:.1f}, current R@5 = {psnr_list[0]:.1f}"
+        )
 
 logging.info(
     f"Trained for {epoch_num+1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}"
