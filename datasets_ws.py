@@ -412,13 +412,10 @@ class TripletsDataset(BaseDataset):
                 + "within the training set. They won't be considered as they're useless for training."
             )
         # Remove queries without positives
-        self.hard_positives_per_query = np.delete(
-            self.hard_positives_per_query, queries_without_any_hard_positive
-        )
-        self.queries_paths = np.delete(
-            self.queries_paths, queries_without_any_hard_positive
-        )
-
+        self.hard_positives_per_query = np.delete(self.hard_positives_per_query, queries_without_any_hard_positive)
+        self.queries_paths = np.delete(self.queries_paths, queries_without_any_hard_positive)
+        self.queries_utms = np.delete(self.queries_utms, queries_without_any_hard_positive, axis=0)
+        
         # Recompute images_paths and queries_num because some queries might have been removed
         self.images_paths = list(self.database_paths) + \
             list(self.queries_paths)
