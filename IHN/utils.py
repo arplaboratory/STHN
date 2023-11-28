@@ -46,8 +46,9 @@ def save_overlap_img(img1, img2, path):
     plt.figure(figsize=(50,10), dpi=200)
     plt.axis('off')
     plt.imshow(img2)
-    plt.imshow(img1, alpha=0.35)
+    plt.imshow(img1, alpha=0.25)
     plt.savefig(path, bbox_inches='tight')
+    plt.close()
     
 def setup_seed(seed):
     torch.manual_seed(seed)

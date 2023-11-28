@@ -176,14 +176,19 @@ if __name__ == "__main__":
         default=-1,
         help="The threshold of search region from prior knowledge for train and test. If -1, then no prior knowledge"
     )
-    parser.add_argument("--val_positive_dist_threshold",
-                    type=int, default=50, help="_")
+    parser.add_argument("--val_positive_dist_threshold", type=int, default=50, help="_")
     parser.add_argument(
         "--G_contrast",
         type=str,
         default="none",
         choices=["none", "manual", "autocontrast", "equalize"],
         help="G_contrast"
+    )
+    parser.add_argument(
+        "--output_norm",
+        type=float,
+        default=-1,
+        help="Normalization for output"
     )
     args = parser.parse_args()
 

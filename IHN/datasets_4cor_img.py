@@ -387,7 +387,7 @@ def fetch_dataloader(args, split='train'):
     if split == 'train' or split == 'extended':
         train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
                                         pin_memory=True, shuffle=True, num_workers=8, drop_last=True)
-    elif split == 'val':
+    elif split == 'val' or split == 'test':
         train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
                                 pin_memory=True, shuffle=False, num_workers=8, drop_last=False)
     print(f"{split} set: {train_dataset}")
