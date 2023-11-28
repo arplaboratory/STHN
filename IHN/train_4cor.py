@@ -38,7 +38,7 @@ def main(args):
         scheduler.load_state_dict(save_model['scheduler'])
         
     train_loader = datasets.fetch_dataloader(args, split="train")
-    if os.path.exists(os.path.join(args.datasets_folder, args.dataset_name, "extended_database.h5")):
+    if os.path.exists(os.path.join(args.datasets_folder, args.dataset_name, "extended_queries.h5")):
         extended_loader = datasets.fetch_dataloader(args, split="extended")
     else:
         extended_loader = None
