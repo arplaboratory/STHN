@@ -25,12 +25,10 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         img1, img2, flow_gt,  H, query_utm, database_utm  = [x.to(model.device) for x in data_blob]
 
         if i_batch%1000 == 0:
-            if not os.path.exists('watch'):
-                os.makedirs('watch')
             save_img(torchvision.utils.make_grid((img1)),
-                     './watch/' + "b1_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
+                     '/'.join(args.model.split('/')[:-1]) + "/b1_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
             save_img(torchvision.utils.make_grid((img2)),
-                     './watch/' + "b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
+                     '/'.join(args.model.split('/')[:-1]) + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
 
         img1 = img1.to(model.device)
         img2 = img2.to(model.device)
@@ -75,7 +73,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             out = cv2.warpPerspective(img2[0].cpu().permute(1,2,0).numpy(),H,(256, 256),flags=cv2.INTER_LINEAR)
             save_overlap_img(torchvision.utils.make_grid((img1[0])),
                 torchvision.utils.make_grid((torch.from_numpy(out).permute(2, 0, 1))), 
-                './watch/' + f'eval_overlap_{i_batch}_{mace_vec.item()}.png')
+                '/'.join(args.model.split('/')[:-1]) + f'/eval_overlap_{i_batch}_{mace_vec.item()}.png')
     print("MACE Metric: ", final_mace)
     print(np.mean(np.array(timeall[1:-1])))
     io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savemat, {'matrix': total_mace.numpy()})
