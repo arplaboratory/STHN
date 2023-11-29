@@ -388,8 +388,15 @@ def fetch_dataloader(args, split='train'):
         train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
                                         pin_memory=True, shuffle=True, num_workers=8, drop_last=True)
     elif split == 'val' or split == 'test':
+        g = torch.Generator()
+        g.manual_seed(0)
         train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                pin_memory=True, shuffle=False, num_workers=8, drop_last=False)
+                                pin_memory=True, shuffle=False, num_workers=8,
+                                drop_last=False, worker_init_fn=seed_worker, generator=g)
     print(f"{split} set: {train_dataset}")
     return train_loader
 
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
