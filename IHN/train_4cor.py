@@ -22,9 +22,10 @@ def main(args):
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 
     model = STHEGAN(args)
-    model.cuda()
-    model = torch.nn.DataParallel(model)
-    model.train()
+    model.init_net()
+    model.net_G.train()
+    if args.use_ue:
+        model.net_D.train()
     print(f"Parameter Count: {count_parameters(model)}")
     optimizer, scheduler = fetch_optimizer(args, model)
 
@@ -185,10 +186,9 @@ if __name__ == "__main__":
         help="G_contrast"
     )
     parser.add_argument(
-        "--output_norm",
-        type=float,
-        default=-1,
-        help="Normalization for output"
+        "--use_ue",
+        action="store_true",
+        help="train uncertainty estimator with GAN"
     )
     args = parser.parse_args()
 

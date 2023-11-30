@@ -16,7 +16,9 @@ from utils import *
 @torch.no_grad()
 def validate_process(model, args):
     """ Perform evaluation on the FlyingChairs (test) split """
-    model.eval()
+    model.net_G.eval()
+    if args.use_ue:
+        model.net_D.eval()
     mace_list = []
     args.batch_size = 1
     val_dataset = datasets.fetch_dataloader(args, split='val')
@@ -43,7 +45,9 @@ def validate_process(model, args):
         mace = torch.sum((four_pr[0, :, :, :].cpu() - flow_4cor) ** 2, dim=0).sqrt()
         mace_list.append(mace.view(-1).numpy())
 
-    model.train()
+    model.net_G.train()
+    if args.use_ue:
+        model.net_D.train()
     mace = np.mean(np.concatenate(mace_list))
     print("Validation MACE: %f" % mace)
     return {'val_mace': mace}

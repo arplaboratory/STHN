@@ -155,7 +155,7 @@ class IHN(nn.Module):
 
         if test_mode:
             return four_point_disp
-        return four_point_predictions
+        return four_point_predictions, four_point_disp
 
 
 class STHEGAN():
@@ -169,7 +169,7 @@ class STHEGAN():
         self.four_point_org[:, 0, 1] = torch.Tensor([256 - 1, 0])
         self.four_point_org[:, 1, 0] = torch.Tensor([0, 256 - 1])
         self.four_point_org[:, 1, 1] = torch.Tensor([256 - 1, 256 - 1])
-        if args.use_uncertainty_estimator:
+        if args.use_ue:
             if args.D_net == 'patchGAN':
                 self.netD = NLayerDiscriminator(5) # satellite=3 thermal=1 warped_thermal=1
             elif args.D_net == 'patchGAN_deep':
@@ -209,9 +209,9 @@ class STHEGAN():
         H = tgm.get_perspective_transform(self.four_point_org, flow_4cor)
         self.real_warped_image_2 = tgm.warp_perspective(self.image_2, H, (self.image_1.shape[2], self.image_1.shape[3]))
 
-    def forward(self):
+    def forward(self, test_mode=False):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.four_pred = self.netG(self.image1, self.image2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
+        self.four_preds_list, self.four_pred = self.netG(self.image1, self.image2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1, test_mode=test_mode)
         four_point_1 = torch.zeros((2, 2, 2))
         t_tensor = -self.four_pred.squeeze(0)
         four_point_1[:, 0, 0] = t_tensor[:, 0, 0] + torch.Tensor([0, 0])
@@ -237,14 +237,16 @@ class STHEGAN():
 
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
-        # First, G(A) should fake the discriminator
-        fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)
-        pred_fake = self.netD(fake_AB)
-        self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
-        self.loss_G_L1 = self.criterionAUX(self.four_pred, self.flow_gt, self.args.gamma, self.args)  * self.G_loss_lambda
+        self.loss_G_Homo = self.criterionAUX(self.four_preds_list, self.flow_gt, self.args.gamma, self.args)  * self.G_loss_lambda
         # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1
+        self.loss_G = self.loss_G_GAN
+        if self.args.use_ue:
+            # First, G(A) should fake the discriminator
+            fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)
+            pred_fake = self.netD(fake_AB)
+            self.loss_G_GAN, self.metrics = self.criterionGAN(pred_fake, True)
+            self.loss_G = self.loss_G + self.loss_G_GAN
         self.loss_G.backward()
 
     def set_requires_grad(self, nets, requires_grad=False):
@@ -263,10 +265,11 @@ class STHEGAN():
     def optimize_parameters(self):
         self.forward()                   # compute fake images: G(A)
         # update D
-        self.set_requires_grad(self.netD, True)  # enable backprop for D
-        self.optimizer_D.zero_grad()     # set D's gradients to zero
-        self.backward_D()                # calculate gradients for D
-        self.optimizer_D.step()          # update D's weights
+        if self.args.use_ue:
+            self.set_requires_grad(self.netD, True)  # enable backprop for D
+            self.optimizer_D.zero_grad()     # set D's gradients to zero
+            self.backward_D()                # calculate gradients for D
+            self.optimizer_D.step()          # update D's weights
         # update G
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.optimizer_G.zero_grad()        # set G's gradients to zero
@@ -277,7 +280,8 @@ class STHEGAN():
         """Update learning rates for all the networks; called at the end of every epoch"""
         old_lr = self.optimizer_G.param_groups[0]['lr']
         self.scheduler_G.step()
-        self.scheduler_D.step()
+        if self.args.use_ue:
+            self.scheduler_D.step()
         lr = self.optimizer_G.param_groups[0]['lr']
         logging.debug('learning rate %.7f -> %.7f' % (old_lr, lr))
 
