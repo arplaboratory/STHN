@@ -189,6 +189,13 @@ if __name__ == "__main__":
         help="G_loss_lambda only for homo"
     )
     parser.add_argument(
+        "--D_net",
+        type=str,
+        default="patchGAN",
+        choices=["none", "patchGAN", "patchGAN_deep"],
+        help="D_net"
+    )
+    parser.add_argument(
         "--GAN_steps_decay",
         type=int,
         default=10000,

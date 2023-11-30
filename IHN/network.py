@@ -172,9 +172,9 @@ class STHEGAN():
         self.netG = IHN(args)
         if args.use_ue:
             if args.D_net == 'patchGAN':
-                self.netD = NLayerDiscriminator(5) # satellite=3 thermal=1 warped_thermal=1
+                self.netD = NLayerDiscriminator(9) # satellite=3 thermal=3 warped_thermal=3
             elif args.D_net == 'patchGAN_deep':
-                self.netD = NLayerDiscriminator(5, n_layers=4)
+                self.netD = NLayerDiscriminator(9, n_layers=4)
             else:
                 raise NotImplementedError()
         if for_training:
@@ -283,7 +283,7 @@ class STHEGAN():
             self.set_requires_grad(self.netD, True)  # enable backprop for D
             self.optimizer_D.zero_grad()     # set D's gradients to zero
             self.backward_D()                # calculate gradients for D
-            self.clip_grad_norm_(self.netG.parameters(), self.args.clip)
+            nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
             self.optimizer_D.step()          # update D's weights
             self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         # update G
