@@ -31,8 +31,8 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             save_img(torchvision.utils.make_grid((img2)),
                      '/'.join(args.model.split('/')[:-1]) + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
 
-        img1 = img1.to(model.net_G.device)
-        img2 = img2.to(model.net_G.device)
+        img1 = img1.to(model.netG.device)
+        img2 = img2.to(model.netG.device)
 
         time_start = time.time()
         model.set_input(img1, img2, flow_gt)
@@ -138,6 +138,8 @@ if __name__ == '__main__':
         action="store_true",
         help="train uncertainty estimator with GAN"
     )
+    parser.add_argument("--device", type=str,
+        default="cuda", choices=["cuda", "cpu"])
     args = parser.parse_args()
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 

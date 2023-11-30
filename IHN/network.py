@@ -8,7 +8,8 @@ from corr import CorrBlock
 from utils import *
 import os
 import sys
-from ..model.pix2pix_networks.networks import GANLoss, get_scheduler, NLayerDiscriminator
+from pix2pix_networks.networks import GANLoss, NLayerDiscriminator
+from sync_batchnorm import convert_model
 
 autocast = torch.cuda.amp.autocast
 
@@ -163,12 +164,12 @@ class STHEGAN():
         super().__init__()
         self.args = args
         self.device = args.device
-        self.G_net = IHN(args)
-        self.four_point_org = torch.zeros((2, 2, 2))
-        self.four_point_org[:, 0, 0] = torch.Tensor([0, 0])
-        self.four_point_org[:, 0, 1] = torch.Tensor([256 - 1, 0])
-        self.four_point_org[:, 1, 0] = torch.Tensor([0, 256 - 1])
-        self.four_point_org[:, 1, 1] = torch.Tensor([256 - 1, 256 - 1])
+        self.four_point_org_single = torch.zeros((1, 2, 2, 2)).to(self.device)
+        self.four_point_org_single[:, :, 0, 0] = torch.Tensor([0, 0]).to(self.device)
+        self.four_point_org_single[:, :, 0, 1] = torch.Tensor([256 - 1, 0]).to(self.device)
+        self.four_point_org_single[:, :, 1, 0] = torch.Tensor([0, 256 - 1]).to(self.device)
+        self.four_point_org_single[:, :, 1, 1] = torch.Tensor([256 - 1, 256 - 1]).to(self.device)
+        self.netG = IHN(args)
         if args.use_ue:
             if args.D_net == 'patchGAN':
                 self.netD = NLayerDiscriminator(5) # satellite=3 thermal=1 warped_thermal=1
@@ -177,10 +178,10 @@ class STHEGAN():
             else:
                 raise NotImplementedError()
         if for_training:
-            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=args.lr, betas=(0.5, 0.999))
-            self.scheduler_G = get_scheduler(self.optimizer_G, args)
-            self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=args.lr, betas=(0.5, 0.999))
-            self.scheduler_D = get_scheduler(self.optimizer_D, args)
+            self.optimizer_G, self.scheduler_G = fetch_optimizer(args, self.netG)
+            if args.use_ue:
+                self.optimizer_D, self.scheduler_D = fetch_optimizer(args, self.netD)
+            self.G_loss_lambda = args.G_loss_lambda
             self.criterionGAN = GANLoss(args.GAN_mode).to(args.device)
             self.criterionAUX = sequence_loss
 
@@ -201,24 +202,34 @@ class STHEGAN():
         self.image_1 = A.to(self.device)
         self.image_2 = B.to(self.device)
         self.flow_gt = flow_gt
-        flow_4cor = torch.zeros((flow_gt.shape[0], 2, 2, 2))
+        flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
         flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
         flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
         flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
         flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
-        H = tgm.get_perspective_transform(self.four_point_org, flow_4cor)
+        four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
+        t_tensor = -flow_4cor
+        four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)
+        four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + torch.Tensor([256 - 1, 0]).to(self.device)
+        four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + torch.Tensor([0, 256 - 1]).to(self.device)
+        four_point_1[:, :, 1, 1] = t_tensor[:, :, 1, 1] + torch.Tensor([256 - 1, 256 - 1]).to(self.device)
+        four_point_org = self.four_point_org_single.repeat(self.flow_gt.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
+        four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
+        H = tgm.get_perspective_transform(four_point_org, four_point_1)
         self.real_warped_image_2 = tgm.warp_perspective(self.image_2, H, (self.image_1.shape[2], self.image_1.shape[3]))
 
     def forward(self, test_mode=False):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.four_preds_list, self.four_pred = self.netG(self.image1, self.image2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1, test_mode=test_mode)
-        four_point_1 = torch.zeros((2, 2, 2))
-        t_tensor = -self.four_pred.squeeze(0)
-        four_point_1[:, 0, 0] = t_tensor[:, 0, 0] + torch.Tensor([0, 0])
-        four_point_1[:, 0, 1] = t_tensor[:, 0, 1] + torch.Tensor([256 - 1, 0])
-        four_point_1[:, 1, 0] = t_tensor[:, 1, 0] + torch.Tensor([0, 256 - 1])
-        four_point_1[:, 1, 1] = t_tensor[:, 1, 1] + torch.Tensor([256 - 1, 256 - 1])
-        H = tgm.get_perspective_transform(self.four_point_org, four_point_1)
+        self.four_preds_list, self.four_pred = self.netG(self.image_1, self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1, test_mode=test_mode)
+        four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
+        t_tensor = -self.four_pred
+        four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)
+        four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + torch.Tensor([256 - 1, 0]).to(self.device)
+        four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + torch.Tensor([0, 256 - 1]).to(self.device)
+        four_point_1[:, :, 1, 1] = t_tensor[:, :, 1, 1] + torch.Tensor([256 - 1, 256 - 1]).to(self.device)
+        four_point_org = self.four_point_org_single.repeat(self.flow_gt.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
+        four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
+        H = tgm.get_perspective_transform(four_point_org, four_point_1)
         self.fake_warped_image_2 = tgm.warp_perspective(self.image_2, H, (self.image_1.shape[2], self.image_1.shape[3]))
 
     def backward_D(self):
@@ -238,15 +249,18 @@ class STHEGAN():
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
         # Second, G(A) = B
-        self.loss_G_Homo = self.criterionAUX(self.four_preds_list, self.flow_gt, self.args.gamma, self.args)  * self.G_loss_lambda
+        self.loss_G_Homo, self.metrics = self.criterionAUX(self.four_preds_list, self.flow_gt, self.args.gamma, self.args) 
         # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN
+        self.loss_G = self.loss_G_Homo * self.G_loss_lambda
         if self.args.use_ue:
             # First, G(A) should fake the discriminator
             fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)
             pred_fake = self.netD(fake_AB)
-            self.loss_G_GAN, self.metrics = self.criterionGAN(pred_fake, True)
+            self.loss_G_GAN = self.criterionGAN(pred_fake, True)
             self.loss_G = self.loss_G + self.loss_G_GAN
+            self.metrics["GAN_loss"] = self.loss_G_GAN
+            self.metrics["G_loss"] = self.loss_G
+            self.metrics["D_loss"] = self.loss_D
         self.loss_G.backward()
 
     def set_requires_grad(self, nets, requires_grad=False):
@@ -269,10 +283,10 @@ class STHEGAN():
             self.set_requires_grad(self.netD, True)  # enable backprop for D
             self.optimizer_D.zero_grad()     # set D's gradients to zero
             self.backward_D()                # calculate gradients for D
-            self.clip_grad_norm_(self.net_G.parameters(), self.args.clip)
+            self.clip_grad_norm_(self.netG.parameters(), self.args.clip)
             self.optimizer_D.step()          # update D's weights
+            self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         # update G
-        self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.optimizer_G.zero_grad()        # set G's gradients to zero
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # update G's weights

@@ -21,18 +21,21 @@ import wandb
 def main(args):
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 
-    model = STHEGAN(args)
-    model.init_net()
-    model.net_G.train()
+    model = STHEGAN(args, for_training=True)
+    model.setup()
+    model.netG.train()
+    print(f"Parameter Count: {count_parameters(model.netG)}")
     if args.use_ue:
-        model.net_D.train()
-    print(f"Parameter Count: {count_parameters(model)}")
-    optimizer, scheduler = fetch_optimizer(args, model)
+        model.netD.train()
+        print(f"Parameter Count: {count_parameters(model.netD)}")
 
     if args.restore_ckpt is not None:
 
         save_model = torch.load(args.restore_ckpt)
-        model.load_state_dict(save_model['net'])
+        
+        model.netG.load_state_dict(save_model['netG'])
+        if args.use_ue:
+            model.netD.load_state_dict(save_model['netD'])
 
         optimizer.load_state_dict(save_model['optimizer'])
 
@@ -43,13 +46,12 @@ def main(args):
         extended_loader = datasets.fetch_dataloader(args, split="extended")
     else:
         extended_loader = None
-    scaler = GradScaler(enabled=args.mixed_precision)
-    logger = Logger(model, scheduler, args)
+    logger = Logger(model, model.scheduler_G, args)
 
     while logger.total_steps <= args.num_steps:
-        train(model, train_loader, optimizer, scheduler, logger, scaler, args)
+        train(model, train_loader, logger, args)
         if extended_loader is not None:
-            train(model, extended_loader, optimizer, scheduler, logger, scaler, args, train_step_limit=len(train_loader))
+            train(model, extended_loader, logger, args, train_step_limit=len(train_loader))
 
     PATH = args.output + f'/{args.name}.pth'
     torch.save(model.state_dict(), PATH)
@@ -57,11 +59,11 @@ def main(args):
     return PATH
 
 
-def train(model, train_loader, optimizer, scheduler, logger, scaler, args, train_step_limit = None):
+def train(model, train_loader, logger, args, train_step_limit = None):
     count = 0
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
-        image1, image2, flow, H, query_utm, database_utm  = [x.cuda() for x in data_blob]
+        image1, image2, flow, _, _, _  = [x.cuda() for x in data_blob]
         image2_w = warp(image2, flow)
 
         if i_batch==0:
@@ -88,7 +90,8 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args, train
             # plot_val(logger, args)
             PATH = args.output + f'/{logger.total_steps+1}_{args.name}.pth'
             checkpoint = {
-                "net": model.state_dict(),
+                "netG": model.netG.state_dict(),
+                "netD": model.netD.state_dict() if args.use_ue else None,
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict(),
             }
@@ -180,16 +183,26 @@ if __name__ == "__main__":
         help="train uncertainty estimator with GAN"
     )
     parser.add_argument(
-        "--use_ue",
-        action="store_true",
-        help="train uncertainty estimator with GAN"
-    )
-    parser.add_argument(
         "--G_loss_lambda",
         type=float,
-        default=100.0,
-        help="G_loss_lambda only for pix2pix"
+        default=1.0,
+        help="G_loss_lambda only for homo"
     )
+    parser.add_argument(
+        "--GAN_steps_decay",
+        type=int,
+        default=10000,
+        help="lr decay epoch num",
+    )
+    parser.add_argument(
+        "--GAN_mode",
+        type=str,
+        default="lsgan",
+        choices=["vanilla", "lsgan"],
+        help="Choices of GAN loss"
+    )
+    parser.add_argument("--device", type=str,
+        default="cuda", choices=["cuda", "cpu"])
     args = parser.parse_args()
 
     setup_seed(1024)
