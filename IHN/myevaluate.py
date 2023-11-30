@@ -95,7 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--mixed_precision', default=False, action='store_true',
                         help='use mixed precision')
     parser.add_argument('--dropout', type=float, default=0.0)
-    parser.add_argument('--gpuid', type=int, nargs='+', default=[0])
+    parser.add_argument('--gpuid', type=int, nargs='+', default=[0, 1])
     parser.add_argument('--savemat', type=str,  default='resmat')
     parser.add_argument('--savedict', type=str, default='resnpy')
     parser.add_argument('--savematflow', type=str,  default='flowmat')
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 
     model = IHN(args)
-    model_med = torch.load(args.model, map_location='cuda:1')
+    model_med = torch.load(args.model, map_location='cuda:0')
     for key in list(model_med.keys()):
         model_med[key.replace('module.','')] = model_med[key]
     for key in list(model_med.keys()):

@@ -6,7 +6,9 @@ from update import GMA
 from extractor import BasicEncoderQuarter
 from corr import CorrBlock
 from utils import *
-from model.pix2pix_networks.networks import GANLoss, get_scheduler, NLayerDiscriminator
+import os
+import sys
+from pix2pix_networks.networks import GANLoss, get_scheduler, NLayerDiscriminator
 
 autocast = torch.cuda.amp.autocast
 
