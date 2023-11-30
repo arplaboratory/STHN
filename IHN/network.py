@@ -269,12 +269,14 @@ class STHEGAN():
             self.set_requires_grad(self.netD, True)  # enable backprop for D
             self.optimizer_D.zero_grad()     # set D's gradients to zero
             self.backward_D()                # calculate gradients for D
+            self.clip_grad_norm_(self.net_G.parameters(), self.args.clip)
             self.optimizer_D.step()          # update D's weights
         # update G
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.optimizer_G.zero_grad()        # set G's gradients to zero
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # update G's weights
+        return self.metrics
 
     def update_learning_rate(self):
         """Update learning rates for all the networks; called at the end of every epoch"""

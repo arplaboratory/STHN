@@ -61,7 +61,7 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args, train
     count = 0
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
-        image1, image2, flow,  H, query_utm, database_utm  = [x.cuda() for x in data_blob]
+        image1, image2, flow, H, query_utm, database_utm  = [x.cuda() for x in data_blob]
         image2_w = warp(image2, flow)
 
         if i_batch==0:
@@ -74,21 +74,10 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args, train
                              torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=0), 
                              './watch/' + 'train_overlap.png')
 
-        optimizer.zero_grad()
-
-        four_pred = model(image1, image2, iters_lev0=args.iters_lev0, iters_lev1=args.iters_lev1)
-
-        loss, metrics = sequence_loss(four_pred, flow, args.gamma, args) 
-        metrics["lr"] = scheduler.get_lr()
-        scaler.scale(loss).backward()
-        scaler.unscale_(optimizer)
-
-        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-        scaler.step(optimizer)
-        scheduler.step()
-        scaler.update()
+        model.set_input(image1, image2, flow)
+        metrics = model.optimize_parameters()
+        metrics["lr"] = model.scheduler_G.get_lr()
         toc = time.time()
-
         metrics['time'] = toc - tic
         logger.push(metrics)
 
@@ -189,6 +178,17 @@ if __name__ == "__main__":
         "--use_ue",
         action="store_true",
         help="train uncertainty estimator with GAN"
+    )
+    parser.add_argument(
+        "--use_ue",
+        action="store_true",
+        help="train uncertainty estimator with GAN"
+    )
+    parser.add_argument(
+        "--G_loss_lambda",
+        type=float,
+        default=100.0,
+        help="G_loss_lambda only for pix2pix"
     )
     args = parser.parse_args()
 

@@ -23,7 +23,7 @@ def validate_process(model, args):
     args.batch_size = 1
     val_dataset = datasets.fetch_dataloader(args, split='val')
     for i_batch, data_blob in enumerate(tqdm(val_dataset)):
-        image1, image2, flow_gt,  H, _, _  = [x.to(model.module.device) for x in data_blob]
+        image1, image2, flow_gt,  H, _, _  = [x.to(model.net_G.module.device) for x in data_blob]
         flow_gt = flow_gt.squeeze(0)
         flow_4cor = torch.zeros((2, 2, 2))
         flow_4cor[:, 0, 0] = flow_gt[:, 0, 0]
@@ -39,9 +39,10 @@ def validate_process(model, args):
             save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0),
                     './watch/' + "b2_epoch_" + str(i_batch).zfill(5) + "_iter_" + '.bmp')
 
-        image1 = image1.to(model.module.device)
-        image2 = image2.to(model.module.device)
-        four_pr = model(image1 = image1, image2 = image2, iters_lev0 = args.iters_lev0, iters_lev1 = args.iters_lev1, test_mode=True)
+        image1 = image1.to(model.net_G.module.device)
+        image2 = image2.to(model.net_G.module.device)
+        model.set_input(image1, image2, flow_gt)
+        four_pr = model.forward(test_mode=True)
         mace = torch.sum((four_pr[0, :, :, :].cpu() - flow_4cor) ** 2, dim=0).sqrt()
         mace_list.append(mace.view(-1).numpy())
 

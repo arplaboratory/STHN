@@ -2,7 +2,7 @@ import numpy as np
 import os
 import torch
 import argparse
-from network import IHN
+from network import STHEGAN
 from utils import *
 import datasets_4cor_img as datasets
 import scipy.io as io
@@ -31,11 +31,12 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             save_img(torchvision.utils.make_grid((img2)),
                      '/'.join(args.model.split('/')[:-1]) + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
 
-        img1 = img1.to(model.device)
-        img2 = img2.to(model.device)
+        img1 = img1.to(model.net_G.device)
+        img2 = img2.to(model.net_G.device)
 
         time_start = time.time()
-        four_pred = model(img1, img2, iters_lev0=args.iters_lev0, iters_lev1=args.iters_lev1, test_mode=True)
+        model.set_input(img1, img2, flow_gt)
+        four_pred = model.forward(test_mode=True)
         time_end = time.time()
         timeall.append(time_end-time_start)
         # print(time_end-time_start)
@@ -133,15 +134,14 @@ if __name__ == '__main__':
         help="G_contrast"
     )
     parser.add_argument(
-        "--output_norm",
-        type=float,
-        default=-1,
-        help="Normalization for output"
+        "--use_ue",
+        action="store_true",
+        help="train uncertainty estimator with GAN"
     )
     args = parser.parse_args()
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 
-    model = IHN(args)
+    model = STHEGAN(args)
     model_med = torch.load(args.model, map_location='cuda:0')
     for key in list(model_med.keys()):
         model_med[key.replace('module.','')] = model_med[key]
