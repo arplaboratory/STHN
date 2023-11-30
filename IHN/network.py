@@ -6,6 +6,7 @@ from update import GMA
 from extractor import BasicEncoderQuarter
 from corr import CorrBlock
 from utils import *
+from model.pix2pix_networks.networks import GANLoss, get_scheduler, NLayerDiscriminator
 
 autocast = torch.cuda.amp.autocast
 
@@ -155,6 +156,111 @@ class IHN(nn.Module):
         return four_point_predictions
 
 
+class STHEGAN():
+    def __init__(self, args, homo_model, input_channel_num, output_channel_num):
+        super().__init__()
+        self.device = args.device
+        self.G_net = homo_model
+        if args.D_net == 'patchGAN':
+            self.netD = NLayerDiscriminator(input_channel_num + output_channel_num)
+        elif args.D_net == 'patchGAN_deep':
+            self.netD = NLayerDiscriminator(input_channel_num + output_channel_num, n_layers=4)
+        else:
+            raise NotImplementedError()
+        self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=args.lr, betas=(0.5, 0.999))
+        self.scheduler_G = get_scheduler(self.optimizer_G, args)
+        self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=args.lr, betas=(0.5, 0.999))
+        self.scheduler_D = get_scheduler(self.optimizer_D, args)
+        self.criterionGAN = GANLoss(args.GAN_mode).to(args.device)
+        self.criterionAUX = None
 
+    def setup(self):
+        if hasattr(self, 'netD'):
+            self.netD = self.init_net(self.netD)
+        self.netG = self.init_net(self.netG)
+
+    def init_net(self, model):
+        model = torch.nn.DataParallel(model)
+        if torch.cuda.device_count() >= 2:
+            # When using more than 1GPU, use sync_batchnorm for torch.nn.DataParallel
+            model = convert_model(model)
+            model = model.to(self.device)
+        return model
+    
+    def set_input(self, A, B, flow_gt):
+        self.image_1 = A.to(self.device)
+        self.image_2 = B.to(self.device)
+        flow_4cor = torch.zeros((flow_gt.shape[0], 2, 2, 2))
+        flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
+        flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
+        flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
+        flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
+        self.flow_4cor = flow_4cor
+
+    def forward(self):
+        """Run forward pass; called by both functions <optimize_parameters> and <test>."""
+        four_pred = self.netG(self.image1, self.image2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
+        self.real_B = None
+        # self.fake_B = self.netG(self.real_A)  # G(A)
+
+    def backward_D(self):
+        """Calculate GAN loss for the discriminator"""
+        # Fake; stop backprop to the generator by detaching fake_B
+        fake_AB = torch.cat((self.real_A, self.fake_B), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
+        pred_fake = self.netD(fake_AB.detach())
+        self.loss_D_fake = self.criterionGAN(pred_fake, False)
+        # Real
+        real_AB = torch.cat((self.real_A, self.real_B), 1)
+        pred_real = self.netD(real_AB)
+        self.loss_D_real = self.criterionGAN(pred_real, True)
+        # combine loss and calculate gradients
+        self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
+        self.loss_D.backward()
+
+    def backward_G(self):
+        """Calculate GAN and L1 loss for the generator"""
+        # First, G(A) should fake the discriminator
+        fake_AB = torch.cat((self.real_A, self.fake_B), 1)
+        pred_fake = self.netD(fake_AB)
+        self.loss_G_GAN = self.criterionGAN(pred_fake, True)
+        # Second, G(A) = B
+        self.loss_G_L1 = self.criterionAUX(self.fake_B, self.real_B) * self.G_loss_lambda
+        # combine loss and calculate gradients
+        self.loss_G = self.loss_G_GAN + self.loss_G_L1
+        self.loss_G.backward()
+
+    def set_requires_grad(self, nets, requires_grad=False):
+        """Set requies_grad=Fasle for all the networks to avoid unnecessary computations
+        Parameters:
+            nets (network list)   -- a list of networks
+            requires_grad (bool)  -- whether the networks require gradients or not
+        """
+        if not isinstance(nets, list):
+            nets = [nets]
+        for net in nets:
+            if net is not None:
+                for param in net.parameters():
+                    param.requires_grad = requires_grad
+
+    def optimize_parameters(self):
+        self.forward()                   # compute fake images: G(A)
+        # update D
+        self.set_requires_grad(self.netD, True)  # enable backprop for D
+        self.optimizer_D.zero_grad()     # set D's gradients to zero
+        self.backward_D()                # calculate gradients for D
+        self.optimizer_D.step()          # update D's weights
+        # update G
+        self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
+        self.optimizer_G.zero_grad()        # set G's gradients to zero
+        self.backward_G()                   # calculate graidents for G
+        self.optimizer_G.step()             # update G's weights
+
+    def update_learning_rate(self):
+        """Update learning rates for all the networks; called at the end of every epoch"""
+        old_lr = self.optimizer_G.param_groups[0]['lr']
+        self.scheduler_G.step()
+        self.scheduler_D.step()
+        lr = self.optimizer_G.param_groups[0]['lr']
+        logging.debug('learning rate %.7f -> %.7f' % (old_lr, lr))
 
 

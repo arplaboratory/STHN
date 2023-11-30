@@ -19,6 +19,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
     assert batch_size > 0, "batchsize > 0"
 
     total_mace = torch.empty(0)
+    total_flow = torch.empty(0)
     timeall=[]
     total_mace_dict={}
     for i_batch, data_blob in enumerate(tqdm(val_dataset)):
@@ -49,8 +50,13 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
         mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
       
+        flow_ = (flow_4cor)**2
+        flow_ = ((flow_[:,0,:,:] + flow_[:,1,:,:])**0.5)
+        flow_vec = torch.mean(torch.mean(flow_, dim=1), dim=1)
         total_mace = torch.cat([total_mace,mace_vec], dim=0)
         final_mace = torch.mean(total_mace).item()
+        total_flow = torch.cat([total_flow,flow_vec], dim=0)
+        final_flow = torch.mean(total_flow).item()
         # print(mace_.mean())
         # print("MACE Metric: ", final_mace)
         
@@ -78,6 +84,8 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
     print(np.mean(np.array(timeall[1:-1])))
     io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savemat, {'matrix': total_mace.numpy()})
     np.save(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savedict, total_mace.numpy())
+    io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savematflow, {'matrix': total_flow.numpy()})
+    np.save(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savedictflow, total_flow.numpy())
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -90,6 +98,8 @@ if __name__ == '__main__':
     parser.add_argument('--gpuid', type=int, nargs='+', default=[0])
     parser.add_argument('--savemat', type=str,  default='resmat')
     parser.add_argument('--savedict', type=str, default='resnpy')
+    parser.add_argument('--savematflow', type=str,  default='flowmat')
+    parser.add_argument('--savedictflow', type=str, default='flownpy')
     parser.add_argument('--dataset', type=str, default='mscoco', help='dataset')    
     parser.add_argument('--lev0', default=False, action='store_true',
                         help='warp no')
