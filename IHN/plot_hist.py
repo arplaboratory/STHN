@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-path = "satellite_thermal_dense"
+path = "satellite_thermal_ext_sparse_128"
 # An "interface" to matplotlib.axes.Axes.hist() method
 plt.figure()
 data = np.load(f'IHN_results/{path}/resnpy.npy', allow_pickle=True)

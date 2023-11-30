@@ -146,7 +146,7 @@ class Logger:
             self._print_training_status()
             self.running_loss_dict = {}
             
-def sequence_loss(four_preds, flow_gt, H, gamma, args):
+def sequence_loss(four_preds, flow_gt, gamma, args):
     """ Loss function defined over sequence of flow predictions """
 
     flow_4cor = torch.zeros((four_preds[0].shape[0], 2, 2, 2)).to(four_preds[0].device)

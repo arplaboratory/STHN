@@ -10,7 +10,7 @@ import torchvision
 from torch.cuda.amp import GradScaler
 from tqdm import tqdm
 
-from network import IHN
+from network import IHN, STHEGAN
 from utils import *
 
 from evaluate import validate_process
@@ -21,7 +21,7 @@ import wandb
 def main(args):
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 
-    model = IHN(args)
+    model = STHEGAN(args)
     model.cuda()
     model = torch.nn.DataParallel(model)
     model.train()
@@ -77,7 +77,7 @@ def train(model, train_loader, optimizer, scheduler, logger, scaler, args, train
 
         four_pred = model(image1, image2, iters_lev0=args.iters_lev0, iters_lev1=args.iters_lev1)
 
-        loss, metrics = sequence_loss(four_pred, flow, H, args.gamma, args) 
+        loss, metrics = sequence_loss(four_pred, flow, args.gamma, args) 
         metrics["lr"] = scheduler.get_lr()
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
