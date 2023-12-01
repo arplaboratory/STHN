@@ -12,6 +12,7 @@ import time
 from tqdm import tqdm
 import cv2
 import kornia.geometry.transform as tgm
+import matplotlib.pyplot as plt
 
 setup_seed(2022)
 def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
@@ -22,6 +23,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
     total_flow = torch.empty(0)
     timeall=[]
     total_mace_dict={}
+    mace_conf_list = []
     for i_batch, data_blob in enumerate(tqdm(val_dataset)):
         img1, img2, flow_gt,  H, query_utm, database_utm  = [x.to(model.device) for x in data_blob]
 
@@ -36,7 +38,16 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
 
         time_start = time.time()
         model.set_input(img1, img2, flow_gt)
-        four_pred = model.forward(test_mode=True)
+        model.forward()
+        four_pred = model.four_pred
+        if args.use_ue:
+            mace_ = (flow_4cor - four_pred.cpu().detach())**2
+            mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
+            mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
+            conf = model.predict_uncertainty()
+            conf_vec = torch.mean(conf, dim=[1, 2, 3])
+            for i in range(len(mace_vec)):
+                mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
         time_end = time.time()
         timeall.append(time_end-time_start)
         # print(time_end-time_start)
@@ -82,6 +93,13 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
                 torchvision.utils.make_grid((torch.from_numpy(out).permute(2, 0, 1))), 
                 '/'.join(args.model.split('/')[:-1]) + f'/eval_overlap_{i_batch}_{mace_vec.item()}.png')
     print("MACE Metric: ", final_mace)
+    if args.use_ue:
+        mace_conf_list = np.array(mace_conf_list)
+        # plot mace conf
+        plt.figure()
+        plt.scatter(mace_conf_list[:,0], mace_conf_list[:,1], s=5)
+        plt.savefig('/'.join(args.output.split('/')[:-1]) + f'/final_conf.png')
+        plt.close()
     print(np.mean(np.array(timeall[1:-1])))
     io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savemat, {'matrix': total_mace.numpy()})
     np.save(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savedict, total_mace.numpy())
@@ -155,7 +173,7 @@ if __name__ == '__main__':
     model.to(device) 
     model.eval()
 
-    batchsz = 1
+    batchsz = 16
 
     args.batch_size = batchsz
     val_dataset = datasets.fetch_dataloader(args, split='test')

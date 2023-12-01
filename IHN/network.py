@@ -90,7 +90,7 @@ class IHN(nn.Module):
 
         return coords0, coords1
 
-    def forward(self, image1, image2 , iters_lev0 = 6, iters_lev1=3, test_mode=False):
+    def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3):
         # image1 = 2 * (image1 / 255.0) - 1.0
         # image2 = 2 * (image2 / 255.0) - 1.0
         image1 = image1.contiguous()
@@ -154,8 +154,6 @@ class IHN(nn.Module):
             
             four_point_disp = four_point_disp + four_point_disp_med
 
-        if test_mode:
-            return four_point_disp
         return four_point_predictions, four_point_disp
 
 
@@ -218,9 +216,13 @@ class STHEGAN():
         H = tgm.get_perspective_transform(four_point_org, four_point_1)
         self.real_warped_image_2 = tgm.warp_perspective(self.image_2, H, (self.image_1.shape[2], self.image_1.shape[3]))
 
-    def forward(self, test_mode=False):
+    def predict_uncertainty(self):
+        fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
+        return self.netD(fake_AB)
+        
+    def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.four_preds_list, self.four_pred = self.netG(self.image_1, self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1, test_mode=test_mode)
+        self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
         four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
         t_tensor = -self.four_pred
         four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)

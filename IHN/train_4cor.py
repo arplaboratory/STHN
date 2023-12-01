@@ -108,7 +108,7 @@ def train(model, train_loader, logger, args, train_step_limit = None):
 def validate(model, args, logger):
     results = {}
     # Evaluate results
-    results.update(validate_process(model, args))
+    results.update(validate_process(model, args, logger))
     wandb.log({
                 "step": logger.total_steps,
                 "val_mace": results['val_mace']
