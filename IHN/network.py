@@ -10,9 +10,9 @@ import os
 import sys
 from pix2pix_networks.networks import GANLoss, NLayerDiscriminator
 from sync_batchnorm import convert_model
+import wandb
 
 autocast = torch.cuda.amp.autocast
-
 class IHN(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -258,9 +258,14 @@ class STHEGAN():
             pred_fake = self.netD(fake_AB)
             self.loss_G_GAN = self.criterionGAN(pred_fake, True)
             self.loss_G = self.loss_G + self.loss_G_GAN
-            self.metrics["GAN_loss"] = self.loss_G_GAN
-            self.metrics["G_loss"] = self.loss_G
-            self.metrics["D_loss"] = self.loss_D
+            self.metrics["GAN_loss"] = self.loss_G_GAN.cpu().item()
+            self.metrics["G_loss"] = self.loss_G.cpu().item()
+            self.metrics["D_loss"] = self.loss_D.cpu().item()
+            wandb.log({
+                "GAN_loss": self.metrics["GAN_loss"],
+                "G_loss": self.metrics["G_loss"],
+                "D_loss": self.metrics["D_loss"],
+            },)
         self.loss_G.backward()
 
     def set_requires_grad(self, nets, requires_grad=False):

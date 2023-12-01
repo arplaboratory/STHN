@@ -78,6 +78,7 @@ def train(model, train_loader, logger, args, train_step_limit = None):
 
         model.set_input(image1, image2, flow)
         metrics = model.optimize_parameters()
+        model.update_learning_rate()
         metrics["lr"] = model.scheduler_G.get_lr()
         toc = time.time()
         metrics['time'] = toc - tic
@@ -194,12 +195,6 @@ if __name__ == "__main__":
         default="patchGAN",
         choices=["none", "patchGAN", "patchGAN_deep"],
         help="D_net"
-    )
-    parser.add_argument(
-        "--GAN_steps_decay",
-        type=int,
-        default=10000,
-        help="lr decay epoch num",
     )
     parser.add_argument(
         "--GAN_mode",
