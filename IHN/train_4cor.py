@@ -42,6 +42,7 @@ def main(args):
         scheduler.load_state_dict(save_model['scheduler'])
         
     train_loader = datasets.fetch_dataloader(args, split="train")
+    val_loader = datasets.fetch_dataloader(args, split="val")
     if os.path.exists(os.path.join(args.datasets_folder, args.dataset_name, "extended_queries.h5")):
         extended_loader = datasets.fetch_dataloader(args, split="extended")
     else:
@@ -49,9 +50,9 @@ def main(args):
     logger = Logger(model, model.scheduler_G, args)
 
     while logger.total_steps <= args.num_steps:
-        train(model, train_loader, logger, args)
+        train(model, train_loader, val_loader, logger, args)
         if extended_loader is not None:
-            train(model, extended_loader, logger, args, train_step_limit=len(train_loader))
+            train(model, extended_loader, val_loader, logger, args, train_step_limit=len(train_loader))
 
     PATH = args.output + f'/{args.name}.pth'
     torch.save(model.state_dict(), PATH)
@@ -59,7 +60,7 @@ def main(args):
     return PATH
 
 
-def train(model, train_loader, logger, args, train_step_limit = None):
+def train(model, train_loader, val_loader, logger, args, train_step_limit = None):
     count = 0
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
@@ -85,8 +86,8 @@ def train(model, train_loader, logger, args, train_step_limit = None):
         logger.push(metrics)
 
         # Validate
-        if logger.total_steps % args.val_freq == args.val_freq - 1:
-            validate(model, args, logger)
+        if logger.total_steps:
+            validate(model, val_loader, args, logger)
             # plot_train(logger, args)
             # plot_val(logger, args)
             PATH = args.output + f'/{logger.total_steps+1}_{args.name}.pth'
@@ -103,10 +104,10 @@ def train(model, train_loader, logger, args, train_step_limit = None):
         else:
             count += 1
 
-def validate(model, args, logger):
+def validate(model, val_loader, args, logger):
     results = {}
     # Evaluate results
-    results.update(validate_process(model, args, logger))
+    results.update(validate_process(model, val_loader, args, logger))
     wandb.log({
                 "step": logger.total_steps,
                 "val_mace": results['val_mace']
