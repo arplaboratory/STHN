@@ -86,7 +86,7 @@ def train(model, train_loader, val_loader, logger, args, train_step_limit = None
         logger.push(metrics)
 
         # Validate
-        if logger.total_steps:
+        if logger.total_steps % args.val_freq == args.val_freq - 1:
             validate(model, val_loader, args, logger)
             # plot_train(logger, args)
             # plot_val(logger, args)
