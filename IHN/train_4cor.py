@@ -93,8 +93,6 @@ def train(model, train_loader, logger, args, train_step_limit = None):
             checkpoint = {
                 "netG": model.netG.state_dict(),
                 "netD": model.netD.state_dict() if args.use_ue else None,
-                'optimizer': optimizer.state_dict(),
-                'scheduler': scheduler.state_dict(),
             }
             torch.save(checkpoint, PATH)
         if logger.total_steps >= args.num_steps:
