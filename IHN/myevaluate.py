@@ -124,6 +124,7 @@ if __name__ == '__main__':
                         help='warp once')
     parser.add_argument('--weight', default=False, action='store_true',
                         help='weight')
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--model_name_lev0', default='', help='specify model0 name')
     parser.add_argument('--model_name_lev1', default='', help='specify model0 name')
     parser.add_argument(
@@ -171,8 +172,5 @@ if __name__ == '__main__':
     model.to(device) 
     model.eval()
 
-    batchsz = 1
-
-    args.batch_size = batchsz
     val_dataset = datasets.fetch_dataloader(args, split='test')
-    evaluate_SNet(model, val_dataset, batch_size=batchsz, args=args)
+    evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)

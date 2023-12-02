@@ -22,7 +22,6 @@ def validate_process(model, args, logger):
         model.netD.eval()
     mace_list = []
     mace_conf_list = []
-    args.batch_size = 1
     val_loader = datasets.fetch_dataloader(args, split='val')
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
         image1, image2, flow_gt,  H, _, _  = [x.to(model.netG.module.device) for x in data_blob]
