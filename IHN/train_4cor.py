@@ -197,7 +197,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--GAN_mode",
         type=str,
-        default="lsgan",
+        default="vanilla",
         choices=["vanilla", "lsgan"],
         help="Choices of GAN loss"
     )
