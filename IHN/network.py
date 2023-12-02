@@ -220,9 +220,12 @@ class STHEGAN():
         else:
             self.real_warped_image_2 = None
 
-    def predict_uncertainty(self):
+    def predict_uncertainty(self, GAN_mode='vanilla'):
         fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
         real_AB = torch.cat((self.image_1, self.image_2, self.real_warped_image_2), 1)
+        if GAN_mode == 'vanilla':
+            fake_AB = nn.Sigmoid()(fake_AB)
+            real_AB = nn.Sigmoid()(real_AB)
         return self.netD(fake_AB), self.netD(real_AB)
         
     def forward(self):

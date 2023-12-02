@@ -54,7 +54,7 @@ def validate_process(model, args, logger):
             mace_pred = (flow_4cor - four_pr.cpu().detach())**2
             mace_pred = ((mace_pred[:,0,:,:] + mace_pred[:,1,:,:])**0.5)
             mace_pred_vec = torch.mean(torch.mean(mace_pred, dim=1), dim=1)
-            conf_pred, conf_gt = model.predict_uncertainty()
+            conf_pred, conf_gt = model.predict_uncertainty(GAN_mode=args.GAN_mode)
             conf_pred_vec = torch.mean(conf_pred, dim=[1, 2, 3])
             conf_gt_vec = torch.mean(conf_gt, dim=[1, 2, 3])
             for i in range(len(mace_pred_vec)):
