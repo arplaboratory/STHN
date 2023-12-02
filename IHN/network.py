@@ -197,25 +197,28 @@ class STHEGAN():
             model = model.to(self.device)
         return model
     
-    def set_input(self, A, B, flow_gt):
+    def set_input(self, A, B, flow_gt=None):
         self.image_1 = A.to(self.device)
         self.image_2 = B.to(self.device)
         self.flow_gt = flow_gt
-        flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
-        flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
-        flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
-        flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
-        flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
-        four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
-        t_tensor = -flow_4cor
-        four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)
-        four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + torch.Tensor([256 - 1, 0]).to(self.device)
-        four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + torch.Tensor([0, 256 - 1]).to(self.device)
-        four_point_1[:, :, 1, 1] = t_tensor[:, :, 1, 1] + torch.Tensor([256 - 1, 256 - 1]).to(self.device)
-        four_point_org = self.four_point_org_single.repeat(self.flow_gt.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
-        four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
-        H = tgm.get_perspective_transform(four_point_org, four_point_1)
-        self.real_warped_image_2 = tgm.warp_perspective(self.image_2, H, (self.image_1.shape[2], self.image_1.shape[3]))
+        if self.flow_gt is not None:
+            flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
+            flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
+            flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
+            flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
+            flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
+            four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
+            t_tensor = -flow_4cor
+            four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)
+            four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + torch.Tensor([256 - 1, 0]).to(self.device)
+            four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + torch.Tensor([0, 256 - 1]).to(self.device)
+            four_point_1[:, :, 1, 1] = t_tensor[:, :, 1, 1] + torch.Tensor([256 - 1, 256 - 1]).to(self.device)
+            four_point_org = self.four_point_org_single.repeat(self.flow_gt.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
+            four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
+            H = tgm.get_perspective_transform(four_point_org, four_point_1)
+            self.real_warped_image_2 = tgm.warp_perspective(self.image_2, H, (self.image_1.shape[2], self.image_1.shape[3]))
+        else:
+            self.real_warped_image_2 = None
 
     def predict_uncertainty(self):
         fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
@@ -256,6 +259,10 @@ class STHEGAN():
         self.loss_G_Homo, self.metrics = self.criterionAUX(self.four_preds_list, self.flow_gt, self.args.gamma, self.args) 
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_Homo * self.G_loss_lambda
+        self.metrics["G_loss"] = self.loss_G.cpu().item()
+        wandb.log({
+                "G_loss": self.metrics["G_loss"],
+            })
         if self.args.use_ue:
             # First, G(A) should fake the discriminator
             fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)
@@ -263,13 +270,11 @@ class STHEGAN():
             self.loss_G_GAN = self.criterionGAN(pred_fake, True)
             self.loss_G = self.loss_G + self.loss_G_GAN
             self.metrics["GAN_loss"] = self.loss_G_GAN.cpu().item()
-            self.metrics["G_loss"] = self.loss_G.cpu().item()
             self.metrics["D_loss"] = self.loss_D.cpu().item()
             wandb.log({
                 "GAN_loss": self.metrics["GAN_loss"],
-                "G_loss": self.metrics["G_loss"],
                 "D_loss": self.metrics["D_loss"],
-            },)
+            })
         self.loss_G.backward()
 
     def set_requires_grad(self, nets, requires_grad=False):
@@ -303,11 +308,8 @@ class STHEGAN():
 
     def update_learning_rate(self):
         """Update learning rates for all the networks; called at the end of every epoch"""
-        old_lr = self.optimizer_G.param_groups[0]['lr']
         self.scheduler_G.step()
         if self.args.use_ue:
             self.scheduler_D.step()
-        lr = self.optimizer_G.param_groups[0]['lr']
-        logging.debug('learning rate %.7f -> %.7f' % (old_lr, lr))
 
 

@@ -15,13 +15,15 @@ import datasets_4cor_img as datasets
 from utils import *
 
 @torch.no_grad()
-def validate_process(model, val_loader, args, logger):
+def validate_process(model, args, logger):
     """ Perform evaluation on the FlyingChairs (test) split """
     model.netG.eval()
     if args.use_ue:
         model.netD.eval()
     mace_list = []
     mace_conf_list = []
+    args.batch_size = 1
+    val_loader = datasets.fetch_dataloader(args, split='val')
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
         image1, image2, flow_gt,  H, _, _  = [x.to(model.netG.module.device) for x in data_blob]
         flow_4cor = torch.zeros((flow_gt.shape[0], 2, 2, 2))
@@ -44,7 +46,7 @@ def validate_process(model, val_loader, args, logger):
                             torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                             './watch/' + 'train_overlap_gt.png')
         four_pr = model.four_pred
-        mace = torch.sum((four_pr.cpu().detach() - flow_4cor) ** 2, dim=0).sqrt()
+        mace = torch.sum((four_pr.cpu().detach() - flow_4cor) ** 2, dim=1).sqrt()
         mace_list.append(mace.view(-1).numpy())
         if args.use_ue:
             mace_gt = (flow_4cor - flow_4cor)**2

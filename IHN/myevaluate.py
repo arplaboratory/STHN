@@ -40,14 +40,6 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         model.set_input(img1, img2, flow_gt)
         model.forward()
         four_pred = model.four_pred
-        if args.use_ue:
-            mace_ = (flow_4cor - four_pred.cpu().detach())**2
-            mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
-            mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
-            conf = model.predict_uncertainty()
-            conf_vec = torch.mean(conf, dim=[1, 2, 3])
-            for i in range(len(mace_vec)):
-                mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
         time_end = time.time()
         timeall.append(time_end-time_start)
         # print(time_end-time_start)
@@ -72,6 +64,12 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         # print(mace_.mean())
         # print("MACE Metric: ", final_mace)
         
+        if args.use_ue:
+            conf = model.predict_uncertainty()
+            conf_vec = torch.mean(conf, dim=[1, 2, 3])
+            for i in range(len(mace_vec)):
+                mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
+
         if i_batch%1000 == 0:
             four_point_org = torch.zeros((2, 2, 2))
             four_point_org[:, 0, 0] = torch.Tensor([0, 0])
@@ -173,7 +171,7 @@ if __name__ == '__main__':
     model.to(device) 
     model.eval()
 
-    batchsz = 16
+    batchsz = 1
 
     args.batch_size = batchsz
     val_dataset = datasets.fetch_dataloader(args, split='test')
