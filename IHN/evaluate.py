@@ -47,13 +47,17 @@ def validate_process(model, val_loader, args, logger):
         mace = torch.sum((four_pr.cpu().detach() - flow_4cor) ** 2, dim=0).sqrt()
         mace_list.append(mace.view(-1).numpy())
         if args.use_ue:
-            mace_ = (flow_4cor - four_pr.cpu().detach())**2
-            mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
-            mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
-            conf = model.predict_uncertainty()
-            conf_vec = torch.mean(conf, dim=[1, 2, 3])
-            for i in range(len(mace_vec)):
-                mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
+            mace_gt = (flow_4cor - flow_4cor)**2
+            mace_gt = ((mace_gt[:,0,:,:] + mace_gt[:,1,:,:])**0.5)
+            mace_gt_vec = torch.mean(torch.mean(mace_gt, dim=1), dim=1)
+            mace_pred = (flow_4cor - four_pr.cpu().detach())**2
+            mace_pred = ((mace_pred[:,0,:,:] + mace_pred[:,1,:,:])**0.5)
+            mace_pred_vec = torch.mean(torch.mean(mace_pred, dim=1), dim=1)
+            conf_pred, conf_gt = model.predict_uncertainty()
+            conf_pred_vec = torch.mean(conf_pred, dim=[1, 2, 3])
+            conf_gt_vec = torch.mean(conf_gt, dim=[1, 2, 3])
+            for i in range(len(mace_pred_vec)):
+                mace_conf_list.append((mace_pred_vec[i].item(), conf_pred_vec[i].item(), mace_gt_vec[i].item(), conf_gt_vec[i].item()))
 
     model.netG.train()
     if args.use_ue:
@@ -62,6 +66,7 @@ def validate_process(model, val_loader, args, logger):
         # plot mace conf
         plt.figure()
         plt.scatter(mace_conf_list[:,0], mace_conf_list[:,1], s=5)
+        plt.scatter(mace_conf_list[:,2], mace_conf_list[:,3], s=5)
         plt.xlabel("MACE")
         plt.ylabel("conf")
         plt.savefig(args.output + f'/{logger.total_steps}_conf.png')
