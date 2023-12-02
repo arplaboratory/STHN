@@ -65,7 +65,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         # print("MACE Metric: ", final_mace)
         
         if args.use_ue:
-            conf = model.predict_uncertainty(GAN_mode=args.GAN_mode)
+            conf, _ = model.predict_uncertainty(GAN_mode=args.GAN_mode)
             conf_vec = torch.mean(conf, dim=[1, 2, 3])
             for i in range(len(mace_vec)):
                 mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
