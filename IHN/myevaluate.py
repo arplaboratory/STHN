@@ -169,13 +169,21 @@ if __name__ == '__main__':
 
     model = STHEGAN(args)
     model_med = torch.load(args.model, map_location='cuda:0')
-    for key in list(model_med.keys()):
-        model_med[key.replace('module.','')] = model_med[key]
-    for key in list(model_med.keys()):
-        if key.startswith('module'):
-            del model_med[key]
-    model.load_state_dict(model_med)
 
+    for key in list(model_med['netG'].keys()):
+        model_med['netG'][key.replace('module.','')] = model_med['netG'][key]
+    for key in list(model_med['netG'].keys()):
+        if key.startswith('module'):
+            del model_med['netG'][key]
+    model.netG.load_state_dict(model_med['netG'])
+    if args.use_ue:
+        for key in list(model_med['netD'].keys()):
+            model_med['netD'][key.replace('module.','')] = model_med['netD'][key]
+        for key in list(model_med['netD'].keys()):
+            if key.startswith('module'):
+                del model_med['netD'][key]
+        model.netD.load_state_dict(model_med['netD'])
+    
     model.to(device) 
     model.eval()
 
