@@ -36,10 +36,6 @@ def main(args):
         model.netG.load_state_dict(save_model['netG'])
         if args.use_ue:
             model.netD.load_state_dict(save_model['netD'])
-
-        optimizer.load_state_dict(save_model['optimizer'])
-
-        scheduler.load_state_dict(save_model['scheduler'])
         
     train_loader = datasets.fetch_dataloader(args, split="train")
     if os.path.exists(os.path.join(args.datasets_folder, args.dataset_name, "extended_queries.h5")):
@@ -58,7 +54,7 @@ def train(model, train_loader, logger, args, train_step_limit = None):
     last_best_val_mace = None
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
-        image1, image2, flow, _, _, _  = [x.cuda() for x in data_blob]
+        image1, image2, flow, _, query_utm, database_utm  = [x.cuda() for x in data_blob]
         image2_w = warp(image2, flow)
 
         if i_batch==0:

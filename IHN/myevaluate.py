@@ -33,9 +33,6 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             save_img(torchvision.utils.make_grid((img2)),
                      '/'.join(args.model.split('/')[:-1]) + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
 
-        img1 = img1.to(model.netG.device)
-        img2 = img2.to(model.netG.device)
-
         time_start = time.time()
         model.set_input(img1, img2, flow_gt)
         model.forward()
@@ -65,31 +62,18 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         # print("MACE Metric: ", final_mace)
         
         if args.use_ue:
-            conf, _ = model.predict_uncertainty(GAN_mode=args.GAN_mode)
-            conf_vec = torch.mean(conf, dim=[1, 2, 3])
+            with torch.no_grad():
+                conf_pred, conf_gt = model.predict_uncertainty(GAN_mode=args.GAN_mode)
+            # print(f"conf_pred:{torch.amax(conf_pred, dim=[1,2,3])}, {torch.mean(conf_pred, dim=[1,2,3])}. conf_gt:{torch.amax(conf_gt, dim=[1,2,3])}, {torch.mean(conf_gt, dim=[1,2,3])}")
+            # print(f"pred_mace:{mace_vec}")
+            conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
             for i in range(len(mace_vec)):
                 mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
 
         if i_batch%1000 == 0:
-            four_point_org = torch.zeros((2, 2, 2))
-            four_point_org[:, 0, 0] = torch.Tensor([0, 0])
-            four_point_org[:, 0, 1] = torch.Tensor([256 - 1, 0])
-            four_point_org[:, 1, 0] = torch.Tensor([0, 256 - 1])
-            four_point_org[:, 1, 1] = torch.Tensor([256 - 1, 256 - 1])
-            four_point_1 = torch.zeros((2, 2, 2))
-            t_tensor = -four_pred.cpu().detach().squeeze(0)
-            four_point_1[:, 0, 0] = t_tensor[:, 0, 0] + torch.Tensor([0, 0])
-            four_point_1[:, 0, 1] = t_tensor[:, 0, 1] + torch.Tensor([256 - 1, 0])
-            four_point_1[:, 1, 0] = t_tensor[:, 1, 0] + torch.Tensor([0, 256 - 1])
-            four_point_1[:, 1, 1] = t_tensor[:, 1, 1] + torch.Tensor([256 - 1, 256 - 1])
-            four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
-            four_point_1 = four_point_1.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
-            H = tgm.get_perspective_transform(four_point_org, four_point_1)
-            H = H.squeeze().numpy()
-            out = cv2.warpPerspective(img2[0].cpu().permute(1,2,0).numpy(),H,(256, 256),flags=cv2.INTER_LINEAR)
-            save_overlap_img(torchvision.utils.make_grid((img1[0])),
-                torchvision.utils.make_grid((torch.from_numpy(out).permute(2, 0, 1))), 
-                '/'.join(args.model.split('/')[:-1]) + f'/eval_overlap_{i_batch}_{mace_vec.item()}.png')
+            save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
+                            torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
+                            '/'.join(args.model.split('/')[:-1]) + f'/eval_overlap_{i_batch}_{mace_vec.mean().item()}.png')
     print("MACE Metric: ", final_mace)
     if args.use_ue:
         mace_conf_list = np.array(mace_conf_list)
@@ -151,6 +135,13 @@ if __name__ == '__main__':
         help="G_contrast"
     )
     parser.add_argument(
+        "--D_net",
+        type=str,
+        default="patchGAN",
+        choices=["none", "patchGAN", "patchGAN_deep"],
+        help="D_net"
+    )
+    parser.add_argument(
         "--GAN_mode",
         type=str,
         default="vanilla",
@@ -184,8 +175,10 @@ if __name__ == '__main__':
                 del model_med['netD'][key]
         model.netD.load_state_dict(model_med['netD'])
     
-    model.to(device) 
-    model.eval()
+    model.setup() 
+    model.netG.eval()
+    if args.use_ue:
+        model.netD.eval()
 
-    val_dataset = datasets.fetch_dataloader(args, split='test')
+    val_dataset = datasets.fetch_dataloader(args, split='train')
     evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)

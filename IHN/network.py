@@ -171,9 +171,9 @@ class STHEGAN():
         self.netG = IHN(args)
         if args.use_ue:
             if args.D_net == 'patchGAN':
-                self.netD = NLayerDiscriminator(9) # satellite=3 thermal=3 warped_thermal=3
+                self.netD = NLayerDiscriminator(9, norm="instance") # satellite=3 thermal=3 warped_thermal=3. norm should be instance?
             elif args.D_net == 'patchGAN_deep':
-                self.netD = NLayerDiscriminator(9, n_layers=4)
+                self.netD = NLayerDiscriminator(9, n_layers=4, norm="instance")
             else:
                 raise NotImplementedError()
             self.criterionGAN = GANLoss(args.GAN_mode).to(args.device)
@@ -312,7 +312,7 @@ class STHEGAN():
         # update G
         self.optimizer_G.zero_grad()        # set G's gradients to zero
         self.backward_G()                   # calculate graidents for G
-        nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
+        # nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
         self.optimizer_G.step()             # update G's weights
         return self.metrics
 
