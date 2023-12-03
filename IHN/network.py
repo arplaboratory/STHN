@@ -176,14 +176,14 @@ class STHEGAN():
                 self.netD = NLayerDiscriminator(9, n_layers=4)
             else:
                 raise NotImplementedError()
+            self.criterionGAN = GANLoss(args.GAN_mode).to(args.device)
+        self.criterionAUX = sequence_loss
         if for_training:
             self.optimizer_G, self.scheduler_G = fetch_optimizer(args, self.netG)
             if args.use_ue:
                 self.optimizer_D, self.scheduler_D = fetch_optimizer(args, self.netD)
             self.G_loss_lambda = args.G_loss_lambda
-            self.criterionGAN = GANLoss(args.GAN_mode).to(args.device)
-            self.criterionAUX = sequence_loss
-
+            
     def setup(self):
         if hasattr(self, 'netD'):
             self.netD = self.init_net(self.netD)
@@ -261,6 +261,7 @@ class STHEGAN():
         # combine loss and calculate gradients
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         self.loss_D.backward()
+        print(self.loss_D, self.loss_D_fake, self.loss_D_real)
 
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
