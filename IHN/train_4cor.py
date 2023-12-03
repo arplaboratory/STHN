@@ -53,12 +53,6 @@ def main(args):
         if extended_loader is not None:
             train(model, extended_loader, logger, args, train_step_limit=len(train_loader))
 
-    PATH = args.output + f'/{args.name}.pth'
-    torch.save(model.state_dict(), PATH)
-
-    return PATH
-
-
 def train(model, train_loader, logger, args, train_step_limit = None):
     count = 0
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
@@ -94,6 +88,8 @@ def train(model, train_loader, logger, args, train_step_limit = None):
                 "netG": model.netG.state_dict(),
                 "netD": model.netD.state_dict() if args.use_ue else None,
             }
+            torch.save(checkpoint, PATH)
+            PATH = args.output + f'/{args.name}.pth'
             torch.save(checkpoint, PATH)
         if logger.total_steps >= args.num_steps:
             break
