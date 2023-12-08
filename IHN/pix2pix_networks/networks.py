@@ -23,7 +23,7 @@ class GANLoss(nn.Module):
         self.register_buffer('real_label', torch.tensor(target_real_label))
         self.register_buffer('fake_label', torch.tensor(target_fake_label))
         self.gan_mode = gan_mode
-        if gan_mode == 'lsgan':
+        if gan_mode in ['lsgan', 'macegan']:
             self.loss = nn.MSELoss()
         elif gan_mode == 'vanilla':
             self.loss = nn.BCEWithLogitsLoss()
@@ -47,6 +47,18 @@ class GANLoss(nn.Module):
             target_tensor = self.fake_label
         return target_tensor.expand_as(prediction)
 
+    def get_target_tensor_sqerror(self, prediction, sqerror):
+        """Create label tensors with the same size as the input.
+        Parameters:
+            prediction (tensor) - - tpyically the prediction from a discriminator
+            target_is_real (bool) - - if the ground truth label is for real images or fake images
+        Returns:
+            A label tensor filled with ground truth label, and with the size of the input
+        """
+        
+        target_tensor = sqerror.view(-1, 1, 1, 1).repeat(1, 1, prediction.shape[2], prediction.shape[3])
+        return target_tensor
+    
     def __call__(self, prediction, target_is_real):
         """Calculate loss given Discriminator's output and grount truth labels.
         Parameters:
@@ -57,6 +69,9 @@ class GANLoss(nn.Module):
         """
         if self.gan_mode in ['lsgan', 'vanilla']:
             target_tensor = self.get_target_tensor(prediction, target_is_real)
+            loss = self.loss(prediction, target_tensor)
+        elif self.gan_mode == 'macegan':
+            target_tensor = self.get_target_tensor_sqerror(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
         elif self.gan_mode == 'wgangp':
             if target_is_real:

@@ -64,8 +64,8 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         if args.use_ue:
             with torch.no_grad():
                 conf_pred, conf_gt = model.predict_uncertainty(GAN_mode=args.GAN_mode)
-            # print(f"conf_pred:{torch.amax(conf_pred, dim=[1,2,3])}, {torch.mean(conf_pred, dim=[1,2,3])}. conf_gt:{torch.amax(conf_gt, dim=[1,2,3])}, {torch.mean(conf_gt, dim=[1,2,3])}")
-            # print(f"pred_mace:{mace_vec}")
+            print(f"conf_pred:{torch.amax(conf_pred, dim=[1,2,3])}, {torch.mean(conf_pred, dim=[1,2,3])}. conf_gt:{torch.amax(conf_gt, dim=[1,2,3])}, {torch.mean(conf_gt, dim=[1,2,3])}")
+            print(f"pred_mace:{mace_vec}")
             conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
             for i in range(len(mace_vec)):
                 mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
@@ -80,7 +80,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         # plot mace conf
         plt.figure()
         plt.scatter(mace_conf_list[:,0], mace_conf_list[:,1], s=5)
-        plt.savefig('/'.join(args.output.split('/')[:-1]) + f'/final_conf.png')
+        plt.savefig('/'.join(args.model.split('/')[:-1]) + f'/final_conf.png')
         plt.close()
     print(np.mean(np.array(timeall[1:-1])))
     io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savemat, {'matrix': total_mace.numpy()})
@@ -180,5 +180,5 @@ if __name__ == '__main__':
     if args.use_ue:
         model.netD.eval()
 
-    val_dataset = datasets.fetch_dataloader(args, split='train')
+    val_dataset = datasets.fetch_dataloader(args, split='test')
     evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)

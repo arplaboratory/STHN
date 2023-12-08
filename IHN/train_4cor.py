@@ -195,7 +195,7 @@ if __name__ == "__main__":
         "--GAN_mode",
         type=str,
         default="vanilla",
-        choices=["vanilla", "lsgan"],
+        choices=["vanilla", "lsgan", "macegan"],
         help="Choices of GAN loss"
     )
     parser.add_argument("--device", type=str,
