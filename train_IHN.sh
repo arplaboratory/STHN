@@ -4,7 +4,6 @@ eval "$(conda shell.bash hook)"
 conda activate STGL
 
 # python3 ./IHN/train_4cor.py --dataset_name satellite_0_thermalmapping_135_dense --output IHN_results/satellite_thermal_dense
-# python3 ./IHN/train_4cor.py --dataset_name satellite_0_thermalmapping_135_dense --output IHN_results/satellite_thermal_dense --use_ue
 
 # python3 ./IHN/train_4cor.py --dataset_name satellite_0_thermalmapping_135_dense_nocontrast_exclusion --output IHN_results/satellite_thermal_ext_dense
 # python3 ./IHN/train_4cor.py --dataset_name satellite_0_thermalmapping_135_dense_nocontrast_exclusion --output IHN_results/satellite_thermal_ext_dense_vanilla --use_ue --GAN_mode vanilla
