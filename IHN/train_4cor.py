@@ -136,8 +136,8 @@ if __name__ == "__main__":
     parser.add_argument('--val_freq', type=int, default=10000, help='validation frequency')
     parser.add_argument('--print_freq', type=int, default=100, help='printing frequency')
 
-    parser.add_argument('--lr', type=float, default=0.0004)
-    parser.add_argument('--num_steps', type=int, default=120000)
+    parser.add_argument('--lr', type=float, default=0.0001)
+    parser.add_argument('--num_steps', type=int, default=200000)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--image_size', type=int, nargs='+', default=[512, 512])
     parser.add_argument('--wdecay', type=float, default=0.00001)
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--G_loss_lambda",
         type=float,
-        default=1.0,
+        default=10.0,
         help="G_loss_lambda only for homo"
     )
     parser.add_argument(

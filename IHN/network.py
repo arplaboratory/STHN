@@ -293,7 +293,7 @@ class STHEGAN():
             if self.args.GAN_mode in ['vanilla', 'lsgan']:
                 self.loss_G_GAN = self.criterionGAN(pred_fake, True)
             elif self.args.GAN_mode == 'macegan':
-                self.loss_G_GAN = self.criterionGAN(pred_fake, self.mace_vec_real)
+                self.loss_G_GAN = self.criterionGAN(pred_fake, self.mace_vec_fake) # Try not real
             else:
                 raise NotImplementedError()
             self.loss_G = self.loss_G + self.loss_G_GAN
