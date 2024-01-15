@@ -258,7 +258,7 @@ class STHEGAN():
         elif self.args.GAN_mode == 'macegan':
             mace_ = (self.flow_4cor - self.four_pred)**2
             mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
-            self.mace_vec_fake = torch.mean(torch.mean(mace_, dim=1), dim=1).detach()
+            self.mace_vec_fake = torch.exp(-0.1 * torch.mean(torch.mean(mace_, dim=1), dim=1).detach()) # exp(-0.1x)
             self.loss_D_fake = self.criterionGAN(pred_fake, self.mace_vec_fake)
         else:
             raise NotImplementedError()
@@ -268,7 +268,7 @@ class STHEGAN():
         if self.args.GAN_mode in ['vanilla', 'lsgan']:
             self.loss_D_real = self.criterionGAN(pred_real, True)
         elif self.args.GAN_mode == 'macegan':
-            self.mace_vec_real = torch.zeros((real_AB.shape[0])).to(self.args.device)
+            self.mace_vec_real = torch.ones((real_AB.shape[0])).to(self.args.device)
             self.loss_D_real = self.criterionGAN(pred_real, self.mace_vec_real)
         else:
             raise NotImplementedError()
