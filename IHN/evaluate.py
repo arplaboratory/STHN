@@ -66,7 +66,7 @@ def validate_process(model, args, logger):
         mace_conf_list = np.array(mace_conf_list)
         # plot mace conf
         plt.figure()
-        plt.axis('equal')
+        # plt.axis('equal')
         plt.scatter(mace_conf_list[:,0], mace_conf_list[:,1], s=5)
         plt.scatter(mace_conf_list[:,2], mace_conf_list[:,3], s=5)
         plt.xlabel("MACE")

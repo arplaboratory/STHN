@@ -79,7 +79,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         mace_conf_list = np.array(mace_conf_list)
         # plot mace conf
         plt.figure()
-        plt.axis('equal')
+        # plt.axis('equal')
         plt.scatter(mace_conf_list[:,0], mace_conf_list[:,1], s=5)
         plt.savefig('/'.join(args.model.split('/')[:-1]) + f'/final_conf.png')
         plt.close()
