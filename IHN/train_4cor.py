@@ -23,7 +23,12 @@ def main(args):
 
     model = STHEGAN(args, for_training=True)
     model.setup()
-    model.netG.train()
+    if args.train_only_ue:
+        model.netG.eval()
+        for param in model.netG.parameters():
+            param.requires_grad = False
+    else:
+        model.netG.train()
     print(f"Parameter Count: {count_parameters(model.netG)}")
     if args.use_ue:
         model.netD.train()
@@ -34,7 +39,7 @@ def main(args):
         save_model = torch.load(args.restore_ckpt)
         
         model.netG.load_state_dict(save_model['netG'])
-        if args.use_ue:
+        if save_model['netD'] is not None:
             model.netD.load_state_dict(save_model['netD'])
         
     train_loader = datasets.fetch_dataloader(args, split="train")
@@ -200,9 +205,14 @@ if __name__ == "__main__":
     )
     parser.add_argument("--device", type=str,
         default="cuda", choices=["cuda", "cpu"])
+    parser.add_argument(
+        "--train_only_ue",
+        action="store_true",
+        help="train uncertainty estimator"
+    )
     args = parser.parse_args()
 
-    setup_seed(1024)
+    setup_seed(0)
 
     wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
     sys.stdout = Logger_(args.logname, sys.stdout)

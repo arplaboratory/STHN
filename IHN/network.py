@@ -275,17 +275,15 @@ class STHEGAN():
         # combine loss and calculate gradients
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         self.loss_D.backward()
+        self.metrics["D_loss"] = self.loss_D.cpu().item()
 
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
         # Second, G(A) = B
-        self.loss_G_Homo, self.metrics = self.criterionAUX(self.four_preds_list, self.flow_gt, self.args.gamma, self.args) 
+        self.loss_G_Homo, self.metrics = self.criterionAUX(self.four_preds_list, self.flow_gt, self.args.gamma, self.args, self.metrics) 
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_Homo * self.G_loss_lambda
         self.metrics["G_loss"] = self.loss_G.cpu().item()
-        wandb.log({
-                "G_loss": self.metrics["G_loss"],
-            })
         if self.args.use_ue:
             # First, G(A) should fake the discriminator
             fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)
@@ -298,11 +296,6 @@ class STHEGAN():
                 raise NotImplementedError()
             self.loss_G = self.loss_G + self.loss_G_GAN
             self.metrics["GAN_loss"] = self.loss_G_GAN.cpu().item()
-            self.metrics["D_loss"] = self.loss_D.cpu().item()
-            wandb.log({
-                "GAN_loss": self.metrics["GAN_loss"],
-                "D_loss": self.metrics["D_loss"],
-            })
         self.loss_G.backward()
 
     def set_requires_grad(self, nets, requires_grad=False):
@@ -320,18 +313,28 @@ class STHEGAN():
 
     def optimize_parameters(self):
         self.forward()                   # compute fake images: G(A)
+        self.metrics = dict()
         # update D
         if self.args.use_ue:
             self.set_requires_grad(self.netD, True)  # enable backprop for D
             self.optimizer_D.zero_grad()     # set D's gradients to zero
             self.backward_D()                # calculate gradients for D
+            nn.utils.clip_grad_norm_(self.netD.parameters(), self.args.clip)
             self.optimizer_D.step()          # update D's weights
             self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
+            wandb.log({
+                    "D_loss": self.loss_D.cpu().item()
+                })
         # update G
-        self.optimizer_G.zero_grad()        # set G's gradients to zero
-        self.backward_G()                   # calculate graidents for G
-        # nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
-        self.optimizer_G.step()             # update G's weights
+        if not self.args.train_only_ue:
+            self.optimizer_G.zero_grad()        # set G's gradients to zero
+            self.backward_G()                   # calculate graidents for G
+            nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
+            self.optimizer_G.step()             # update G's weights
+            wandb.log({
+                    "G_loss": self.loss_G.cpu().item(),
+                    "GAN_loss": self.loss_G_GAN.cpu().item()
+                })
         return self.metrics
 
     def update_learning_rate(self):

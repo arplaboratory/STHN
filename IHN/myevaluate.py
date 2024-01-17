@@ -13,8 +13,9 @@ from tqdm import tqdm
 import cv2
 import kornia.geometry.transform as tgm
 import matplotlib.pyplot as plt
+from plot_hist import plot_hist_helper
 
-setup_seed(2022)
+setup_seed(0)
 def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
 
     assert batch_size > 0, "batchsize > 0"
@@ -26,6 +27,11 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
     mace_conf_list = []
     for i_batch, data_blob in enumerate(tqdm(val_dataset)):
         img1, img2, flow_gt,  H, query_utm, database_utm  = [x.to(model.device) for x in data_blob]
+
+        if i_batch == 0:
+            print("Check the reproducibility by UTM:")
+            print(f"the first 5th query UTMs: {query_utm[:5]}")
+            print(f"the first 5th database UTMs: {database_utm[:5]}")
 
         if i_batch%1000 == 0:
             save_img(torchvision.utils.make_grid((img1)),
@@ -88,6 +94,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
     np.save(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savedict, total_mace.numpy())
     io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savematflow, {'matrix': total_flow.numpy()})
     np.save(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savedictflow, total_flow.numpy())
+    plot_hist_helper(f"{'/'.join(args.model.split('/')[:-1])}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

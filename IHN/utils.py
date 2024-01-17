@@ -146,7 +146,7 @@ class Logger:
             self._print_training_status()
             self.running_loss_dict = {}
             
-def sequence_loss(four_preds, flow_gt, gamma, args):
+def sequence_loss(four_preds, flow_gt, gamma, args, metrics):
     """ Loss function defined over sequence of flow predictions """
 
     flow_4cor = torch.zeros((four_preds[0].shape[0], 2, 2, 2)).to(four_preds[0].device)
@@ -169,11 +169,9 @@ def sequence_loss(four_preds, flow_gt, gamma, args):
             ce_loss += i_weight * (i4cor_loss).mean()
 
     mace = torch.sum((four_preds[-1] - flow_4cor)**2, dim=1).sqrt()
-    metrics = {
-        '1px': (mace < 1).float().mean().item(),
-        '3px': (mace < 3).float().mean().item(),
-        'mace': mace.mean().item(),
-    }
+    metrics['1px'] = (mace < 1).float().mean().item()
+    metrics['3px'] = (mace < 3).float().mean().item()
+    metrics['mace'] = mace.mean().item()
     return ce_loss , metrics
 
 def fetch_optimizer(args, model):
