@@ -333,6 +333,9 @@ class STHEGAN():
             self.optimizer_G.step()             # update G's weights
             wandb.log({
                     "G_loss": self.loss_G.cpu().item(),
+                })
+            if self.args.use_ue:
+                wandb.log({
                     "GAN_loss": self.loss_G_GAN.cpu().item()
                 })
         return self.metrics
