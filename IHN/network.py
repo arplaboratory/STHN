@@ -331,13 +331,11 @@ class STHEGAN():
             self.backward_G()                   # calculate graidents for G
             nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
             self.optimizer_G.step()             # update G's weights
-            wandb.log({
-                    "G_loss": self.loss_G.cpu().item(),
-                })
-            if self.args.use_ue:
-                wandb.log({
-                    "GAN_loss": self.loss_G_GAN.cpu().item()
-                })
+        wandb.log({
+                "G_loss": self.loss_G.cpu().item() if not self.args.train_only_ue else 0,
+                "GAN_loss": self.loss_G_GAN.cpu().item() if not self.args.train_only_ue and self.args.use_ue else 0,
+                "D_loss": self.loss_D.cpu().item() if self.args.use_ue else 0
+            })
         return self.metrics
 
     def update_learning_rate(self):
