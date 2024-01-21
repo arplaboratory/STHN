@@ -110,7 +110,8 @@ def validate(model, args, logger):
     results.update(validate_process(model, args, logger))
     wandb.log({
                 "step": logger.total_steps,
-                "val_mace": results['val_mace']
+                "val_mace": results['val_mace'],
+                "val_mace_conf_error": results['mace_conf_error']
             },)
     # Record results in logger
     for key in results.keys():
@@ -209,6 +210,12 @@ if __name__ == "__main__":
         "--train_only_ue",
         action="store_true",
         help="train uncertainty estimator"
+    )
+    parser.add_argument(
+        "--ue_alpha",
+        type=float,
+        default=-0.1,
+        help="Alpha for ue"
     )
     args = parser.parse_args()
 

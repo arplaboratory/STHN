@@ -14,6 +14,7 @@ import cv2
 import kornia.geometry.transform as tgm
 import matplotlib.pyplot as plt
 from plot_hist import plot_hist_helper
+import torch.nn.functional as F
 
 setup_seed(0)
 def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
@@ -22,8 +23,8 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
 
     total_mace = torch.empty(0)
     total_flow = torch.empty(0)
+    total_mace_conf_error = torch.empty(0)
     timeall=[]
-    total_mace_dict={}
     mace_conf_list = []
     for i_batch, data_blob in enumerate(tqdm(val_dataset)):
         img1, img2, flow_gt,  H, query_utm, database_utm  = [x.to(model.device) for x in data_blob]
@@ -71,9 +72,11 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             with torch.no_grad():
                 conf_pred, conf_gt = model.predict_uncertainty(GAN_mode=args.GAN_mode)
             print(f"conf_pred:{torch.mean(conf_pred, dim=[1,2,3])}. conf_gt:{torch.mean(conf_gt, dim=[1,2,3])}")
-            print(f"conf_pred_diff:{torch.mean(conf_pred, dim=[1,2,3]).cpu() - torch.exp(-0.1 *mace_vec)}")
             print(f"pred_mace:{mace_vec}")
             conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
+            mace_conf_error_vec = F.mse_loss(conf_vec, torch.exp(args.ue_alpha * torch.mean(torch.mean(mace_vec, dim=1), dim=1)))
+            total_mace_conf_error = torch.cat([total_mace_conf_error,mace_conf_error_vec], dim=0)
+            final_mace_conf_error = torch.mean(total_mace_conf_error).item()
             for i in range(len(mace_vec)):
                 mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
 
@@ -91,6 +94,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         plt.scatter(mace_conf_list[:,2], mace_conf_list[:,3], s=5)
         plt.savefig('/'.join(args.model.split('/')[:-1]) + f'/final_conf.png')
         plt.close()
+        print("MACE CONF ERROR Metric: ", final_mace_conf_error)
     print(np.mean(np.array(timeall[1:-1])))
     io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savemat, {'matrix': total_mace.numpy()})
     np.save(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savedict, total_mace.numpy())

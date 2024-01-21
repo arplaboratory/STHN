@@ -8,6 +8,7 @@ import os
 import numpy as np
 import torch
 import torchvision
+import torch.nn.functional as F
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -22,6 +23,7 @@ def validate_process(model, args, logger):
         model.netD.eval()
     mace_list = []
     mace_conf_list = []
+    mace_conf_error_list = []
     val_loader = datasets.fetch_dataloader(args, split='val')
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
         image1, image2, flow_gt,  H, _, _  = [x.to(model.netG.module.device) for x in data_blob]
@@ -57,6 +59,10 @@ def validate_process(model, args, logger):
             conf_pred, conf_gt = model.predict_uncertainty(GAN_mode=args.GAN_mode)
             conf_pred_vec = torch.mean(conf_pred, dim=[1, 2, 3])
             conf_gt_vec = torch.mean(conf_gt, dim=[1, 2, 3])
+            mace = torch.sum((four_pr.cpu().detach() - flow_4cor) ** 2, dim=1).sqrt()
+            mace_list.append(mace.view(-1).numpy())
+            mace_conf_error = F.mse_loss(conf_pred_vec, torch.exp(args.ue_alpha * torch.mean(torch.mean(mace, dim=1), dim=1)))
+            mace_conf_error_list.append(mace_conf_error.numpy())
             for i in range(len(mace_pred_vec)):
                 mace_conf_list.append((mace_pred_vec[i].item(), conf_pred_vec[i].item(), mace_gt_vec[i].item(), conf_gt_vec[i].item()))
 
@@ -74,8 +80,9 @@ def validate_process(model, args, logger):
         plt.savefig(args.output + f'/{logger.total_steps}_conf.png')
         plt.close()
     mace = np.mean(np.concatenate(mace_list))
+    mace_conf_error = np.mean(np.concatenate(mace_conf_error_list)) if args.use_ue else 0
     print("Validation MACE: %f" % mace)
-    return {'val_mace': mace}
+    return {'val_mace': mace, 'mace_conf_error': mace_conf_error}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
