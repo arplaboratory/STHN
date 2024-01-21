@@ -12,7 +12,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 import datasets_4cor_img as datasets
-from utils import *
+from utils import save_overlap_img
 
 @torch.no_grad()
 def validate_process(model, args, logger):

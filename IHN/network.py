@@ -5,7 +5,7 @@ import kornia.geometry.transform as tgm
 from update import GMA
 from extractor import BasicEncoderQuarter
 from corr import CorrBlock
-from utils import *
+from utils import coords_grid, sequence_loss, fetch_optimizer, warp
 import os
 import sys
 from pix2pix_networks.networks import GANLoss, NLayerDiscriminator
@@ -258,7 +258,7 @@ class STHEGAN():
         elif self.args.GAN_mode == 'macegan':
             mace_ = (self.flow_4cor - self.four_pred)**2
             mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
-            self.mace_vec_fake = torch.exp(-0.1 * torch.mean(torch.mean(mace_, dim=1), dim=1).detach()) # exp(-0.1x)
+            self.mace_vec_fake = torch.exp(-0.1 * torch.mean(torch.mean(mace_, dim=1), dim=1)).detach() # exp(-0.1x)
             self.loss_D_fake = self.criterionGAN(pred_fake, self.mace_vec_fake)
         else:
             raise NotImplementedError()
@@ -294,8 +294,9 @@ class STHEGAN():
                 self.loss_G_GAN = self.criterionGAN(pred_fake, self.mace_vec_fake) # Try not real
             else:
                 raise NotImplementedError()
-            self.loss_G = self.loss_G + self.loss_G_GAN
-            self.metrics["GAN_loss"] = self.loss_G_GAN.cpu().item()
+            # self.loss_G = self.loss_G + self.loss_G_GAN
+            # self.metrics["GAN_loss"] = self.loss_G_GAN.cpu().item()
+            self.metrics["GAN_loss"] = 0
         self.loss_G.backward()
 
     def set_requires_grad(self, nets, requires_grad=False):

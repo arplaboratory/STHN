@@ -11,7 +11,7 @@ from torch.cuda.amp import GradScaler
 from tqdm import tqdm
 
 from network import IHN, STHEGAN
-from utils import *
+from utils import count_parameters, Logger, save_img, save_overlap_img, setup_seed, Logger_, warp
 
 from evaluate import validate_process
 import datasets_4cor_img as datasets
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     parser.add_argument('--val_freq', type=int, default=10000, help='validation frequency')
     parser.add_argument('--print_freq', type=int, default=100, help='printing frequency')
 
-    parser.add_argument('--lr', type=float, default=0.0001)
+    parser.add_argument('--lr', type=float, default=0.00001)
     parser.add_argument('--num_steps', type=int, default=200000)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--image_size', type=int, nargs='+', default=[512, 512])
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--G_loss_lambda",
         type=float,
-        default=10.0,
+        default=1.0,
         help="G_loss_lambda only for homo"
     )
     parser.add_argument(

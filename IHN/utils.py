@@ -126,7 +126,8 @@ class Logger:
         # print the training status
         print(training_str + metrics_str + time_left_hms)
         # logging running loss to total loss
-        self.train_mace_list.append(np.mean(self.running_loss_dict['mace']))
+        if 'mace' in self.running_loss_dict:
+            self.train_mace_list.append(np.mean(self.running_loss_dict['mace']))
         self.train_steps_list.append(self.total_steps)
         for key in self.running_loss_dict:
             self.running_loss_dict[key] = []
@@ -140,7 +141,7 @@ class Logger:
         if self.total_steps % self.args.print_freq == self.args.print_freq-1:
             wandb.log({
                 "step": self.total_steps,
-                "mace": np.mean(self.running_loss_dict['mace']),
+                "mace": np.mean(self.running_loss_dict['mace']) if 'mace' in self.running_loss_dict else 0,
                 "lr": np.mean(self.running_loss_dict['lr'])
             },)
             self._print_training_status()
