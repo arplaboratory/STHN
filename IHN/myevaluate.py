@@ -71,11 +71,11 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         if args.use_ue:
             with torch.no_grad():
                 conf_pred, conf_gt = model.predict_uncertainty(GAN_mode=args.GAN_mode)
-            print(f"conf_pred:{torch.mean(conf_pred, dim=[1,2,3])}. conf_gt:{torch.mean(conf_gt, dim=[1,2,3])}")
+            print(f"conf_pred:{torch.mean(conf_pred, dim=[1,2,3])}.\n conf_gt:{torch.mean(conf_gt, dim=[1,2,3])}.")
             print(f"pred_mace:{mace_vec}")
             conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
-            mace_conf_error_vec = F.mse_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * torch.mean(torch.mean(mace_vec, dim=1), dim=1)))
-            total_mace_conf_error = torch.cat([total_mace_conf_error,mace_conf_error_vec], dim=0)
+            mace_conf_error_vec = F.mse_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
+            total_mace_conf_error = torch.cat([total_mace_conf_error, mace_conf_error_vec.reshape(1)], dim=0)
             final_mace_conf_error = torch.mean(total_mace_conf_error).item()
             for i in range(len(mace_vec)):
                 mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
@@ -91,7 +91,6 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         plt.figure()
         # plt.axis('equal')
         plt.scatter(mace_conf_list[:,0], mace_conf_list[:,1], s=5)
-        plt.scatter(mace_conf_list[:,2], mace_conf_list[:,3], s=5)
         plt.savefig('/'.join(args.model.split('/')[:-1]) + f'/final_conf.png')
         plt.close()
         print("MACE CONF ERROR Metric: ", final_mace_conf_error)
@@ -169,6 +168,12 @@ if __name__ == '__main__':
     )
     parser.add_argument("--device", type=str,
         default="cuda", choices=["cuda", "cpu"])
+    parser.add_argument(
+        "--ue_alpha",
+        type=float,
+        default=-0.1,
+        help="Alpha for ue"
+    )
     args = parser.parse_args()
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 

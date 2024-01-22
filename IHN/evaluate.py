@@ -80,8 +80,9 @@ def validate_process(model, args, logger):
         plt.savefig(args.output + f'/{logger.total_steps}_conf.png')
         plt.close()
     mace = np.mean(np.concatenate(mace_list))
-    mace_conf_error = np.mean(np.concatenate(mace_conf_error_list)) if args.use_ue else 0
+    mace_conf_error = np.mean(np.array(mace_conf_error_list)) if args.use_ue else 0
     print("Validation MACE: %f" % mace)
+    print("Validation MACE CONF ERROR: %f" % mace_conf_error)
     return {'val_mace': mace, 'mace_conf_error': mace_conf_error}
 
 if __name__ == '__main__':
