@@ -74,7 +74,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             print(f"conf_pred:{torch.mean(conf_pred, dim=[1,2,3])}.\n conf_gt:{torch.mean(conf_gt, dim=[1,2,3])}.")
             print(f"pred_mace:{mace_vec}")
             conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
-            mace_conf_error_vec = F.mse_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
+            mace_conf_error_vec = F.l1_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
             total_mace_conf_error = torch.cat([total_mace_conf_error, mace_conf_error_vec.reshape(1)], dim=0)
             final_mace_conf_error = torch.mean(total_mace_conf_error).item()
             for i in range(len(mace_vec)):
@@ -203,5 +203,5 @@ if __name__ == '__main__':
     if args.use_ue:
         model.netD.eval()
 
-    val_dataset = datasets.fetch_dataloader(args, split='val')
+    val_dataset = datasets.fetch_dataloader(args, split='test')
     evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)

@@ -61,7 +61,7 @@ def validate_process(model, args, logger):
             conf_gt_vec = torch.mean(conf_gt, dim=[1, 2, 3])
             mace = torch.sum((four_pr.cpu().detach() - flow_4cor) ** 2, dim=1).sqrt()
             mace_list.append(mace.view(-1).numpy())
-            mace_conf_error = F.mse_loss(conf_pred_vec.cpu(), torch.exp(args.ue_alpha * torch.mean(torch.mean(mace, dim=1), dim=1)))
+            mace_conf_error = F.l1_loss(conf_pred_vec.cpu(), torch.exp(args.ue_alpha * torch.mean(torch.mean(mace, dim=1), dim=1)))
             mace_conf_error_list.append(mace_conf_error.numpy())
             for i in range(len(mace_pred_vec)):
                 mace_conf_list.append((mace_pred_vec[i].item(), conf_pred_vec[i].item(), mace_gt_vec[i].item(), conf_gt_vec[i].item()))
