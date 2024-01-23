@@ -323,9 +323,6 @@ class STHEGAN():
             nn.utils.clip_grad_norm_(self.netD.parameters(), self.args.clip)
             self.optimizer_D.step()          # update D's weights
             self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
-            wandb.log({
-                    "D_loss": self.loss_D.cpu().item()
-                })
         # update G
         if not self.args.train_only_ue:
             self.optimizer_G.zero_grad()        # set G's gradients to zero
