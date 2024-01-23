@@ -118,7 +118,7 @@ def validate(model, args, logger):
     wandb.log({
                 "step": logger.total_steps,
                 "val_mace": results['val_mace'],
-                "val_mace_conf_error": results['mace_conf_error']
+                "val_mace_conf_error": results['val_mace_conf_error']
             },)
     # Record results in logger
     for key in results.keys():
@@ -126,7 +126,7 @@ def validate(model, args, logger):
             logger.val_results_dict[key] = []
         logger.val_results_dict[key].append(results[key])
     logger.val_steps_list.append(logger.total_steps)
-    return results['val_mace'], results['mace_conf_error']
+    return results['val_mace'], results['val_mace_conf_error']
 
 
 if __name__ == "__main__":
