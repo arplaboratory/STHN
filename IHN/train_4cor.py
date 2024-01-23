@@ -200,14 +200,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--D_net",
         type=str,
-        default="patchGAN",
+        default="patchGAN_deep",
         choices=["none", "patchGAN", "patchGAN_deep"],
         help="D_net"
     )
     parser.add_argument(
         "--GAN_mode",
         type=str,
-        default="vanilla",
+        default="macegan",
         choices=["vanilla", "lsgan", "macegan"],
         help="Choices of GAN loss"
     )
