@@ -66,7 +66,10 @@ def validate_process(model, args, logger):
             for i in range(len(mace_pred_vec)):
                 mace_conf_list.append((mace_pred_vec[i].item(), conf_pred_vec[i].item(), mace_gt_vec[i].item(), conf_gt_vec[i].item()))
 
-    model.netG.train()
+    if args.train_only_ue:
+        model.netG.eval()
+    else:
+        model.netG.train()
     if args.use_ue:
         model.netD.train()
         mace_conf_list = np.array(mace_conf_list)

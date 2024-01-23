@@ -57,6 +57,7 @@ def main(args):
 def train(model, train_loader, logger, args, train_step_limit = None):
     count = 0
     last_best_val_mace = None
+    last_best_val_mace_conf_error = None
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
         image1, image2, flow, _, query_utm, database_utm  = [x.cuda() for x in data_blob]
@@ -82,7 +83,7 @@ def train(model, train_loader, logger, args, train_step_limit = None):
 
         # Validate
         if logger.total_steps % args.val_freq == args.val_freq - 1:
-            current_val_mace = validate(model, args, logger)
+            current_val_mace, current_val_mace_conf_error = validate(model, args, logger)
             # plot_train(logger, args)
             # plot_val(logger, args)
             PATH = args.output + f'/{logger.total_steps+1}_{args.name}.pth'
@@ -91,10 +92,16 @@ def train(model, train_loader, logger, args, train_step_limit = None):
                 "netD": model.netD.state_dict() if args.use_ue else None,
             }
             torch.save(checkpoint, PATH)
-            if last_best_val_mace is None or last_best_val_mace > current_val_mace:
-                last_best_val_mace = current_val_mace
-                PATH = args.output + f'/{args.name}.pth'
-                torch.save(checkpoint, PATH)
+            if args.train_only_ue and args.use_ue:
+                if last_best_val_mace_conf_error is None or last_best_val_mace_conf_error > current_val_mace_conf_error:
+                    last_best_val_mace_conf_error = current_val_mace_conf_error
+                    PATH = args.output + f'/{args.name}.pth'
+                    torch.save(checkpoint, PATH)
+            else:
+                if last_best_val_mace is None or last_best_val_mace > current_val_mace:
+                    last_best_val_mace = current_val_mace
+                    PATH = args.output + f'/{args.name}.pth'
+                    torch.save(checkpoint, PATH)
 
         if logger.total_steps >= args.num_steps:
             break
@@ -119,7 +126,7 @@ def validate(model, args, logger):
             logger.val_results_dict[key] = []
         logger.val_results_dict[key].append(results[key])
     logger.val_steps_list.append(logger.total_steps)
-    return results['val_mace']
+    return results['val_mace'], results['mace_conf_error']
 
 
 if __name__ == "__main__":

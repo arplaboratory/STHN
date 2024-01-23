@@ -91,6 +91,10 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         plt.figure()
         # plt.axis('equal')
         plt.scatter(mace_conf_list[:,0], mace_conf_list[:,1], s=5)
+        x = np.linspace(0, 100, 400)
+        y = np.exp(args.ue_alpha * x)
+        plt.plot(x, y, label='f(x) = exp(-0.1x)', color='red')
+        plt.legend()
         plt.savefig('/'.join(args.model.split('/')[:-1]) + f'/final_conf.png')
         plt.close()
         print("MACE CONF ERROR Metric: ", final_mace_conf_error)
@@ -199,5 +203,5 @@ if __name__ == '__main__':
     if args.use_ue:
         model.netD.eval()
 
-    val_dataset = datasets.fetch_dataloader(args, split='test')
+    val_dataset = datasets.fetch_dataloader(args, split='val')
     evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)
