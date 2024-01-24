@@ -23,7 +23,7 @@ def main(args):
 
     model = STHEGAN(args, for_training=True)
     model.setup()
-    if args.train_only_ue:
+    if args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
         model.netG.eval()
         for param in model.netG.parameters():
             param.requires_grad = False
@@ -214,8 +214,10 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str,
         default="cuda", choices=["cuda", "cpu"])
     parser.add_argument(
-        "--train_only_ue",
-        action="store_true",
+        "--train_ue_method",
+        type=str,
+        choices=['train_end_to_end', 'train_only_ue', 'train_only_ue_raw_input'],
+        default='train_end_to_end',
         help="train uncertainty estimator"
     )
     parser.add_argument(

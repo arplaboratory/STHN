@@ -66,7 +66,7 @@ def validate_process(model, args, logger):
             for i in range(len(mace_pred_vec)):
                 mace_conf_list.append((mace_pred_vec[i].item(), conf_pred_vec[i].item(), mace_gt_vec[i].item(), conf_gt_vec[i].item()))
 
-    if args.train_only_ue:
+    if args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
         model.netG.eval()
     else:
         model.netG.train()
