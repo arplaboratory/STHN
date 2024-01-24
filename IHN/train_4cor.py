@@ -92,7 +92,7 @@ def train(model, train_loader, logger, args, train_step_limit = None):
                 "netD": model.netD.state_dict() if args.use_ue else None,
             }
             torch.save(checkpoint, PATH)
-            if args.train_only_ue and args.use_ue:
+            if args.use_ue and args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
                 if last_best_val_mace_conf_error is None or last_best_val_mace_conf_error > current_val_mace_conf_error:
                     last_best_val_mace_conf_error = current_val_mace_conf_error
                     PATH = args.output + f'/{args.name}.pth'
@@ -225,6 +225,11 @@ if __name__ == "__main__":
         type=float,
         default=-0.1,
         help="Alpha for ue"
+    )
+    parser.add_argument(
+        "--permute",
+        action="store_true",
+        help="Permute input images"
     )
     args = parser.parse_args()
 

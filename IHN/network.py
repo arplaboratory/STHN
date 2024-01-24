@@ -234,24 +234,14 @@ class STHEGAN():
             real_AB_conf = None
         return fake_AB_conf, real_AB_conf
         
-    def forward(self):
+    def forward(self, use_raw_input=False):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
         four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
+        if not use_raw_input:
+            self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
+        else:
+            self.four_pred = torch.zeros(self.flow_gt.shape[0], 2, 2, 2).to(self.device)
         t_tensor = -self.four_pred
-        four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)
-        four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + torch.Tensor([256 - 1, 0]).to(self.device)
-        four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + torch.Tensor([0, 256 - 1]).to(self.device)
-        four_point_1[:, :, 1, 1] = t_tensor[:, :, 1, 1] + torch.Tensor([256 - 1, 256 - 1]).to(self.device)
-        four_point_org = self.four_point_org_single.repeat(self.flow_gt.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
-        four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
-        H = tgm.get_perspective_transform(four_point_org, four_point_1)
-        self.fake_warped_image_2 = tgm.warp_perspective(self.image_2, H, (self.image_1.shape[2], self.image_1.shape[3]))
-
-    def forward_noalign(self):
-        """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
-        t_tensor = torch.zeros(self.flow_gt.shape[0], 2, 2, 2).to(self.device)
         four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)
         four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + torch.Tensor([256 - 1, 0]).to(self.device)
         four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + torch.Tensor([0, 256 - 1]).to(self.device)
@@ -326,10 +316,7 @@ class STHEGAN():
                     param.requires_grad = requires_grad
 
     def optimize_parameters(self):
-        if self.args.train_ue_method == 'train_only_ue_raw_input':
-            self.forward_noalign()
-        else:
-            self.forward()                   # compute fake images: G(A)
+        self.forward(use_raw_input = (self.args.train_ue_method == 'train_only_ue_raw_input')) # Calculate Fake A
         self.metrics = dict()
         # update D
         if self.args.use_ue:
@@ -346,8 +333,8 @@ class STHEGAN():
             # nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
             self.optimizer_G.step()             # update G's weights
         wandb.log({
-                "G_loss": self.loss_G.cpu().item() if self.train_ue_method == 'train_end_to_end' else 0,
-                "GAN_loss": self.loss_G_GAN.cpu().item() if not self.train_ue_method == 'train_end_to_end' and self.args.use_ue else 0,
+                "G_loss": self.loss_G.cpu().item() if self.args.train_ue_method == 'train_end_to_end' else 0,
+                "GAN_loss": self.loss_G_GAN.cpu().item() if self.args.train_ue_method == 'train_end_to_end' and self.args.use_ue else 0,
                 "D_loss": self.loss_D.cpu().item() if self.args.use_ue else 0
             })
         return self.metrics

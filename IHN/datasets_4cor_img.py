@@ -205,7 +205,7 @@ class homo_dataset(data.Dataset):
 
 class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train"):
-        super(MYDATA, self).__init__()
+        super(MYDATA, self).__init__(permute=args.permute)
         self.args = args
         self.dataset_name = dataset_name
         self.split = split
