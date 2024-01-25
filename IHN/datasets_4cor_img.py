@@ -21,12 +21,7 @@ patch_size = 256
 
 imagenet_mean = [0.485, 0.456, 0.406]
 imagenet_std = [0.229, 0.224, 0.225]
-base_transform = transforms.Compose(
-    [
-        transforms.ToTensor(),
-        transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
-    ]
-)
+
 
 inv_base_transforms = transforms.Compose(
     [ 
@@ -37,7 +32,7 @@ inv_base_transforms = transforms.Compose(
 )
 
 class homo_dataset(data.Dataset):
-    def __init__(self, permute=False):
+    def __init__(self, permute=False, resize_small=False):
 
         self.is_test = False
         self.init_seed = True
@@ -45,6 +40,15 @@ class homo_dataset(data.Dataset):
         self.image_list_img2 = []
         self.dataset=[]
         self.permute = permute
+        identity_transform = transforms.Lambda(lambda x: x)
+        base_transform = transforms.Compose(
+            [
+                transforms.Resize([256, 256]) 
+                if resize_small else identity_transform,
+                transforms.ToTensor(),
+                transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
+            ]
+        )
         self.query_transform = transforms.Compose(
             [
                 transforms.Grayscale(num_output_channels=3),
@@ -169,8 +173,9 @@ class homo_dataset(data.Dataset):
             H = H.squeeze()
         else:
             img1, img2 = self.query_transform(img1), self.database_transform(img2)
-            img1 = img1[:,128:384,128:384]
-            img2 = img2[:,128:384,128:384]
+            if not self.args.resize_small:
+                img1 = img1[:,128:384,128:384]
+                img2 = img2[:,128:384,128:384]
             t_tensor = torch.Tensor(t).squeeze(0)
             y_grid, x_grid = np.mgrid[0:img1.shape[1], 0:img1.shape[2]]
             point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
@@ -205,7 +210,7 @@ class homo_dataset(data.Dataset):
 
 class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train"):
-        super(MYDATA, self).__init__(permute=args.permute)
+        super(MYDATA, self).__init__(permute=args.permute, resize_small=args.resize_small)
         self.args = args
         self.dataset_name = dataset_name
         self.split = split

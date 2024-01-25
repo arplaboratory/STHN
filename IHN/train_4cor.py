@@ -231,6 +231,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Permute input images"
     )
+    parser.add_argument(
+        "--resize_small",
+        action="store_true",
+        help="resize from 512 to 256"
+    )
     args = parser.parse_args()
 
     setup_seed(0)
