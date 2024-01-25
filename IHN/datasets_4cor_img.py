@@ -176,6 +176,8 @@ class homo_dataset(data.Dataset):
             if not self.args.resize_small:
                 img1 = img1[:,128:384,128:384]
                 img2 = img2[:,128:384,128:384]
+            else:
+                t = t/2
             t_tensor = torch.Tensor(t).squeeze(0)
             y_grid, x_grid = np.mgrid[0:img1.shape[1], 0:img1.shape[2]]
             point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
