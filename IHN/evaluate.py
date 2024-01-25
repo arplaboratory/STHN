@@ -35,7 +35,7 @@ def validate_process(model, args, logger):
         image1 = image1.to(model.netG.module.device)
         image2 = image2.to(model.netG.module.device)
         model.set_input(image1, image2, flow_gt)
-        model.forward()
+        model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std)
         if i_batch == 0:
             if not os.path.exists('watch'):
                 os.makedirs('watch')
@@ -87,27 +87,3 @@ def validate_process(model, args, logger):
     print("Validation MACE: %f" % mace)
     print("Validation MACE CONF ERROR: %f" % mace_conf_error)
     return {'val_mace': mace, 'val_mace_conf_error': mace_conf_error}
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model', help="restore checkpoint")
-    parser.add_argument('--dataset', help="dataset for evaluation")
-    parser.add_argument('--iters', type=int, default=12)
-    parser.add_argument('--num_heads', default=1, type=int,
-                        help='number of heads in attention and aggregation')
-    parser.add_argument('--position_only', default=False, action='store_true',
-                        help='only use position-wise attention')
-    parser.add_argument('--position_and_content', default=False, action='store_true',
-                        help='use position and content-wise attention')
-    parser.add_argument('--mixed_precision', default=True, help='use mixed precision')
-    parser.add_argument('--model_name')
-
-    # Ablations
-    parser.add_argument('--replace', default=False, action='store_true',
-                        help='Replace local motion feature with aggregated motion features')
-    parser.add_argument('--no_alpha', default=False, action='store_true',
-                        help='Remove learned alpha, set it to 1')
-    parser.add_argument('--no_residual', default=False, action='store_true',
-                        help='Remove residual connection. Do not add local features with the aggregated features.')
-
-    args = parser.parse_args()

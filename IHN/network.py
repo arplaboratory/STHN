@@ -12,6 +12,7 @@ from pix2pix_networks.networks import GANLoss, NLayerDiscriminator
 from sync_batchnorm import convert_model
 import wandb
 import torchvision
+import random
 
 autocast = torch.cuda.amp.autocast
 class IHN(nn.Module):
@@ -234,13 +235,23 @@ class STHEGAN():
             real_AB_conf = None
         return fake_AB_conf, real_AB_conf
         
-    def forward(self, use_raw_input=False):
+    def forward(self, use_raw_input=False, noise_std=0, sample_method="target_raw"):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
         if not use_raw_input:
             self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
         else:
-            self.four_pred = torch.zeros(self.flow_gt.shape[0], 2, 2, 2).to(self.device)
+            if sample_method == "target":
+                self.four_pred = self.flow_4cor + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
+            elif sample_method == "raw":
+                self.four_pred = torch.zeros_like(self.flow_4cor) + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
+            elif sample_method == "target_raw":
+                if random.random() > 0.5:
+                    self.four_pred = self.flow_4cor + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
+                else:
+                    self.four_pred = torch.zeros_like(self.flow_4cor) + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
+            else:
+                raise NotImplementedError()
         t_tensor = -self.four_pred
         four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)
         four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + torch.Tensor([256 - 1, 0]).to(self.device)
@@ -316,7 +327,7 @@ class STHEGAN():
                     param.requires_grad = requires_grad
 
     def optimize_parameters(self):
-        self.forward(use_raw_input = (self.args.train_ue_method == 'train_only_ue_raw_input')) # Calculate Fake A
+        self.forward(use_raw_input = (self.args.train_ue_method == 'train_only_ue_raw_input'), noise_std=self.args.noise_std, sample_method=self.args.sample_method) # Calculate Fake A
         self.metrics = dict()
         # update D
         if self.args.use_ue:

@@ -236,6 +236,18 @@ if __name__ == "__main__":
         action="store_true",
         help="resize from 512 to 256"
     )
+    parser.add_argument(
+        "--noise_std",
+        type=float,
+        default=10
+    )
+    parser.add_argument(
+        "--sample_method",
+        type=str,
+        choices=['target', 'raw', 'target_raw'],
+        default='target_raw',
+        help="sample noise"
+    )
     args = parser.parse_args()
 
     setup_seed(0)

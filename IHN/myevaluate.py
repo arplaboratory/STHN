@@ -34,7 +34,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             print(f"the first 5th query UTMs: {query_utm[:5]}")
             print(f"the first 5th database UTMs: {database_utm[:5]}")
 
-        if i_batch%1000 == 0:
+        if i_batch%100 == 0:
             save_img(torchvision.utils.make_grid((img1)),
                      '/'.join(args.model.split('/')[:-1]) + "/b1_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
             save_img(torchvision.utils.make_grid((img2)),
@@ -42,7 +42,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
 
         time_start = time.time()
         model.set_input(img1, img2, flow_gt)
-        model.forward()
+        model.forward(use_raw_input=args.use_raw_input, noise_std=args.noise_std)
         four_pred = model.four_pred
         time_end = time.time()
         timeall.append(time_end-time_start)
@@ -71,16 +71,17 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         if args.use_ue:
             with torch.no_grad():
                 conf_pred, conf_gt = model.predict_uncertainty(GAN_mode=args.GAN_mode)
-            print(f"conf_pred:{torch.mean(conf_pred, dim=[1,2,3])}.\n conf_gt:{torch.mean(conf_gt, dim=[1,2,3])}.")
-            print(f"pred_mace:{mace_vec}")
             conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
+            conf_gt_vec = torch.mean(conf_gt, dim=[1,2,3])
+            print(f"conf_pred_diff:{conf_vec.cpu() - torch.exp(args.ue_alpha * mace_vec)}.\n conf_gt:{conf_gt_vec.cpu()}.")
+            print(f"pred_mace:{mace_vec}")
             mace_conf_error_vec = F.l1_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
             total_mace_conf_error = torch.cat([total_mace_conf_error, mace_conf_error_vec.reshape(1)], dim=0)
             final_mace_conf_error = torch.mean(total_mace_conf_error).item()
             for i in range(len(mace_vec)):
                 mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
 
-        if i_batch%1000 == 0:
+        if i_batch%100 == 0:
             save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                             '/'.join(args.model.split('/')[:-1]) + f'/eval_overlap_{i_batch}_{mace_vec.mean().item()}.png')
@@ -90,12 +91,16 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         # plot mace conf
         plt.figure()
         # plt.axis('equal')
-        plt.scatter(mace_conf_list[:,0], mace_conf_list[:,1], s=5)
+        plt.scatter(mace_conf_list[:,0], mace_conf_list[:,1], s=1)
         x = np.linspace(0, 100, 400)
         y = np.exp(args.ue_alpha * x)
         plt.plot(x, y, label='f(x) = exp(-0.1x)', color='red')
         plt.legend()
         plt.savefig('/'.join(args.model.split('/')[:-1]) + f'/final_conf.png')
+        plt.close()
+        plt.figure()
+        n, bins, patches = plt.hist(x=mace_conf_list[:,1], bins=np.linspace(0, 1, 20))
+        print(n)
         plt.close()
         print("MACE CONF ERROR Metric: ", final_mace_conf_error)
     print(np.mean(np.array(timeall[1:-1])))
@@ -178,6 +183,33 @@ if __name__ == '__main__':
         default=-0.1,
         help="Alpha for ue"
     )
+    parser.add_argument(
+        "--use_raw_input",
+        action="store_true",
+        help="train uncertainty estimator with GAN"
+    )
+    parser.add_argument(
+        "--permute",
+        action="store_true",
+        help="train uncertainty estimator with GAN"
+    )
+    parser.add_argument(
+        "--resize_small",
+        action="store_true",
+        help="train uncertainty estimator with GAN"
+    )
+    parser.add_argument(
+        "--noise_std",
+        type=float,
+        default=10
+    )
+    parser.add_argument(
+        "--sample_method",
+        type=str,
+        choices=['target', 'raw', 'target_raw'],
+        default='target_raw',
+        help="sample noise"
+    )
     args = parser.parse_args()
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 
@@ -203,5 +235,5 @@ if __name__ == '__main__':
     if args.use_ue:
         model.netD.eval()
 
-    val_dataset = datasets.fetch_dataloader(args, split='test')
+    val_dataset = datasets.fetch_dataloader(args, split='val')
     evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)
