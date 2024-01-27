@@ -208,7 +208,7 @@ if __name__ == "__main__":
         "--GAN_mode",
         type=str,
         default="macegan",
-        choices=["vanilla", "lsgan", "macegan"],
+        choices=["vanilla", "lsgan", "macegan", "macegancross"],
         help="Choices of GAN loss"
     )
     parser.add_argument("--device", type=str,
@@ -231,11 +231,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Permute input images"
     )
-    parser.add_argument(
-        "--resize_small",
-        action="store_true",
-        help="resize from 512 to 256"
-    )
+    # parser.add_argument(
+    #     "--resize_small",
+    #     action="store_true",
+    #     help="resize from 512 to 256"
+    # )
     parser.add_argument(
         "--noise_std",
         type=float,
@@ -249,7 +249,7 @@ if __name__ == "__main__":
         help="sample noise"
     )
     args = parser.parse_args()
-
+    args.resize_small = True
     setup_seed(0)
 
     wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))

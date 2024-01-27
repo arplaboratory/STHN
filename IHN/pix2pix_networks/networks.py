@@ -29,6 +29,8 @@ class GANLoss(nn.Module):
             self.loss = nn.BCEWithLogitsLoss()
         elif gan_mode == 'macegan':
             self.loss = nn.L1Loss()
+        elif gan_mode == 'macegancross':
+            self.loss = nn.BCELoss()
         elif gan_mode in ['wgangp']:
             self.loss = None
         else:
@@ -72,7 +74,7 @@ class GANLoss(nn.Module):
         if self.gan_mode in ['lsgan', 'vanilla']:
             target_tensor = self.get_target_tensor(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
-        elif self.gan_mode == 'macegan':
+        elif self.args.GAN_mode == 'macegan' or self.args.GAN_mode == 'macegancross':
             target_tensor = self.get_target_tensor_sqerror(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
         elif self.gan_mode == 'wgangp':

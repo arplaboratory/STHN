@@ -167,7 +167,7 @@ if __name__ == '__main__':
         "--GAN_mode",
         type=str,
         default="macegan",
-        choices=["vanilla", "lsgan", "macegan"],
+        choices=["vanilla", "lsgan", "macegan", "macegancross"],
         help="Choices of GAN loss"
     )
     parser.add_argument(
@@ -193,11 +193,11 @@ if __name__ == '__main__':
         action="store_true",
         help="train uncertainty estimator with GAN"
     )
-    parser.add_argument(
-        "--resize_small",
-        action="store_true",
-        help="train uncertainty estimator with GAN"
-    )
+    # parser.add_argument(
+    #     "--resize_small",
+    #     action="store_true",
+    #     help="train uncertainty estimator with GAN"
+    # )
     parser.add_argument(
         "--noise_std",
         type=float,
@@ -211,6 +211,7 @@ if __name__ == '__main__':
         help="sample noise"
     )
     args = parser.parse_args()
+    args.resize_small = True
     device = torch.device('cuda:'+ str(args.gpuid[0]))
 
     model = STHEGAN(args)
@@ -235,5 +236,5 @@ if __name__ == '__main__':
     if args.use_ue:
         model.netD.eval()
 
-    val_dataset = datasets.fetch_dataloader(args, split='val')
+    val_dataset = datasets.fetch_dataloader(args, split='test')
     evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)
