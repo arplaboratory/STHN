@@ -74,7 +74,7 @@ class GANLoss(nn.Module):
         if self.gan_mode in ['lsgan', 'vanilla']:
             target_tensor = self.get_target_tensor(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
-        elif self.args.GAN_mode == 'macegan' or self.args.GAN_mode == 'macegancross':
+        elif self.gan_mode == 'macegan' or self.gan_mode == 'macegancross':
             target_tensor = self.get_target_tensor_sqerror(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
         elif self.gan_mode == 'wgangp':
