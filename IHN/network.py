@@ -340,14 +340,14 @@ class STHEGAN():
             self.set_requires_grad(self.netD, True)  # enable backprop for D
             self.optimizer_D.zero_grad()     # set D's gradients to zero
             self.backward_D()                # calculate gradients for D
-            # nn.utils.clip_grad_norm_(self.netD.parameters(), self.args.clip)
+            nn.utils.clip_grad_norm_(self.netD.parameters(), self.args.clip)
             self.optimizer_D.step()          # update D's weights
             self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         # update G
         if not self.args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
             self.optimizer_G.zero_grad()        # set G's gradients to zero
             self.backward_G()                   # calculate graidents for G
-            # nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
+            nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
             self.optimizer_G.step()             # update G's weights
         wandb.log({
                 "G_loss": self.loss_G.cpu().item() if self.args.train_ue_method == 'train_end_to_end' else 0,
