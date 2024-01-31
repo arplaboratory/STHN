@@ -8,8 +8,6 @@ def parse_arguments():
     parser.add_argument('--restore_ckpt', help="restore checkpoint")
     
     parser.add_argument('--gpuid', type=int, nargs='+', default = [0])
-    parser.add_argument('--output', type=str, default='IHN_results/satellite', help='output directory to save checkpoints and plots')
-    parser.add_argument('--logname', type=str, default='satellite.log', help='printing frequency')
 
     parser.add_argument('--lev0', default=True, action='store_true', help='warp no')
     parser.add_argument('--lev1', default=False, action='store_true', help='warp once')

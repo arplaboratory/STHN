@@ -19,6 +19,7 @@ import parser
 import datetime
 from os.path import join
 import commons
+import logging
 
 def test(args):
     model = STHEGAN(args)
@@ -59,9 +60,9 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         img1, img2, flow_gt,  H, query_utm, database_utm  = [x.to(model.device) for x in data_blob]
 
         if i_batch == 0:
-            print("Check the reproducibility by UTM:")
-            print(f"the first 5th query UTMs: {query_utm[:5]}")
-            print(f"the first 5th database UTMs: {database_utm[:5]}")
+            logging.info("Check the reproducibility by UTM:")
+            logging.info(f"the first 5th query UTMs: {query_utm[:5]}")
+            logging.info(f"the first 5th database UTMs: {database_utm[:5]}")
 
         if i_batch%100 == 0:
             save_img(torchvision.utils.make_grid((img1)),
@@ -94,16 +95,14 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         final_mace = torch.mean(total_mace).item()
         total_flow = torch.cat([total_flow,flow_vec], dim=0)
         final_flow = torch.mean(total_flow).item()
-        # print(mace_.mean())
-        # print("MACE Metric: ", final_mace)
         
         if args.use_ue:
             with torch.no_grad():
                 conf_pred, conf_gt = model.predict_uncertainty(GAN_mode=args.GAN_mode)
             conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
             conf_gt_vec = torch.mean(conf_gt, dim=[1,2,3])
-            print(f"conf_pred_diff:{conf_vec.cpu() - torch.exp(args.ue_alpha * mace_vec)}.\n conf_gt:{conf_gt_vec.cpu()}.")
-            print(f"pred_mace:{mace_vec}")
+            logging.debug(f"conf_pred_diff:{conf_vec.cpu() - torch.exp(args.ue_alpha * mace_vec)}.\n conf_gt:{conf_gt_vec.cpu()}.")
+            logging.debug(f"pred_mace:{mace_vec}")
             mace_conf_error_vec = F.l1_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
             total_mace_conf_error = torch.cat([total_mace_conf_error, mace_conf_error_vec.reshape(1)], dim=0)
             final_mace_conf_error = torch.mean(total_mace_conf_error).item()
@@ -114,7 +113,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                             '/'.join(args.model.split('/')[:-1]) + f'/eval_overlap_{i_batch}_{mace_vec.mean().item()}.png')
-    print("MACE Metric: ", final_mace)
+    logging.info("MACE Metric: ", final_mace)
     if args.use_ue:
         mace_conf_list = np.array(mace_conf_list)
         # plot mace conf
@@ -129,10 +128,10 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         plt.close()
         plt.figure()
         n, bins, patches = plt.hist(x=mace_conf_list[:,1], bins=np.linspace(0, 1, 20))
-        print(n)
+        logging.info(n)
         plt.close()
-        print("MACE CONF ERROR Metric: ", final_mace_conf_error)
-    print(np.mean(np.array(timeall[1:-1])))
+        logging.info("MACE CONF ERROR Metric: ", final_mace_conf_error)
+    logging.info(np.mean(np.array(timeall[1:-1])))
     io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savemat, {'matrix': total_mace.numpy()})
     np.save(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savedict, total_mace.numpy())
     io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savematflow, {'matrix': total_flow.numpy()})

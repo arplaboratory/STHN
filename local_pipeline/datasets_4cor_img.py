@@ -400,7 +400,7 @@ def fetch_dataloader(args, split='train'):
         train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
                                 pin_memory=True, shuffle=False, num_workers=8,
                                 drop_last=False, worker_init_fn=seed_worker, generator=g)
-    print(f"{split} set: {train_dataset}")
+    logging.info(f"{split} set: {train_dataset}")
     return train_loader
 
 def seed_worker(worker_id):

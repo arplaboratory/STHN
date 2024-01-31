@@ -91,61 +91,6 @@ def warp(x, flo):
     mask[mask > 0] = 1
 
     return output * mask
-
-class Logger_(object):
-    def __init__(self, filename='default.log', stream=sys.stdout):
-        self.terminal = stream
-        self.log = open(filename, 'a')
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-    def flush(self):
-        pass
-
-class Logger:
-    def __init__(self, model, scheduler, args):
-        self.model = model
-        self.args = args
-        self.scheduler = scheduler
-        self.total_steps = 0
-        self.running_loss_dict = {}
-        self.train_mace_list = []
-        self.train_steps_list = []
-        self.val_steps_list = []
-        self.val_results_dict = {}
-
-    def _print_training_status(self):
-        metrics_data = [np.mean(self.running_loss_dict[k]) for k in sorted(self.running_loss_dict.keys())]
-        training_str = "[{:6d}, {:10.7f}] ".format(self.total_steps+1, self.scheduler.get_lr()[0])
-        metrics_str = ("{:10.4f}, "*len(metrics_data[:-1])).format(*metrics_data[:-1])
-        # Compute time left
-        time_left_sec = (self.args.num_steps - (self.total_steps+1)) * metrics_data[-1]
-        time_left_sec = time_left_sec.astype(np.int)
-        time_left_hms = "{:02d}h{:02d}m{:02d}s".format(time_left_sec // 3600, time_left_sec % 3600 // 60, time_left_sec % 3600 % 60)
-        time_left_hms = f"{time_left_hms:>12}"
-        # print the training status
-        print(training_str + metrics_str + time_left_hms)
-        # logging running loss to total loss
-        if 'mace' in self.running_loss_dict:
-            self.train_mace_list.append(np.mean(self.running_loss_dict['mace']))
-        self.train_steps_list.append(self.total_steps)
-        for key in self.running_loss_dict:
-            self.running_loss_dict[key] = []
-
-    def push(self, metrics):
-        self.total_steps += 1
-        for key in metrics:
-            if key not in self.running_loss_dict:
-                self.running_loss_dict[key] = []
-            self.running_loss_dict[key].append(metrics[key])
-        if self.total_steps % self.args.print_freq == self.args.print_freq-1:
-            wandb.log({
-                "step": self.total_steps,
-                "mace": np.mean(self.running_loss_dict['mace']) if 'mace' in self.running_loss_dict else 0,
-                "lr": np.mean(self.running_loss_dict['lr'])
-            },)
-            self._print_training_status()
-            self.running_loss_dict = {}
             
 def sequence_loss(four_preds, flow_gt, gamma, args, metrics):
     """ Loss function defined over sequence of flow predictions """

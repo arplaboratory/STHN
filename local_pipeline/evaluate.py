@@ -14,9 +14,10 @@ import matplotlib.pyplot as plt
 
 import datasets_4cor_img as datasets
 from utils import save_overlap_img
+import logging
 
 @torch.no_grad()
-def validate_process(model, args, logger):
+def validate_process(model, args, total_steps):
     """ Perform evaluation on the FlyingChairs (test) split """
     model.netG.eval()
     if args.use_ue:
@@ -80,10 +81,10 @@ def validate_process(model, args, logger):
         plt.scatter(mace_conf_list[:,2], mace_conf_list[:,3], s=5)
         plt.xlabel("MACE")
         plt.ylabel("conf")
-        plt.savefig(args.output + f'/{logger.total_steps}_conf.png')
+        plt.savefig(args.output + f'/{total_steps}_conf.png')
         plt.close()
     mace = np.mean(np.concatenate(mace_list))
     mace_conf_error = np.mean(np.array(mace_conf_error_list)) if args.use_ue else 0
-    print("Validation MACE: %f" % mace)
-    print("Validation MACE CONF ERROR: %f" % mace_conf_error)
+    logging.info("Validation MACE: %f" % mace)
+    logging.info("Validation MACE CONF ERROR: %f" % mace_conf_error)
     return {'val_mace': mace, 'val_mace_conf_error': mace_conf_error}

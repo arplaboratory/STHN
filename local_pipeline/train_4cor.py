@@ -11,7 +11,7 @@ from torch.cuda.amp import GradScaler
 from tqdm import tqdm
 
 from model.network import STHEGAN
-from utils import count_parameters, Logger, save_img, save_overlap_img, setup_seed, Logger_, warp
+from utils import count_parameters, save_img, save_overlap_img, setup_seed, warp
 import commons
 from os.path import join
 from evaluate import validate_process
@@ -20,6 +20,7 @@ import parser
 import wandb
 import datetime
 from uuid import uuid4
+import logging
 
 def main(args):
     args.save_dir = join(
@@ -39,10 +40,10 @@ def main(args):
             param.requires_grad = False
     else:
         model.netG.train()
-    print(f"Parameter Count: {count_parameters(model.netG)}")
+    logging.info(f"Parameter Count: {count_parameters(model.netG)}")
     if args.use_ue:
         model.netD.train()
-        print(f"Parameter Count: {count_parameters(model.netD)}")
+        logging.info(f"Parameter Count: {count_parameters(model.netD)}")
 
     if args.restore_ckpt is not None:
 
@@ -57,14 +58,14 @@ def main(args):
         extended_loader = datasets.fetch_dataloader(args, split="extended")
     else:
         extended_loader = None
-    logger = Logger(model, model.scheduler_G, args)
 
-    while logger.total_steps <= args.num_steps:
-        train(model, train_loader, logger, args)
+    total_steps = 0
+    while total_steps <= args.num_steps:
+        total_steps = train(model, train_loader, args, total_steps)
         if extended_loader is not None:
-            train(model, extended_loader, logger, args, train_step_limit=len(train_loader))
+            total_steps = train(model, extended_loader, args, total_steps, train_step_limit=len(train_loader))
 
-def train(model, train_loader, logger, args, train_step_limit = None):
+def train(model, train_loader, args, total_steps, train_step_limit = None):
     count = 0
     last_best_val_mace = None
     last_best_val_mace_conf_error = None
@@ -113,7 +114,7 @@ def train(model, train_loader, logger, args, train_step_limit = None):
                     PATH = args.output + f'/{args.name}.pth'
                     torch.save(checkpoint, PATH)
 
-        if logger.total_steps >= args.num_steps:
+        if total_steps >= args.num_steps:
             break
         
         if train_step_limit is not None and count >= train_step_limit: # Balance train and extended
@@ -121,21 +122,15 @@ def train(model, train_loader, logger, args, train_step_limit = None):
         else:
             count += 1
 
-def validate(model, args, logger):
+def validate(model, args, total_steps):
     results = {}
     # Evaluate results
-    results.update(validate_process(model, args, logger))
+    results.update(validate_process(model, args))
     wandb.log({
-                "step": logger.total_steps,
+                "step": total_steps,
                 "val_mace": results['val_mace'],
                 "val_mace_conf_error": results['val_mace_conf_error']
-            },)
-    # Record results in logger
-    for key in results.keys():
-        if key not in logger.val_results_dict.keys():
-            logger.val_results_dict[key] = []
-        logger.val_results_dict[key].append(results[key])
-    logger.val_steps_list.append(logger.total_steps)
+            })
     return results['val_mace'], results['val_mace_conf_error']
 
 
