@@ -2,7 +2,7 @@ import numpy as np
 import os
 import torch
 import argparse
-from network import STHEGAN
+from model.network import STHEGAN
 from utils import save_overlap_img, save_img, setup_seed
 import datasets_4cor_img as datasets
 import scipy.io as io
