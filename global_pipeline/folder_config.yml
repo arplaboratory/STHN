@@ -1,0 +1,68 @@
+satellite:
+  name: 20201117_west_of_rimah
+  maps:
+    - 20201117_west_of_rimah_BingSatellite.tif
+    - 20201117_west_of_rimah_ESRI Satellite.tif
+    - 20201117_west_of_rimah_ESRI_Satellite.tif
+    - 20201117_west_of_rimah_GoogleSatellite.tif
+    - 20201117_west_of_rimah_Yandex Satellite.tif
+    - 20210609_west_of_rimah_first_night_mapping_flight.tif
+  valid_regions:
+    - [0, 0, 9088, 23744]
+    - [0, 0, 9088, 23744]
+    - [0, 0, 9088, 23744]
+    - [0, 0, 9088, 23744]
+sirmionemapping:
+  name: 20210519_west_of_rimah_SirmioneMapping_CROP
+  maps:
+    - 20210519_12-35-36_west_of_rimah_SirmioneMapping_CROP.tif
+    - 20210519_14-28-31_west_of_rimah_SirmioneMapping_CROP.tif
+thermalmapping:
+  name: 20210620_west_of_rimah_thermal_mapping
+  maps:
+    - 20210620_west_of_rimah_thermal_mapping_flight1_21h22m.tif
+    - 20210620_west_of_rimah_thermal_mapping_flight2_22h50m.tif
+    - 20210620_west_of_rimah_thermal_mapping_flight3_00h29m.tif
+    - 20210620_west_of_rimah_thermal_mapping_flight4_01h43m.tif
+    - 20210620_west_of_rimah_thermal_mapping_flight5_02h45m.tif
+    - 20210620_west_of_rimah_thermal_mapping_flight6_03h42m.tif
+    - 20210609_west_of_rimah_first_night_mapping_flight.tif
+  valid_regions:
+    - [750, 1500, 2500, 9400]
+    - [2700, 1800, 5000, 9500]
+    - [270, 1500, 2700, 9400]
+    - [2700, 1800, 4200, 9450]
+    - [1040, 1400, 2710, 9400]
+    - [2650, 1800, 5100, 9350]
+thermalmappingDJI:
+  name: 202302_2023_03_west_of_rimah_DJI
+  maps:
+    - 202302_west_of_rimah_daytime.tif
+    - 202303_west_of_rimah_nighttime.tif
+    - 202303_west_of_rimah_RGB_old.tif
+    - 202303_west_of_rimah_RGB.tif
+  valid_regions:
+    - [650, 1700, 4500, 9250]
+    - [600, 1900, 4500, 9250]
+    - [600, 1900, 4500, 9250]
+    - [600, 1900, 4500, 9250]
+foxtechmapping:
+  name: 20220603_west_of_rimah_foxtech_mapping
+  maps:
+    - 20220603_west_of_rimah_foxtech_mapping_2h30pm.tif
+    - 20220603_west_of_rimah_foxtech_mapping_9h00am.tif
+    - 20220603_west_of_rimah_foxtech_mapping_11h30am.tif
+  valid_regions:
+    - [750, 550, 4600, 6600]
+ADASI:
+  name: 20221216_ADASI_weekday_notam
+  maps:
+    - ADASI_weekday_notam_Bing Aerial_rotated.tif
+  valid_regions:
+    - [950, 7350, 10200, 9225]
+ADASIthermal:
+  name: 20221216_ADASI_weekday_notam_thermal_mapping
+  maps:
+    - ADASI_weekday_notam_DJIMapping_16-12-2022-14PM_north_part_rotated.tif
+  valid_regions:
+    - [950, 7350, 10200, 9225]

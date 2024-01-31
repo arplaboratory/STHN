@@ -11,4 +11,4 @@
 eval "$(conda shell.bash hook)"
 conda activate STGL
 
-python3 ./IHN/train_4cor.py --dataset_name satellite_0_thermalmapping_135_contrast_dense_exclusion --output IHN_results/satellite_thermal_ext_contrast_dense
+python3 ./local_pipeline/train_4cor.py --dataset_name satellite_0_thermalmapping_135_contrast_dense_exclusion --output local_pipeline_results/satellite_thermal_ext_contrast_dense
