@@ -6,7 +6,7 @@ from tqdm import tqdm
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
-from utils.plotting import process_results_simulation
+from plotting import process_results_simulation
 from h5_transformer import calc_overlap
 from model.functional import calculate_psnr
 import yaml
