@@ -29,7 +29,7 @@ from torch.utils.model_zoo import load_url
 from google_drive_downloader import GoogleDriveDownloader as gdd
 import copy
 import numpy as np
-import global_pipeline.test as test
+import test
 import util
 import commons
 import datasets_ws

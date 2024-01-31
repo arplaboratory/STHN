@@ -3,7 +3,7 @@ from model import network
 import datasets_ws
 import commons
 import parser
-import global_pipeline.test as test
+import test
 import util
 import math
 import torch
