@@ -15,8 +15,37 @@ import kornia.geometry.transform as tgm
 import matplotlib.pyplot as plt
 from plot_hist import plot_hist_helper
 import torch.nn.functional as F
+import parser
+import datetime
+from os.path import join
+import commons
 
-setup_seed(0)
+def test(args):
+    model = STHEGAN(args)
+    model_med = torch.load(args.model, map_location='cuda:0')
+
+    for key in list(model_med['netG'].keys()):
+        model_med['netG'][key.replace('module.','')] = model_med['netG'][key]
+    for key in list(model_med['netG'].keys()):
+        if key.startswith('module'):
+            del model_med['netG'][key]
+    model.netG.load_state_dict(model_med['netG'])
+    if args.use_ue:
+        for key in list(model_med['netD'].keys()):
+            model_med['netD'][key.replace('module.','')] = model_med['netD'][key]
+        for key in list(model_med['netD'].keys()):
+            if key.startswith('module'):
+                del model_med['netD'][key]
+        model.netD.load_state_dict(model_med['netD'])
+    
+    model.setup() 
+    model.netG.eval()
+    if args.use_ue:
+        model.netD.eval()
+
+    val_dataset = datasets.fetch_dataloader(args, split='test')
+    evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)
+    
 def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
 
     assert batch_size > 0, "batchsize > 0"
@@ -111,130 +140,14 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
     plot_hist_helper(f"{'/'.join(args.model.split('/')[:-1])}")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model', default='results/IHN/IHN.pth',help="restore checkpoint")
-    parser.add_argument('--iters_lev0', type=int, default=6)
-    parser.add_argument('--iters_lev1', type=int, default=3)
-    parser.add_argument('--mixed_precision', default=False, action='store_true',
-                        help='use mixed precision')
-    parser.add_argument('--dropout', type=float, default=0.0)
-    parser.add_argument('--gpuid', type=int, nargs='+', default=[0, 1])
-    parser.add_argument('--savemat', type=str,  default='resmat')
-    parser.add_argument('--savedict', type=str, default='resnpy')
-    parser.add_argument('--savematflow', type=str,  default='flowmat')
-    parser.add_argument('--savedictflow', type=str, default='flownpy')
-    parser.add_argument('--dataset', type=str, default='mscoco', help='dataset')    
-    parser.add_argument('--lev0', default=False, action='store_true',
-                        help='warp no')
-    parser.add_argument('--lev1', default=False, action='store_true',
-                        help='warp once')
-    parser.add_argument('--weight', default=False, action='store_true',
-                        help='weight')
-    parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--model_name_lev0', default='', help='specify model0 name')
-    parser.add_argument('--model_name_lev1', default='', help='specify model0 name')
-    parser.add_argument(
-        "--datasets_folder", type=str, default="datasets", help="Path with all datasets"
+    args = parser.parse_arguments()
+    start_time = datetime.now()
+    args.save_dir = join(
+    "test",
+    args.save_dir,
+    f"{args.dataset_name}-{start_time.strftime('%Y-%m-%d_%H-%M-%S')}",
     )
-    parser.add_argument(
-        "--dataset_name",
-        type=str,
-        default="satellite_0_satellite_0_dense",
-        help="Relative path of the dataset",
-    )
-    parser.add_argument(
-        "--prior_location_threshold",
-        type=int,
-        default=-1,
-        help="The threshold of search region from prior knowledge for train and test. If -1, then no prior knowledge"
-    )
-    parser.add_argument("--val_positive_dist_threshold", type=int, default=50, help="_")
-    parser.add_argument(
-        "--G_contrast",
-        type=str,
-        default="none",
-        choices=["none", "manual", "autocontrast", "equalize"],
-        help="G_contrast"
-    )
-    parser.add_argument(
-        "--D_net",
-        type=str,
-        default="patchGAN_deep",
-        choices=["none", "patchGAN", "patchGAN_deep"],
-        help="D_net"
-    )
-    parser.add_argument(
-        "--GAN_mode",
-        type=str,
-        default="macegan",
-        choices=["vanilla", "lsgan", "macegan", "macegancross"],
-        help="Choices of GAN loss"
-    )
-    parser.add_argument(
-        "--use_ue",
-        action="store_true",
-        help="train uncertainty estimator with GAN"
-    )
-    parser.add_argument("--device", type=str,
-        default="cuda", choices=["cuda", "cpu"])
-    parser.add_argument(
-        "--ue_alpha",
-        type=float,
-        default=-0.1,
-        help="Alpha for ue"
-    )
-    parser.add_argument(
-        "--use_raw_input",
-        action="store_true",
-        help="train uncertainty estimator with GAN"
-    )
-    parser.add_argument(
-        "--permute",
-        action="store_true",
-        help="train uncertainty estimator with GAN"
-    )
-    # parser.add_argument(
-    #     "--resize_small",
-    #     action="store_true",
-    #     help="train uncertainty estimator with GAN"
-    # )
-    parser.add_argument(
-        "--noise_std",
-        type=float,
-        default=10
-    )
-    parser.add_argument(
-        "--sample_method",
-        type=str,
-        choices=['target', 'raw', 'target_raw'],
-        default='target_raw',
-        help="sample noise"
-    )
-    args = parser.parse_args()
-    args.resize_small = True
-    device = torch.device('cuda:'+ str(args.gpuid[0]))
-
-    model = STHEGAN(args)
-    model_med = torch.load(args.model, map_location='cuda:0')
-
-    for key in list(model_med['netG'].keys()):
-        model_med['netG'][key.replace('module.','')] = model_med['netG'][key]
-    for key in list(model_med['netG'].keys()):
-        if key.startswith('module'):
-            del model_med['netG'][key]
-    model.netG.load_state_dict(model_med['netG'])
-    if args.use_ue:
-        for key in list(model_med['netD'].keys()):
-            model_med['netD'][key.replace('module.','')] = model_med['netD'][key]
-        for key in list(model_med['netD'].keys()):
-            if key.startswith('module'):
-                del model_med['netD'][key]
-        model.netD.load_state_dict(model_med['netD'])
+    commons.setup_logging(args.save_dir)
+    setup_seed(0)
     
-    model.setup() 
-    model.netG.eval()
-    if args.use_ue:
-        model.netD.eval()
-
-    val_dataset = datasets.fetch_dataloader(args, split='test')
-    evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)
+    test(args)
