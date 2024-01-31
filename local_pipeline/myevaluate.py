@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from plot_hist import plot_hist_helper
 import torch.nn.functional as F
 import parser
-import datetime
+from datetime import datetime
 from os.path import join
 import commons
 import logging

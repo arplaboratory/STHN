@@ -15,7 +15,6 @@ def parse_arguments():
     parser.add_argument('--iters_lev1', type=int, default=6)
     
     parser.add_argument('--val_freq', type=int, default=10000, help='validation frequency')
-    parser.add_argument('--print_freq', type=int, default=100, help='printing frequency')
 
     parser.add_argument('--lr', type=float, default=0.00001)
     parser.add_argument('--num_steps', type=int, default=200000)
@@ -113,5 +112,6 @@ def parse_arguments():
     )
     args = parser.parse_args()
     args.resize_small = True
+    args.save_dir = "local_he"
     
     return args

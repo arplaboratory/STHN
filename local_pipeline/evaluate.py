@@ -27,7 +27,14 @@ def validate_process(model, args, total_steps):
     mace_conf_error_list = []
     val_loader = datasets.fetch_dataloader(args, split='val')
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
-        image1, image2, flow_gt,  H, _, _  = [x.to(model.netG.module.device) for x in data_blob]
+            
+        image1, image2, flow_gt,  H, query_utm, database_utm  = [x.to(model.netG.module.device) for x in data_blob]
+        
+        if i_batch == 0:
+            logging.info("Check the reproducibility by UTM:")
+            logging.info(f"the first 5th query UTMs: {query_utm[:5]}")
+            logging.info(f"the first 5th database UTMs: {database_utm[:5]}")
+            
         flow_4cor = torch.zeros((flow_gt.shape[0], 2, 2, 2))
         flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
         flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
@@ -81,7 +88,7 @@ def validate_process(model, args, total_steps):
         plt.scatter(mace_conf_list[:,2], mace_conf_list[:,3], s=5)
         plt.xlabel("MACE")
         plt.ylabel("conf")
-        plt.savefig(args.output + f'/{total_steps}_conf.png')
+        plt.savefig(args.save_dir + f'/{total_steps}_conf.png')
         plt.close()
     mace = np.mean(np.concatenate(mace_list))
     mace_conf_error = np.mean(np.array(mace_conf_error_list)) if args.use_ue else 0

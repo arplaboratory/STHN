@@ -18,20 +18,11 @@ from evaluate import validate_process
 import datasets_4cor_img as datasets
 import parser
 import wandb
-import datetime
+from datetime import datetime
 from uuid import uuid4
 import logging
 
 def main(args):
-    args.save_dir = join(
-    "logs",
-    args.save_dir,
-    f"{args.dataset_name}-{start_time.strftime('%Y-%m-%d_%H-%M-%S')}-{uuid4()}",
-    )
-    commons.setup_logging(args.save_dir)
-
-    device = torch.device('cuda:'+ str(args.gpuid[0]))
-
     model = STHEGAN(args, for_training=True)
     model.setup()
     if args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
@@ -87,17 +78,23 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
         model.set_input(image1, image2, flow)
         metrics = model.optimize_parameters()
         model.update_learning_rate()
-        metrics["lr"] = model.scheduler_G.get_lr()
+        metrics["lr"] = model.scheduler_G.get_last_lr()
         toc = time.time()
         metrics['time'] = toc - tic
-        logger.push(metrics)
-
+        wandb.log({
+                "mace": metrics["mace"],
+                "lr": metrics["lr"],
+                "G_loss": metrics["G_loss"] if args.train_ue_method == 'train_end_to_end' else 0,
+                "GAN_loss": metrics["GAN_loss"] if args.train_ue_method == 'train_end_to_end' and args.use_ue else 0,
+                "D_loss": metrics["D_loss"] if args.use_ue else 0
+            },)
+        total_steps += 1
         # Validate
-        if logger.total_steps % args.val_freq == args.val_freq - 1:
-            current_val_mace, current_val_mace_conf_error = validate(model, args, logger)
+        if total_steps % args.val_freq == args.val_freq - 1:
+            current_val_mace, current_val_mace_conf_error = validate(model, args, total_steps)
             # plot_train(logger, args)
             # plot_val(logger, args)
-            PATH = args.output + f'/{logger.total_steps+1}_{args.name}.pth'
+            PATH = args.save_dir + f'/{total_steps+1}_{args.name}.pth'
             checkpoint = {
                 "netG": model.netG.state_dict(),
                 "netD": model.netD.state_dict() if args.use_ue else None,
@@ -106,12 +103,12 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
             if args.use_ue and args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
                 if last_best_val_mace_conf_error is None or last_best_val_mace_conf_error > current_val_mace_conf_error:
                     last_best_val_mace_conf_error = current_val_mace_conf_error
-                    PATH = args.output + f'/{args.name}.pth'
+                    PATH = args.save_dir + f'/{args.name}.pth'
                     torch.save(checkpoint, PATH)
             else:
                 if last_best_val_mace is None or last_best_val_mace > current_val_mace:
                     last_best_val_mace = current_val_mace
-                    PATH = args.output + f'/{args.name}.pth'
+                    PATH = args.save_dir + f'/{args.name}.pth'
                     torch.save(checkpoint, PATH)
 
         if total_steps >= args.num_steps:
@@ -121,13 +118,13 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
             break
         else:
             count += 1
+    return total_steps
 
 def validate(model, args, total_steps):
     results = {}
     # Evaluate results
-    results.update(validate_process(model, args))
+    results.update(validate_process(model, args, total_steps))
     wandb.log({
-                "step": total_steps,
                 "val_mace": results['val_mace'],
                 "val_mace_conf_error": results['val_mace_conf_error']
             })
@@ -146,6 +143,5 @@ if __name__ == "__main__":
     setup_seed(0)
 
     wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
-    sys.stdout = Logger_(args.logname, sys.stdout)
         
     main(args)

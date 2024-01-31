@@ -8,8 +8,8 @@ from corr import CorrBlock
 from utils import coords_grid, sequence_loss, fetch_optimizer, warp
 import os
 import sys
-from pix2pix_networks.networks import GANLoss, NLayerDiscriminator
-from sync_batchnorm import convert_model
+from model.pix2pix_networks.networks import GANLoss, NLayerDiscriminator
+from model.sync_batchnorm import convert_model
 import wandb
 import torchvision
 import random
@@ -314,9 +314,8 @@ class STHEGAN():
                 self.loss_G_GAN = self.criterionGAN(pred_fake, self.mace_vec_fake) # Try not real
             else:
                 raise NotImplementedError()
-            # self.loss_G = self.loss_G + self.loss_G_GAN
-            # self.metrics["GAN_loss"] = self.loss_G_GAN.cpu().item()
-            self.metrics["GAN_loss"] = 0
+            self.loss_G = self.loss_G + self.loss_G_GAN
+            self.metrics["GAN_loss"] = self.loss_G_GAN.cpu().item()
         self.loss_G.backward()
 
     def set_requires_grad(self, nets, requires_grad=False):
@@ -349,11 +348,6 @@ class STHEGAN():
             self.backward_G()                   # calculate graidents for G
             nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
             self.optimizer_G.step()             # update G's weights
-        wandb.log({
-                "G_loss": self.loss_G.cpu().item() if self.args.train_ue_method == 'train_end_to_end' else 0,
-                "GAN_loss": self.loss_G_GAN.cpu().item() if self.args.train_ue_method == 'train_end_to_end' and self.args.use_ue else 0,
-                "D_loss": self.loss_D.cpu().item() if self.args.use_ue else 0
-            })
         return self.metrics
 
     def update_learning_rate(self):
