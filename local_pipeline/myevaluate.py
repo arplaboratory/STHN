@@ -23,7 +23,7 @@ import logging
 
 def test(args):
     model = STHEGAN(args)
-    model_med = torch.load(args.model, map_location='cuda:0')
+    model_med = torch.load(args.eval_model, map_location='cuda:0')
 
     for key in list(model_med['netG'].keys()):
         model_med['netG'][key.replace('module.','')] = model_med['netG'][key]
@@ -66,13 +66,13 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
 
         if i_batch%100 == 0:
             save_img(torchvision.utils.make_grid((img1)),
-                     '/'.join(args.model.split('/')[:-1]) + "/b1_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
+                     args.save_dir + "/b1_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
             save_img(torchvision.utils.make_grid((img2)),
-                     '/'.join(args.model.split('/')[:-1]) + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
+                     args.save_dir + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
 
         time_start = time.time()
         model.set_input(img1, img2, flow_gt)
-        model.forward(use_raw_input=args.use_raw_input, noise_std=args.noise_std)
+        model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std)
         four_pred = model.four_pred
         time_end = time.time()
         timeall.append(time_end-time_start)
@@ -109,10 +109,10 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             for i in range(len(mace_vec)):
                 mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
 
-        if i_batch%100 == 0:
+        if i_batch%10000 == 0:
             save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
-                            '/'.join(args.model.split('/')[:-1]) + f'/eval_overlap_{i_batch}_{mace_vec.mean().item()}.png')
+                            args.save_dir + f'/eval_overlap_{i_batch}_{mace_vec.mean().item()}.png')
     logging.info("MACE Metric: ", final_mace)
     if args.use_ue:
         mace_conf_list = np.array(mace_conf_list)
@@ -124,7 +124,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         y = np.exp(args.ue_alpha * x)
         plt.plot(x, y, label='f(x) = exp(-0.1x)', color='red')
         plt.legend()
-        plt.savefig('/'.join(args.model.split('/')[:-1]) + f'/final_conf.png')
+        plt.savefig(args.save_dir + f'/final_conf.png')
         plt.close()
         plt.figure()
         n, bins, patches = plt.hist(x=mace_conf_list[:,1], bins=np.linspace(0, 1, 20))
@@ -132,11 +132,11 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         plt.close()
         logging.info("MACE CONF ERROR Metric: ", final_mace_conf_error)
     logging.info(np.mean(np.array(timeall[1:-1])))
-    io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savemat, {'matrix': total_mace.numpy()})
-    np.save(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savedict, total_mace.numpy())
-    io.savemat(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savematflow, {'matrix': total_flow.numpy()})
-    np.save(f"{'/'.join(args.model.split('/')[:-1])}" + '/' + args.savedictflow, total_flow.numpy())
-    plot_hist_helper(f"{'/'.join(args.model.split('/')[:-1])}")
+    io.savemat(args.save_dir + '/resmat', {'matrix': total_mace.numpy()})
+    np.save(args.save_dir + '/resnpy.npy', total_mace.numpy())
+    io.savemat(args.save_dir + '/flowmat', {'matrix': total_flow.numpy()})
+    np.save(args.save_dir + '/flownpy.npy', total_flow.numpy())
+    plot_hist_helper(args.save_dir)
 
 if __name__ == '__main__':
     args = parser.parse_arguments()

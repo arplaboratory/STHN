@@ -27,6 +27,7 @@ def parse_arguments():
     parser.add_argument('--mixed_precision', default=False, action='store_true', help='use mixed precision')
     
     parser.add_argument('--model_name', default='', help='specify model name')
+    parser.add_argument('--eval_model', type=str, default="")
     parser.add_argument('--resume', default=False, action='store_true', help='resume_training')
     
     parser.add_argument('--weight', action='store_true')
