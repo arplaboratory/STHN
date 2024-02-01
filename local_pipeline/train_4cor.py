@@ -86,7 +86,7 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
         toc = time.time()
         metrics['time'] = toc - tic
         wandb.log({
-                "mace": metrics["mace"],
+                "mace": metrics["mace"] if args.train_ue_method == 'train_end_to_end' else 0,
                 "lr": metrics["lr"],
                 "G_loss": metrics["G_loss"] if args.train_ue_method == 'train_end_to_end' else 0,
                 "GAN_loss": metrics["GAN_loss"] if args.train_ue_method == 'train_end_to_end' and args.use_ue else 0,
