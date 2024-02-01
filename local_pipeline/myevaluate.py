@@ -113,7 +113,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
             save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                             args.save_dir + f'/eval_overlap_{i_batch}_{mace_vec.mean().item()}.png')
-    logging.info("MACE Metric: ", final_mace)
+    logging.info(f"MACE Metric: {final_mace}")
     if args.use_ue:
         mace_conf_list = np.array(mace_conf_list)
         # plot mace conf
@@ -130,7 +130,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         n, bins, patches = plt.hist(x=mace_conf_list[:,1], bins=np.linspace(0, 1, 20))
         logging.info(n)
         plt.close()
-        logging.info("MACE CONF ERROR Metric: ", final_mace_conf_error)
+        logging.info(f"MACE CONF ERROR Metric: {final_mace_conf_error}")
     logging.info(np.mean(np.array(timeall[1:-1])))
     io.savemat(args.save_dir + '/resmat', {'matrix': total_mace.numpy()})
     np.save(args.save_dir + '/resnpy.npy', total_mace.numpy())
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     args.save_dir,
     f"{args.dataset_name}-{start_time.strftime('%Y-%m-%d_%H-%M-%S')}",
     )
-    commons.setup_logging(args.save_dir)
+    commons.setup_logging(args.save_dir, console='info')
     setup_seed(0)
     
     test(args)

@@ -139,7 +139,7 @@ if __name__ == "__main__":
     args.save_dir,
     f"{args.dataset_name}-{start_time.strftime('%Y-%m-%d_%H-%M-%S')}-{uuid4()}",
     )
-    commons.setup_logging(args.save_dir)
+    commons.setup_logging(args.save_dir, console='info')
     setup_seed(0)
 
     wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
