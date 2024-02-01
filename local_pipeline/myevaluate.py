@@ -20,6 +20,7 @@ from datetime import datetime
 from os.path import join
 import commons
 import logging
+import wandb
 
 def test(args):
     model = STHEGAN(args)
@@ -47,9 +48,9 @@ def test(args):
         model.netD.eval()
 
     val_dataset = datasets.fetch_dataloader(args, split='test')
-    evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args)
+    evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args, wandb_log=False)
     
-def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
+def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False):
 
     assert batch_size > 0, "batchsize > 0"
 
@@ -116,6 +117,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
                             torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                             args.save_dir + f'/eval_overlap_{i_batch}_{mace_vec.mean().item()}.png')
     logging.info(f"MACE Metric: {final_mace}")
+    wandb.log({"test_mace": final_mace})
     if args.use_ue:
         mace_conf_list = np.array(mace_conf_list)
         # plot mace conf
@@ -133,6 +135,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None):
         logging.info(n)
         plt.close()
         logging.info(f"MACE CONF ERROR Metric: {final_mace_conf_error}")
+        wandb.log({"test_mace_conf_error": final_mace_conf_error})
     logging.info(np.mean(np.array(timeall[1:-1])))
     io.savemat(args.save_dir + '/resmat', {'matrix': total_mace.numpy()})
     np.save(args.save_dir + '/resnpy.npy', total_mace.numpy())

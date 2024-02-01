@@ -21,6 +21,7 @@ import wandb
 from datetime import datetime
 from uuid import uuid4
 import logging
+from myevaluate import evaluate_SNet
 
 def main(args):
     model = STHEGAN(args, for_training=True)
@@ -55,6 +56,9 @@ def main(args):
         total_steps = train(model, train_loader, args, total_steps)
         if extended_loader is not None:
             total_steps = train(model, extended_loader, args, total_steps, train_step_limit=len(train_loader))
+
+    test_dataset = datasets.fetch_dataloader(args, split='test')
+    evaluate_SNet(model, test_dataset, batch_size=args.batch_size, args=args, wandb_log=True)
 
 def train(model, train_loader, args, total_steps, train_step_limit = None):
     count = 0
