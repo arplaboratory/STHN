@@ -32,6 +32,8 @@ def test(args):
             del model_med['netG'][key]
     model.netG.load_state_dict(model_med['netG'])
     if args.use_ue:
+        if args.eval_model_ue is not None:
+            model_med = torch.load(args.eval_model_ue, map_location='cuda:0')
         for key in list(model_med['netD'].keys()):
             model_med['netD'][key.replace('module.','')] = model_med['netD'][key]
         for key in list(model_med['netD'].keys()):
