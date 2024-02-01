@@ -82,7 +82,7 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
         model.set_input(image1, image2, flow)
         metrics = model.optimize_parameters()
         model.update_learning_rate()
-        metrics["lr"] = model.scheduler_G.get_last_lr()
+        metrics["lr"] = model.scheduler_G.get_lr()
         toc = time.time()
         metrics['time'] = toc - tic
         wandb.log({
