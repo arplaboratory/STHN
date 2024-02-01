@@ -13,7 +13,7 @@ def parse_arguments():
     parser.add_argument('--iters_lev1', type=int, default=6)
     parser.add_argument('--val_freq', type=int, default=10000, help='validation frequency')
     parser.add_argument('--lr', type=float, default=0.00001)
-    parser.add_argument('--num_steps', type=int, default=200)
+    parser.add_argument('--num_steps', type=int, default=200000)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--image_size', type=int, nargs='+', default=[512, 512])
     parser.add_argument('--wdecay', type=float, default=0.00001)
