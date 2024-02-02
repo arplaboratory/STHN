@@ -183,10 +183,12 @@ if __name__ == "__main__":
 
     if args.region_num <= 2:
         # Not enough test data. Use val as test
-        os.symlink(os.path.abspath(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'val_database.h5')),
-                os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'test_database.h5'))
-        os.symlink(os.path.abspath(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'val_queries.h5')),
-                os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'test_queries.h5'))
+        if args.generate_data == "database" or args.generate_data == "both":
+            os.symlink(os.path.abspath(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'val_database.h5')),
+                    os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'test_database.h5'))
+        if args.generate_data == "query" or args.generate_data == "both":
+            os.symlink(os.path.abspath(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'val_queries.h5')),
+                    os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'test_queries.h5'))
     else:
         if args.generate_data == "database" or args.generate_data == "both":
             merge_h5_file(args, name='database', split='test')
