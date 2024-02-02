@@ -9,7 +9,7 @@ import yaml
 from glob import glob
 import cv2
 
-folder_config_path = './folder_config.yml'
+folder_config_path = './global_pipeline/folder_config.yml'
 datasets_folder = './datasets/'
 Image.MAX_IMAGE_PIXELS = None
 
@@ -161,7 +161,7 @@ def create_h5_file(args, name, split, sample_num):
                            left: right, :]
             img_np = np.pad(img_np, ((top_pad, bottom_pad),(left_pad, right_pad),(0,0)))
             if args.resize_width != args.crop_width:
-                img_np = cv2.resize(img_np, (args.resize_width, args.resize_width))
+                img_np = cv2.resize(img_np, (args.resize_width, args.resize_width), interpolation=cv2.INTER_LINEAR)
             img_np = np.expand_dims(img_np, axis=0)
             size_np = np.expand_dims(
                 np.array([img_np.shape[1], img_np.shape[2]]), axis=0)
