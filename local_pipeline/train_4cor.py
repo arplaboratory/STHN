@@ -70,14 +70,12 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
         image2_w = warp(image2, flow)
 
         if i_batch==0:
-            if not os.path.exists('watch'):
-                os.makedirs('watch')
-            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), './watch/' + 'train_img1.bmp')
-            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), './watch/' + 'train_img2.bmp')
-            save_img(torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=0), './watch/' + 'train_img2w.bmp')
+            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1.bmp')
+            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2.bmp')
+            save_img(torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2w.bmp')
             save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
                              torchvision.utils.make_grid(image2_w, nrow=16, padding = 16, pad_value=0), 
-                             './watch/' + 'train_overlap.png')
+                             args.save_dir + '/train_overlap.png')
 
         model.set_input(image1, image2, flow)
         metrics = model.optimize_parameters()

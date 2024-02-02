@@ -151,6 +151,7 @@ if __name__ == '__main__':
     args.save_dir = join(
     "test",
     args.save_dir,
+    args.eval_model.split("/")[-2],
     f"{args.dataset_name}-{start_time.strftime('%Y-%m-%d_%H-%M-%S')}",
     )
     commons.setup_logging(args.save_dir, console='info')

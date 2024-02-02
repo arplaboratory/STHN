@@ -45,15 +45,13 @@ def validate_process(model, args, total_steps):
         model.set_input(image1, image2, flow_gt)
         model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std)
         if i_batch == 0:
-            if not os.path.exists('watch'):
-                os.makedirs('watch')
             # Visualize
             save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
-                            './watch/' + 'train_overlap_pred.png')
+                            args.save_dir + '/train_overlap_pred.png')
             save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
-                            './watch/' + 'train_overlap_gt.png')
+                            args.save_dir + '/train_overlap_gt.png')
         four_pr = model.four_pred
         mace = torch.sum((four_pr.cpu().detach() - flow_4cor) ** 2, dim=1).sqrt()
         mace_list.append(mace.view(-1).numpy())
