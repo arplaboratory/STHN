@@ -7,6 +7,7 @@ import argparse
 from tqdm import tqdm
 import yaml
 from glob import glob
+import cv2
 
 folder_config_path = './folder_config.yml'
 datasets_folder = './datasets/'
@@ -159,6 +160,8 @@ def create_h5_file(args, name, split, sample_num):
             img_np = image[top: bottom,
                            left: right, :]
             img_np = np.pad(img_np, ((top_pad, bottom_pad),(left_pad, right_pad),(0,0)))
+            if args.resize_width != args.crop_width:
+                img_np = cv2.resize(img_np, (args.resize_width, args.resize_width))
             img_np = np.expand_dims(img_np, axis=0)
             size_np = np.expand_dims(
                 np.array([img_np.shape[1], img_np.shape[2]]), axis=0)
@@ -167,8 +170,8 @@ def create_h5_file(args, name, split, sample_num):
                     hf.create_dataset(
                         "image_data",
                         data=img_np,
-                        chunks=(1, args.crop_width, args.crop_width, 3),
-                        maxshape=(None, args.crop_width, args.crop_width, 3),
+                        chunks=(1, args.resize_width, args.resize_width, 3),
+                        maxshape=(None, args.resize_width, args.resize_width, 3),
                         compression="lzf",
                     )  # write the data to hdf5 file
                     hf.create_dataset(
@@ -182,8 +185,8 @@ def create_h5_file(args, name, split, sample_num):
                     hf.create_dataset(
                         "image_data",
                         data=img_np,
-                        chunks=(1, args.crop_width, args.crop_width, 3),
-                        maxshape=(None, args.crop_width, args.crop_width, 3),
+                        chunks=(1, args.resize_width, args.resize_width, 3),
+                        maxshape=(None, args.resize_width, args.resize_width, 3),
                     )  # write the data to hdf5 file
                     hf.create_dataset(
                         "image_size", data=size_np, chunks=True, maxshape=(None, 2)
@@ -234,6 +237,7 @@ if __name__ == "__main__":
         help="The index of queries flight you want to use. For satellite map, it is forced to be 0"
     )
     parser.add_argument("--crop_width", type=int, default=512)
+    parser.add_argument("--resize_width", type=int, default=512)
     parser.add_argument("--sample_width", type=int, default=512)
     parser.add_argument("--train_sample_num", type=int, default=10000)
     parser.add_argument("--val_sample_num", type=int, default=10000)
