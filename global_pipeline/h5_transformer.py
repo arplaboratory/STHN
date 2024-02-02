@@ -242,6 +242,7 @@ if __name__ == "__main__":
     parser.add_argument("--train_sample_num", type=int, default=10000)
     parser.add_argument("--val_sample_num", type=int, default=10000)
     parser.add_argument("--compress", action="store_true")
+    parser.add_argument("--generate_data", type=str, default="both", choices=["database", "query", "both"])
     parser.add_argument("--region_num", type=int, default=2, choices=[1, 2, 3])
     parser.add_argument("--sample_method", type=str, default="random", choices=["random", "grid", "stride"])
     parser.add_argument("--stride", type=int, default=35)
