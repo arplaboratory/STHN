@@ -259,12 +259,16 @@ if __name__ == "__main__":
 
     np.random.seed(0)
     if args.region_num >= 1:
-        create_h5_file(args, name='database', split='train', sample_num=args.train_sample_num)
-        create_h5_file(args, name='queries', split='train', sample_num=args.train_sample_num)
+        if args.generate_data in ['database', 'both']:
+            create_h5_file(args, name='database', split='train', sample_num=args.train_sample_num)
+        if args.generate_data in ['query', 'both']:
+            create_h5_file(args, name='queries', split='train', sample_num=args.train_sample_num)
 
     if args.region_num >= 2:
-        create_h5_file(args, name='database', split='val', sample_num=args.val_sample_num)
-        create_h5_file(args, name='queries', split='val', sample_num=args.val_sample_num)
+        if args.generate_data in ['database', 'both']:
+            create_h5_file(args, name='database', split='val', sample_num=args.train_sample_num)
+        if args.generate_data in ['query', 'both']:
+            create_h5_file(args, name='queries', split='val', sample_num=args.train_sample_num)
 
     if args.region_num == 2:
         # Not enough test data. Use val as test
@@ -273,5 +277,7 @@ if __name__ == "__main__":
         os.symlink(os.path.abspath(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_index) + '_' + args.queries_name + '_' + str(args.queries_index), 'val_queries.h5')),
                 os.path.join(datasets_folder, args.database_name + '_' + str(args.database_index) + '_' + args.queries_name + '_' + str(args.queries_index), 'test_queries.h5'))
     elif args.region_num == 3:
-        create_h5_file(args, name='database', split='test', sample_num=args.val_sample_num)
-        create_h5_file(args, name='queries', split='test', sample_num=args.val_sample_num)
+        if args.generate_data in ['database', 'both']:
+            create_h5_file(args, name='database', split='test', sample_num=args.train_sample_num)
+        if args.generate_data in ['query', 'both']:
+            create_h5_file(args, name='queries', split='test', sample_num=args.train_sample_num)
