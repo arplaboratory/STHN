@@ -152,6 +152,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--compress", action="store_true")
     parser.add_argument("--region_num", type=int, default=2, choices=[1, 2, 3])
+    parser.add_argument("--generate_data", type=str, default="both", choices=["database", "query", "both"])
     args = parser.parse_args()
 
     if args.database_name == 'satellite' and len(args.database_indexes) > 1:
@@ -169,19 +170,27 @@ if __name__ == "__main__":
                 str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes)))
 
     if args.region_num >= 1:
-        merge_h5_file(args, name='database', split='train')
-        merge_h5_file(args, name='queries', split='train')
+        if args.generate_data == "database" or args.generate_data == "both":
+            merge_h5_file(args, name='database', split='train')
+        if args.generate_data == "query" or args.generate_data == "both":
+            merge_h5_file(args, name='queries', split='train')
 
     if args.region_num >= 2:
-        merge_h5_file(args, name='database', split='val')
-        merge_h5_file(args, name='queries', split='val')
+        if args.generate_data == "database" or args.generate_data == "both":
+            merge_h5_file(args, name='database', split='val')
+        if args.generate_data == "query" or args.generate_data == "both":
+            merge_h5_file(args, name='queries', split='val')
 
     if args.region_num <= 2:
         # Not enough test data. Use val as test
-        os.symlink(os.path.abspath(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'val_database.h5')),
-                os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'test_database.h5'))
-        os.symlink(os.path.abspath(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'val_queries.h5')),
-                os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'test_queries.h5'))
+        if args.generate_data == "database" or args.generate_data == "both":
+            os.symlink(os.path.abspath(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'val_database.h5')),
+                    os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'test_database.h5'))
+        if args.generate_data == "query" or args.generate_data == "both":
+            os.symlink(os.path.abspath(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'val_queries.h5')),
+                    os.path.join(datasets_folder, args.database_name + '_' + str(args.database_indexes) + '_' + args.queries_name + '_' + str(args.queries_indexes), 'test_queries.h5'))
     else:
-        merge_h5_file(args, name='database', split='test')
-        merge_h5_file(args, name='queries', split='test')
+        if args.generate_data == "database" or args.generate_data == "both":
+            merge_h5_file(args, name='database', split='test')
+        if args.generate_data == "query" or args.generate_data == "both":
+            merge_h5_file(args, name='queries', split='test')
