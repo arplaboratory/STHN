@@ -11,4 +11,4 @@
 eval "$(conda shell.bash hook)"
 conda activate STGL
 
-python3 ./local_pipeline/train_4cor.py --dataset_name satellite_0_thermalmapping_135_large_train --val_positive_dist_threshold 128 
+python3 ./local_pipeline/train_4cor.py --dataset_name satellite_0_thermalmapping_135_large_train --val_positive_dist_threshold 128 --database_size 1024
