@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=16               # uses 1 compute core per task
 #SBATCH --time=24:00:00
 #SBATCH --gres=gpu:1
-#SBATCH --mem=64GB
+#SBATCH --mem=100GB
 #SBATCH --job-name=train_tgm
 #SBATCH --output=train_tgm.out
 
