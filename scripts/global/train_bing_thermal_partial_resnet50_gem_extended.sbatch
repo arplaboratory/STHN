@@ -11,4 +11,4 @@
 eval "$(conda shell.bash hook)"
 conda activate STGL
 
-python3 -u global_pipeline/train.py  --dataset_name satellite_0_thermalmapping_135_contrast_dense_exclusion --backbone resnet50conv5 --aggregation gem --mining partial --datasets_folder ./datasets --save_dir global_retrieval --lr 0.00001 --fc_output_dim $FC --train_batch_size 16 --infer_batch_size 64 --num_workers 16 --epochs_num 40 --patience 40 --negs_num_per_query 2 --queries_per_epoch 50000 --cache_refresh_rate 10000 --unfreeze --use_extended_data --G_contrast manual
+python3 -u global_pipeline/train.py  --dataset_name satellite_0_thermalmapping_135_contrast_dense_exclusion --backbone resnet50conv5 --aggregation gem --mining partial --datasets_folder ./datasets --save_dir global_retrieval --lr 0.00001 --fc_output_dim $FC --train_batch_size 16 --infer_batch_size 256 --num_workers 16 --epochs_num 100 --patience 10 --negs_num_per_query 2 --queries_per_epoch 50000 --cache_refresh_rate 10000 --unfreeze --use_extended_data --G_contrast manual
