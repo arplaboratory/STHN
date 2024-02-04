@@ -1,11 +1,10 @@
 #!/bin/bash
 
-sbatch scripts/local/train_local_dense_extended_lsgan.sbatch
-sbatch scripts/local/train_local_dense_extended_macegan.sbatch
-sbatch scripts/local/train_local_dense_extended.sbatch
-sbatch scripts/local/train_local_dense_smalldb.sbatch
-sbatch scripts/local/train_local_dense.sbatch
-sbatch scripts/local/train_local_sparse_64_extended_macegan.sbatch
-sbatch scripts/local/train_local_sparse_64_extended.sbatch
-sbatch scripts/local/train_local_sparse_128_extended_macegan.sbatch
-sbatch scripts/local/train_local_sparse_128_extended.sbatch
+sbatch --export=ALL,FC=2048 scripts/global/train_bing_thermal_partial_resnet50_gem_extended_sparse_64.sbatch 
+sbatch --export=ALL,FC=2048 scripts/global/train_bing_thermal_partial_resnet50_gem_extended_sparse_128.sbatch
+sbatch --export=ALL,FC=2048 scripts/global/train_bing_thermal_partial_resnet50_gem_extended_sparse_256.sbatch
+sbatch --export=ALL,FC=2048 scripts/global/train_bing_thermal_partial_resnet50_gem_extended.sbatch
+sbatch --export=ALL,FC=2048 scripts/global/train_bing_thermal_partial_resnet50_gem_nocontrast_extended.sbatch
+sbatch --export=ALL,FC=4096 scripts/global/train_bing_thermal_partial_resnet50_gem_nocontrast.sbatch
+sbatch --export=ALL,FC=2048 scripts/global/train_bing_thermal_partial_resnet50_gem_nocontrast.sbatch
+sbatch --export=ALL,FC=1024 scripts/global/train_bing_thermal_partial_resnet50_gem_nocontrast.sbatch
