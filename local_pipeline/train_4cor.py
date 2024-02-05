@@ -100,7 +100,7 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
             },)
         total_steps += 1
         # Validate
-        if total_steps:
+        if total_steps % args.val_freq == args.val_freq - 1:
             current_val_mace, current_val_mace_conf_error = validate(model, args, total_steps)
             # plot_train(logger, args)
             # plot_val(logger, args)
