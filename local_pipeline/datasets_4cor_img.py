@@ -70,7 +70,7 @@ class homo_dataset(data.Dataset):
         img2 = database_PIL_image # img1 warp to img2
 
         height, width = img1.size
-        t = np.float32(np.array(database_utm - query_utm))
+        t = np.float32(np.array(query_utm - database_utm))
         t[0][0], t[0][1] = t[0][1], t[0][0] # Swap!
         
         if self.permute:
@@ -176,27 +176,40 @@ class homo_dataset(data.Dataset):
             if not self.args.resize_small:
                 img1 = img1[:,128:384,128:384]
                 img2 = img2[:,128:384,128:384]
-            else:
+            elif self.args.database_size == 512:
                 t = t/2
+            elif self.args.database_size == 1024:
+                t = t/4
+            else:
+                return NotImplementedError()
+            
             t_tensor = torch.Tensor(t).squeeze(0)
             y_grid, x_grid = np.mgrid[0:img1.shape[1], 0:img1.shape[2]]
             point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
             four_point_org = torch.zeros((2, 2, 2))
-            four_point_org[:, 0, 0] = torch.Tensor([0, 0])
-            four_point_org[:, 0, 1] = torch.Tensor([256 - 1, 0])
-            four_point_org[:, 1, 0] = torch.Tensor([0, 256 - 1])
-            four_point_org[:, 1, 1] = torch.Tensor([256 - 1, 256 - 1])
+            top_left = torch.Tensor([0, 0])
+            top_right = torch.Tensor([256 - 1, 0])
+            bottom_left = torch.Tensor([0, 256 - 1])
+            bottom_right = torch.Tensor([256 - 1, 256 - 1])
+            top_left_resize = torch.Tensor([64, 64])
+            top_right_resize = torch.Tensor([256 - 64 - 1, 64])
+            bottom_left_resize = torch.Tensor([64, 256 - 64 - 1])
+            bottom_right_resize = torch.Tensor([256 - 64 - 1, 256 - 64 - 1])
+            four_point_org[:, 0, 0] = top_left
+            four_point_org[:, 0, 1] = top_right
+            four_point_org[:, 1, 0] = bottom_left
+            four_point_org[:, 1, 1] = bottom_right
             four_point_1 = torch.zeros((2, 2, 2))
             if self.args.database_size == 512:
-                four_point_1[:, 0, 0] = t_tensor + torch.Tensor([0, 0])
-                four_point_1[:, 0, 1] = t_tensor + torch.Tensor([256 - 1, 0])
-                four_point_1[:, 1, 0] = t_tensor + torch.Tensor([0, 256 - 1])
-                four_point_1[:, 1, 1] = t_tensor + torch.Tensor([256 - 1, 256 - 1])
+                four_point_1[:, 0, 0] = t_tensor + top_left
+                four_point_1[:, 0, 1] = t_tensor + top_right
+                four_point_1[:, 1, 0] = t_tensor + bottom_left
+                four_point_1[:, 1, 1] = t_tensor + bottom_right
             elif self.args.database_size == 1024:
-                four_point_1[:, 0, 0] = t_tensor + torch.Tensor([-128, -128])
-                four_point_1[:, 0, 1] = t_tensor + torch.Tensor([256 + 128 - 1, -128])
-                four_point_1[:, 1, 0] = t_tensor + torch.Tensor([-128, 256 + 128 - 1])
-                four_point_1[:, 1, 1] = t_tensor + torch.Tensor([256 + 128 - 1, 256 + 128 - 1])
+                four_point_1[:, 0, 0] = t_tensor + top_left_resize
+                four_point_1[:, 0, 1] = t_tensor + top_right_resize
+                four_point_1[:, 1, 0] = t_tensor + bottom_left_resize
+                four_point_1[:, 1, 1] = t_tensor + bottom_right_resize
             four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
             four_point_1 = four_point_1.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
             H = tgm.get_perspective_transform(four_point_org, four_point_1)

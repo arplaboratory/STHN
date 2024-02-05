@@ -208,16 +208,7 @@ class STHEGAN():
             self.flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
             self.flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
             self.flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
-            four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
-            t_tensor = -self.flow_4cor
-            four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)
-            four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + torch.Tensor([256 - 1, 0]).to(self.device)
-            four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + torch.Tensor([0, 256 - 1]).to(self.device)
-            four_point_1[:, :, 1, 1] = t_tensor[:, :, 1, 1] + torch.Tensor([256 - 1, 256 - 1]).to(self.device)
-            four_point_org = self.four_point_org_single.repeat(self.flow_gt.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
-            four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
-            H = tgm.get_perspective_transform(four_point_org, four_point_1)
-            self.real_warped_image_2 = tgm.warp_perspective(self.image_2, H, (self.image_1.shape[2], self.image_1.shape[3]))
+            self.real_warped_image_2 = mywarp(self.image_2, self.flow_gt, self.four_point_org_single)
         else:
             self.real_warped_image_2 = None
 
@@ -237,7 +228,6 @@ class STHEGAN():
         
     def forward(self, use_raw_input=False, noise_std=0, sample_method="target_raw"):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        four_point_1 = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
         if not use_raw_input:
             self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
         else:
@@ -252,15 +242,7 @@ class STHEGAN():
                     self.four_pred = torch.zeros_like(self.flow_4cor) + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
             else:
                 raise NotImplementedError()
-        t_tensor = -self.four_pred
-        four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + torch.Tensor([0, 0]).to(self.device)
-        four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + torch.Tensor([256 - 1, 0]).to(self.device)
-        four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + torch.Tensor([0, 256 - 1]).to(self.device)
-        four_point_1[:, :, 1, 1] = t_tensor[:, :, 1, 1] + torch.Tensor([256 - 1, 256 - 1]).to(self.device)
-        four_point_org = self.four_point_org_single.repeat(self.flow_gt.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
-        four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
-        H = tgm.get_perspective_transform(four_point_org, four_point_1)
-        self.fake_warped_image_2 = tgm.warp_perspective(self.image_2, H, (self.image_1.shape[2], self.image_1.shape[3]))
+        self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
@@ -356,4 +338,28 @@ class STHEGAN():
         if self.args.use_ue:
             self.scheduler_D.step()
 
+def mywarp(x, flow_pred, four_point_org_single):
+    """
+    warp an image/tensor (im2) back to im1, according to the optical flow
+    x: [B, C, H, W] (im2)
+    flo: [B, 2, H, W] flow
+    """
+    flow_4cor = torch.zeros((flow_pred.shape[0], 2, 2, 2)).to(flow_pred.device)
+    flow_4cor[:, :, 0, 0] = flow_pred[:, :, 0, 0]
+    flow_4cor[:, :, 0, 1] = flow_pred[:, :, 0, -1]
+    flow_4cor[:, :, 1, 0] = flow_pred[:, :, -1, 0]
+    flow_4cor[:, :, 1, 1] = flow_pred[:, :, -1, -1]
 
+    four_point_1 = torch.zeros((flow_pred.shape[0], 2, 2, 2)).to(flow_pred.device)
+    t_tensor = flow_4cor
+    four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + four_point_org_single[:, :, 0, 0]
+    four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + four_point_org_single[:, :, 0, 1]
+    four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + four_point_org_single[:, :, 1, 0]
+    four_point_1[:, :, 1, 1] = t_tensor[:, :, 1, 1] + four_point_org_single[:, :, 1, 1]
+    
+    four_point_org = four_point_org_single.repeat(flow_pred.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
+    four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
+    H = tgm.get_perspective_transform(four_point_org, four_point_1)
+    warped_image = tgm.warp_perspective(x, H, (x.shape[2], x.shape[3]))
+    return warped_image
+    
