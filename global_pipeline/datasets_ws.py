@@ -17,6 +17,7 @@ import h5py
 import time
 import random
 
+TB_val_region = [2650, 5650, 5100, 9500]
 base_transform = transforms.Compose(
     [
         transforms.ToTensor(),
@@ -351,6 +352,7 @@ class TripletsDataset(BaseDataset):
         dataset_name="pitts30k",
         split="train",
         negs_num_per_query=10,
+        exclude_val_region=False
     ):
         super().__init__(args, datasets_folder, dataset_name, split)
         self.mining = args.mining
@@ -416,6 +418,24 @@ class TripletsDataset(BaseDataset):
         self.queries_paths = np.delete(self.queries_paths, queries_without_any_hard_positive)
         self.queries_utms = np.delete(self.queries_utms, queries_without_any_hard_positive, axis=0)
         
+        # Remove queries in val region for extended dataset if necessary
+        if exclude_val_region and self.split=="extended":
+            queries_in_val_region = np.where(
+                (self.queries_utms[:, 0] > TB_val_region[0])
+                & (self.queries_utms[:, 0] < TB_val_region[2])
+                & (self.queries_utms[:, 1] > TB_val_region[1])
+                & (self.queries_utms[:, 1] < TB_val_region[3])
+            )[0]
+            if len(queries_in_val_region) != 0:
+                logging.info(
+                    f"There are {len(queries_in_val_region)} queries in the validation region "
+                    + "within the training set. They won't be considered as they're useless for training."
+                )
+            # Remove queries in val region
+            self.hard_positives_per_query = np.delete(self.hard_positives_per_query, queries_in_val_region)
+            self.queries_paths = np.delete(self.queries_paths, queries_in_val_region)
+            self.queries_utms = np.delete(self.queries_utms, queries_in_val_region, axis=0)
+
         # Recompute images_paths and queries_num because some queries might have been removed
         self.images_paths = list(self.database_paths) + \
             list(self.queries_paths)

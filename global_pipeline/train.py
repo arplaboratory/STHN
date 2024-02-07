@@ -193,7 +193,7 @@ logging.info(f"Test set: {test_ds}")
 
 if args.use_extended_data:
     extended_ds = datasets_ws.TripletsDataset(
-        args, args.datasets_folder, args.dataset_name, "extended", args.negs_num_per_query)
+        args, args.datasets_folder, args.dataset_name, "extended", args.negs_num_per_query, exclude_val_region=args.exclude_val_region)
     logging.info(f"Extended set: {extended_ds}")
     
 # Initialize model

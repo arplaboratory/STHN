@@ -120,6 +120,11 @@ def parse_arguments():
         help="Use extended data from pix2pix",
     )
     parser.add_argument(
+        "--exclude_val_region",
+        action="store_true",
+        help="Exclude validation region from extended data",
+    )
+    parser.add_argument(
         "--visual_all",
         action="store_true",
         help="visual_all"
