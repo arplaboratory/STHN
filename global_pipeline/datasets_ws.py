@@ -429,7 +429,7 @@ class TripletsDataset(BaseDataset):
             if len(queries_in_val_region) != 0:
                 logging.info(
                     f"There are {len(queries_in_val_region)} queries in the validation region "
-                    + "within the training set. They won't be considered as they're useless for training."
+                    + "within the extended set. They won't be considered because it will affect validation."
                 )
             # Remove queries in val region
             self.hard_positives_per_query = np.delete(self.hard_positives_per_query, queries_in_val_region)
