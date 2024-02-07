@@ -22,6 +22,7 @@ patch_size = 256
 imagenet_mean = [0.485, 0.456, 0.406]
 imagenet_std = [0.229, 0.224, 0.225]
 
+TB_val_region = [2650, 5650, 5100, 9500]
 
 inv_base_transforms = transforms.Compose(
     [ 
@@ -230,7 +231,7 @@ class homo_dataset(data.Dataset):
         return img2, img1, flow, H, query_utm, database_utm
 
 class MYDATA(homo_dataset):
-    def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train"):
+    def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train", exclude_val_region=False):
         super(MYDATA, self).__init__(permute= (args.permute == "img"), resize_small=args.resize_small)
         self.args = args
         self.dataset_name = dataset_name
@@ -331,6 +332,24 @@ class MYDATA(homo_dataset):
         self.soft_positives_per_query = np.delete(self.soft_positives_per_query, queries_without_any_soft_positive)
         self.queries_paths = np.delete(self.queries_paths, queries_without_any_soft_positive)
         self.queries_utms = np.delete(self.queries_utms, queries_without_any_soft_positive, axis=0)
+
+        # Remove queries in val region for extended dataset if necessary
+        if exclude_val_region and self.split=="extended":
+            queries_in_val_region = np.where(
+                (self.queries_utms[:, 0] > TB_val_region[0])
+                & (self.queries_utms[:, 0] < TB_val_region[2])
+                & (self.queries_utms[:, 1] > TB_val_region[1])
+                & (self.queries_utms[:, 1] < TB_val_region[3])
+            )[0]
+            if len(queries_in_val_region) != 0:
+                logging.info(
+                    f"There are {len(queries_in_val_region)} queries in the validation region "
+                    + "within the extended set. They won't be considered because it will affect validation."
+                )
+            # Remove queries in val region
+            self.soft_positives_per_query = np.delete(self.soft_positives_per_query, queries_in_val_region)
+            self.queries_paths = np.delete(self.queries_paths, queries_in_val_region)
+            self.queries_utms = np.delete(self.queries_utms, queries_in_val_region, axis=0)
 
         # Recompute images_paths and queries_num because some queries might have been removed
         self.images_paths = list(self.database_paths) + \

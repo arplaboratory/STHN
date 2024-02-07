@@ -42,6 +42,7 @@ def parse_arguments():
     parser.add_argument("--noise_std", type=float, default=10.0)
     parser.add_argument("--sample_method", type=str, choices=['target', 'raw', 'target_raw'], default='target_raw', help="sample noise")
     parser.add_argument("--database_size", type=int, default=512, choices=[512, 1024], help="database_size")
+    parser.add_argument("--exclude_val_region", action="store_true", help="exclude_val_region")
     
     args = parser.parse_args()
     args.resize_small = True
