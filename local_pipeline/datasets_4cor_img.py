@@ -214,10 +214,10 @@ class homo_dataset(data.Dataset):
                 four_point_1[:, 1, 0] = t_tensor + bottom_left_resize
                 four_point_1[:, 1, 1] = t_tensor + bottom_right_resize
             elif self.args.database_size == 1536:
-                top_left_resize2 = torch.Tensor([85, 85])
-                top_right_resize2 = torch.Tensor([256 - 85 - 1, 85])
-                bottom_left_resize2 = torch.Tensor([85, 256 - 85 - 1])
-                bottom_right_resize2 = torch.Tensor([256 - 85 - 1, 256 - 85 - 1])
+                top_left_resize2 = torch.Tensor([256/3, 256/3])
+                top_right_resize2 = torch.Tensor([256 - 256/3 - 1, 256/3])
+                bottom_left_resize2 = torch.Tensor([256/3, 256 - 256/3 - 1])
+                bottom_right_resize2 = torch.Tensor([256 - 256/3 - 1, 256 - 256/3 - 1])
                 four_point_1[:, 0, 0] = t_tensor + top_left_resize2
                 four_point_1[:, 0, 1] = t_tensor + top_right_resize2
                 four_point_1[:, 1, 0] = t_tensor + bottom_left_resize2
