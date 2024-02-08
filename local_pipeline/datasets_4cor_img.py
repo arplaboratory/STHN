@@ -181,6 +181,8 @@ class homo_dataset(data.Dataset):
                 t = t/2
             elif self.args.database_size == 1024:
                 t = t/4
+            elif self.args.database_size == 1536:
+                t = t/6
             else:
                 return NotImplementedError()
             
@@ -192,10 +194,6 @@ class homo_dataset(data.Dataset):
             top_right = torch.Tensor([256 - 1, 0])
             bottom_left = torch.Tensor([0, 256 - 1])
             bottom_right = torch.Tensor([256 - 1, 256 - 1])
-            top_left_resize = torch.Tensor([64, 64])
-            top_right_resize = torch.Tensor([256 - 64 - 1, 64])
-            bottom_left_resize = torch.Tensor([64, 256 - 64 - 1])
-            bottom_right_resize = torch.Tensor([256 - 64 - 1, 256 - 64 - 1])
             four_point_org[:, 0, 0] = top_left
             four_point_org[:, 0, 1] = top_right
             four_point_org[:, 1, 0] = bottom_left
@@ -207,10 +205,23 @@ class homo_dataset(data.Dataset):
                 four_point_1[:, 1, 0] = t_tensor + bottom_left
                 four_point_1[:, 1, 1] = t_tensor + bottom_right
             elif self.args.database_size == 1024:
+                top_left_resize = torch.Tensor([64, 64])
+                top_right_resize = torch.Tensor([256 - 64 - 1, 64])
+                bottom_left_resize = torch.Tensor([64, 256 - 64 - 1])
+                bottom_right_resize = torch.Tensor([256 - 64 - 1, 256 - 64 - 1])
                 four_point_1[:, 0, 0] = t_tensor + top_left_resize
                 four_point_1[:, 0, 1] = t_tensor + top_right_resize
                 four_point_1[:, 1, 0] = t_tensor + bottom_left_resize
                 four_point_1[:, 1, 1] = t_tensor + bottom_right_resize
+            elif self.args.database_size == 1536:
+                top_left_resize2 = torch.Tensor([85, 85])
+                top_right_resize2 = torch.Tensor([256 - 85 - 1, 85])
+                bottom_left_resize2 = torch.Tensor([85, 256 - 85 - 1])
+                bottom_right_resize2 = torch.Tensor([256 - 85 - 1, 256 - 85 - 1])
+                four_point_1[:, 0, 0] = t_tensor + top_left_resize2
+                four_point_1[:, 0, 1] = t_tensor + top_right_resize2
+                four_point_1[:, 1, 0] = t_tensor + bottom_left_resize2
+                four_point_1[:, 1, 1] = t_tensor + bottom_right_resize2
             four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
             four_point_1 = four_point_1.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
             H = tgm.get_perspective_transform(four_point_org, four_point_1)

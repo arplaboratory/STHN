@@ -47,7 +47,10 @@ def test(args):
     if args.use_ue:
         model.netD.eval()
 
-    val_dataset = datasets.fetch_dataloader(args, split='test')
+    if args.test:
+        val_dataset = datasets.fetch_dataloader(args, split='test')
+    else:
+        val_dataset = datasets.fetch_dataloader(args, split='val')
     evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args, wandb_log=False)
     
 def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False):
