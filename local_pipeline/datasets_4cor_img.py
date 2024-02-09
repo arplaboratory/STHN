@@ -33,7 +33,7 @@ inv_base_transforms = transforms.Compose(
 )
 
 class homo_dataset(data.Dataset):
-    def __init__(self, permute=False, resize_small=False):
+    def __init__(self, permute=False):
 
         self.is_test = False
         self.init_seed = True
@@ -41,11 +41,15 @@ class homo_dataset(data.Dataset):
         self.image_list_img2 = []
         self.dataset=[]
         self.permute = permute
-        identity_transform = transforms.Lambda(lambda x: x)
         base_transform = transforms.Compose(
             [
-                transforms.Resize([256, 256]) 
-                if resize_small else identity_transform,
+                transforms.Resize([256, 256]),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
+            ]
+        )
+        base_transform_ori = transforms.Compose(
+            [
                 transforms.ToTensor(),
                 transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
             ]
@@ -57,6 +61,7 @@ class homo_dataset(data.Dataset):
             ]
         )
         self.database_transform = base_transform
+        self.database_transform_ori = base_transform
         
     def __getitem__(self, query_PIL_image, database_PIL_image, query_utm, database_utm):
         if not self.init_seed:
@@ -173,16 +178,13 @@ class homo_dataset(data.Dataset):
             H = tgm.get_perspective_transform(four_point_org, four_point)
             H = H.squeeze()
         else:
-            img1, img2 = self.query_transform(img1), self.database_transform(img2)
-            if not self.args.resize_small:
-                img1 = img1[:,128:384,128:384]
-                img2 = img2[:,128:384,128:384]
-            elif self.args.database_size == 512:
-                t = t/2
+            img1, img2, img2_ori = self.query_transform(img1), self.database_transform(img2), self.database_transform_ori(img2)
+            if self.args.database_size == 512:
+                t = t/2 # 512 -> 256
             elif self.args.database_size == 1024:
-                t = t/4
+                t = t/4 # 1024 -> 256
             elif self.args.database_size == 1536:
-                t = t/6
+                t = t/6 # 1536 -> 256
             else:
                 return NotImplementedError()
             
@@ -239,11 +241,11 @@ class homo_dataset(data.Dataset):
             pf_patch[:, :, 1] = diff_y_branch1
             flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
             H = H.squeeze()
-        return img2, img1, flow, H, query_utm, database_utm
+        return img2, img1, flow, H, query_utm, database_utm, img2_ori
 
 class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train", exclude_val_region=False):
-        super(MYDATA, self).__init__(permute= (args.permute == "img"), resize_small=args.resize_small)
+        super(MYDATA, self).__init__(permute= (args.permute == "img"))
         self.args = args
         self.dataset_name = dataset_name
         self.split = split

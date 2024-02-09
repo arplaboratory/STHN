@@ -76,9 +76,9 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
     
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
-        image1, image2, flow, _, query_utm, database_utm  = [x.cuda() for x in data_blob]
+        image1, image2, flow, _, query_utm, database_utm, image2_ori  = [x.cuda() for x in data_blob]
         # image2_w = warp(image2, flow)
-        model.set_input(image1, image2, flow)
+        model.set_input(image1, image2, flow, image2_ori)
         if i_batch==0:
             save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1.bmp')
             save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2.bmp')
