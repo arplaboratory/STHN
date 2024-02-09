@@ -11,4 +11,4 @@
 eval "$(conda shell.bash hook)"
 conda activate STGL
 
-python3 ./local_pipeline/train_4cor.py --dataset_name satellite_0_thermalmapping_135_nocontrast_dense_exclusion --val_positive_dist_threshold 128 --use_ue --GAN_mode macegan 
+python3 ./local_pipeline/train_4cor.py --dataset_name satellite_0_thermalmapping_135_contrast_dense_exclusion --val_positive_dist_threshold 128 --G_contrast manual
