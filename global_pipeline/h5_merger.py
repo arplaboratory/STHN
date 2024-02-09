@@ -65,8 +65,8 @@ def merge_h5_file(args, name, split):
                             hf.create_dataset(
                                 "image_data",
                                 data=img_np,
-                                chunks=(1, 512, 512, 3),
-                                maxshape=(None, 512, 512, 3),
+                                chunks=(1, args.resize_width, args.resize_width, 3),
+                                maxshape=(None, args.resize_width, args.resize_width, 3),
                                 compression="lzf",
                             )
                             hf.create_dataset(
@@ -88,8 +88,8 @@ def merge_h5_file(args, name, split):
                             hf.create_dataset(
                                 "image_data",
                                 data=img_np,
-                                chunks=(1, 512, 512, 3),
-                                maxshape=(None, 512, 512, 3),
+                                chunks=(1, args.resize_width, args.resize_width, 3),
+                                maxshape=(None, args.resize_width, args.resize_width, 3),
                             )
                             hf.create_dataset(
                                 "image_size", 
@@ -153,6 +153,7 @@ if __name__ == "__main__":
     parser.add_argument("--compress", action="store_true")
     parser.add_argument("--region_num", type=int, default=2, choices=[1, 2, 3])
     parser.add_argument("--generate_data", type=str, default="both", choices=["database", "query", "both"])
+    parser.add_argument("--resize_width", type=int, default=512)
     args = parser.parse_args()
 
     if args.database_name == 'satellite' and len(args.database_indexes) > 1:
