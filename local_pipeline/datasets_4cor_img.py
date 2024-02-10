@@ -184,7 +184,7 @@ class homo_dataset(data.Dataset):
             elif self.args.database_size == 1536:
                 t = t/6
             else:
-                return NotImplementedError()
+                raise NotImplementedError()
             
             t_tensor = torch.Tensor(t).squeeze(0)
             y_grid, x_grid = np.mgrid[0:img1.shape[1], 0:img1.shape[2]]
@@ -222,6 +222,8 @@ class homo_dataset(data.Dataset):
                 four_point_1[:, 0, 1] = t_tensor + top_right_resize2
                 four_point_1[:, 1, 0] = t_tensor + bottom_left_resize2
                 four_point_1[:, 1, 1] = t_tensor + bottom_right_resize2
+            else:
+                raise NotImplementedError()
             four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
             four_point_1 = four_point_1.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
             H = tgm.get_perspective_transform(four_point_org, four_point_1)
