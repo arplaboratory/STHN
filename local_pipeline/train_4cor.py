@@ -58,6 +58,10 @@ def main(args):
             total_steps = train(model, extended_loader, args, total_steps, train_step_limit=len(train_loader))
 
     test_dataset = datasets.fetch_dataloader(args, split='test')
+    model_med = torch.load(args.save_dir + f'/{args.name}.pth')
+    model.netG.load_state_dict(model_med['netG'])
+    if args.use_ue:
+        model.netD.load_state_dict(model_med['netD'])
     evaluate_SNet(model, test_dataset, batch_size=args.batch_size, args=args, wandb_log=True)
 
 def train(model, train_loader, args, total_steps, train_step_limit = None):
@@ -117,6 +121,7 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
                     torch.save(checkpoint, PATH)
             else:
                 if last_best_val_mace is None or last_best_val_mace > current_val_mace:
+                    logging.info(f"Saving best model, last_best_val_mace: {last_best_val_mace}, current_val_mace: {current_val_mace}")
                     last_best_val_mace = current_val_mace
                     PATH = args.save_dir + f'/{args.name}.pth'
                     torch.save(checkpoint, PATH)
