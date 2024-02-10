@@ -125,6 +125,8 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
                     last_best_val_mace = current_val_mace
                     PATH = args.save_dir + f'/{args.name}.pth'
                     torch.save(checkpoint, PATH)
+                else:
+                    logging.info(f"No Saving, last_best_val_mace: {last_best_val_mace}, current_val_mace: {current_val_mace}")
 
         if total_steps >= args.num_steps:
             break
