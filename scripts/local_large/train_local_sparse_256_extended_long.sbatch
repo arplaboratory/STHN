@@ -2,7 +2,7 @@
 #SBATCH --nodes=1                        # requests 3 compute servers
 #SBATCH --ntasks-per-node=1              # runs 2 tasks on each server
 #SBATCH --cpus-per-task=8               # uses 1 compute core per task
-#SBATCH --time=24:00:00
+#SBATCH --time=36:00:00
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=64GB
 #SBATCH --job-name=train_local
@@ -11,4 +11,4 @@
 eval "$(conda shell.bash hook)"
 conda activate STGL
 
-python3 ./local_pipeline/train_4cor.py --dataset_name satellite_0_thermalmapping_135_nocontrast_sparse_128_exclusion --val_positive_dist_threshold 128 --use_ue --GAN_mode macegan --train_ue_method train_only_ue --restore_ckpt ./logs/local_he/satellite_thermal_ext_sparse_128/RHWF.pth
+python3 ./local_pipeline/train_4cor.py --dataset_name satellite_0_thermalmapping_135_nocontrast_dense_exclusion_large_train --val_positive_dist_threshold 256 --database_size 1024 --num_steps 300000
