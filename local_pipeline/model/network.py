@@ -198,7 +198,7 @@ class STHEGAN():
             model = model.to(self.device)
         return model
     
-    def set_input(self, A, B, flow_gt=None):
+    def set_input(self, A, B, flow_gt=None, B_ori=None):
         self.image_1 = A.to(self.device)
         self.image_2 = B.to(self.device)
         self.flow_gt = flow_gt
