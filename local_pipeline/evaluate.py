@@ -48,14 +48,14 @@ def validate_process(model, args, total_steps):
             # Visualize
             save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
-                            args.save_dir + '/train_overlap_pred.png')
+                            args.save_dir + '/val_overlap_pred.png')
             save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
-                            args.save_dir + '/train_overlap_gt.png')
-            if args.two_stage:
+                            args.save_dir + '/val_overlap_gt.png')
+            if args.two_stages:
                 save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.image_2_crop, nrow=16, padding = 16, pad_value=0), 
-                            args.save_dir + '/train_overlap_gt_crop.png')
+                            args.save_dir + '/val_overlap_crop.png')
         four_pr = model.four_pred
         mace = torch.sum((four_pr.cpu().detach() - flow_4cor) ** 2, dim=1).sqrt()
         mace_list.append(mace.view(-1).numpy())

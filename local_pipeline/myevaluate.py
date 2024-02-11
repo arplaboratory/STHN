@@ -72,9 +72,9 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
 
         if i_batch%100 == 0:
             save_img(torchvision.utils.make_grid((img1)),
-                     args.save_dir + "/b1_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
+                     args.save_dir + "/b1_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.png')
             save_img(torchvision.utils.make_grid((img2)),
-                     args.save_dir + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.bmp')
+                     args.save_dir + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.png')
 
         time_start = time.time()
         model.set_input(img1, img2, flow_gt, image1_ori)

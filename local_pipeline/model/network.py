@@ -237,9 +237,8 @@ class STHEGAN():
         if not use_raw_input:
             self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
             if self.args.two_stages:
-                self.four_pred = self.flow_4cor # DEBUG
-                self.image_1_crop, bbox_s, resize_ratio = self.get_cropped_satellite_image(self.image_1_ori, self.four_pred, self.args.fine_padding)
-                self.image_2_crop = self.get_aligned_thermal_image(self.image_2, self.four_pred, bbox_s)
+                # self.four_pred = self.flow_4cor # DEBUG
+                self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2)
                 self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
                 self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
         else:
@@ -256,42 +255,62 @@ class STHEGAN():
                 raise NotImplementedError()
         self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
 
-    def get_cropped_satellite_image(self, image_1_ori, four_pred, fine_padding):
+    def get_cropped_st_images(self, image_1_ori, four_pred, fine_padding, image_2):
         # From four_pred to bbox coordinates
-        x = four_pred[:, 0, :, :] + self.four_point_org_single[:, 0, :, :].repeat(x.shape[0], 1, 1) # B, 2, 2
-        y = four_pred[:, 1, :, :] + self.four_point_org_single[:, 0, :, :].repeat(x.shape[0], 1, 1) # B, 2, 2
+        four_point = four_pred + self.four_point_org_single
+        x = four_point[:, 0]
+        y = four_point[:, 1]
         # Make it same scale as image_1_ori
         if self.args.database_size == 512:
-            x = x * 2
-            y = y * 2
+            alpha = 2
         elif self.args.database_size == 1024:
-            x = x * 4
-            y = y * 4
+            alpha = 4
         elif self.args.database_size == 1536:
-            x = x * 6
-            y = y * 6
+            alpha = 6
+        x[:, :, 0] = x[:, :, 0] * alpha
+        x[:, :, 1] = (x[:, :, 1] + 1) * alpha
+        y[:, 0, :] = y[:, 0, :] * alpha
+        y[:, 1, :] = (y[:, 1, :] + 1) * alpha
         # Crop
-        left = torch.min(x, dim=[1, 2])  # B
-        right = torch.max(x, dim=[1, 2]) # B
-        top = torch.min(y, dim=[1, 2]) # B
-        bottom = torch.max(y, dim=[1, 2]) # B
-        w = torch.max((torch.stack([right-left, bottom-top], dim=1)), dim=1) # B
-        c = torch.stack([(left + right)/2, (bottom + top)/2]) # B, 2
+        left = torch.min(x.view(x.shape[0], -1), dim=1)[0]  # B
+        right = torch.max(x.view(x.shape[0], -1), dim=1)[0] # B
+        top = torch.min(y.view(y.shape[0], -1), dim=1)[0]   # B
+        bottom = torch.max(y.view(y.shape[0], -1), dim=1)[0] # B
+        w = torch.max(torch.stack([right-left, bottom-top], dim=1), dim=1)[0] # B
+        c = torch.stack([(left + right)/2, (bottom + top)/2], dim=1) # B, 2
         w_padded = w + 2 * fine_padding # same as ori scale
-        crop_top_left = c - w_padded / 2 # B, 2 = x, y
-        bbox_s = bbox.bbox_generator(crop_top_left[:, 0], crop_top_left[:, 1], w_padded, w_padded)
+        crop_top_left = c + torch.stack([-w_padded / 2, -w_padded / 2], dim=1) # B, 2 = x, y
+        x_start = crop_top_left[:, 0] # B
+        y_start = crop_top_left[:, 1] # B
+        # Do not use bbox_generator because it will repeat to reduce 1 for end index
+        bbox_s = torch.tensor([[[0, 0], [0, 0], [0, 0], [0, 0]]], device=x_start.device, dtype=x_start.dtype).repeat(
+        1 if x_start.dim() == 0 else len(crop_top_left), 1, 1
+        )
+        bbox_s[:, :, 0] += x_start.view(-1, 1)
+        bbox_s[:, :, 1] += y_start.view(-1, 1)
+        bbox_s[:, 1, 0] += w_padded
+        bbox_s[:, 2, 0] += w_padded
+        bbox_s[:, 2, 1] += w_padded
+        bbox_s[:, 3, 1] += w_padded
         resize_ratio = w_padded / 256
-        image_1_crop = tgm.crop_and_resize(image_1_ori, bbox_s, (256, 256))
-        return image_1_crop, bbox_s, resize_ratio
-        
-    def get_aligned_thermal_image(self, image_2, four_pred, bbox_s):
-        four_cor_bbox = four_pred.permute(0, 2, 1).view(four_cor_bbox.shape[0], 2, 2, 2) # B, 4, 2 to B, 2, 2, 2
-        four_pred_crop = four_pred - four_cor_bbox # set to align with cropped satellite images
+        image_1_crop = tgm.crop_and_resize(image_1_ori, bbox_s, (256, 256)) # It will be padded when it is out of boundary
+        # swap bbox_s
+        bbox_s_swap = torch.stack([bbox_s[:, 0], bbox_s[:, 1], bbox_s[:, 3], bbox_s[:, 2]], dim=1)
+        four_cor_bbox = bbox_s_swap.permute(0, 2, 1). view(-1, 2, 2, 2)
+        four_pred_crop = torch.stack([x, y], dim=1) - four_cor_bbox # set to align with cropped satellite images
+        # align to 256
+        four_pred_crop = four_pred_crop / 2
         image_2_crop = mywarp(image_2, four_pred_crop, self.four_point_org_single)
-        return image_2_crop
+        return image_1_crop, image_2_crop, resize_ratio
     
-    def combine_coarse_fine(four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, resize_ratio):
-        four_preds_list_fine = four_preds_list_fine * resize_ratio + four_pred
+    def combine_coarse_fine(self, four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, resize_ratio):
+        if self.args.database_size == 512:
+            resize_ratio = resize_ratio.unsqueeze(1).unsqueeze(1).unsqueeze(1) / 2
+        elif self.args.database_size == 1024:
+            resize_ratio = resize_ratio.unsqueeze(1).unsqueeze(1).unsqueeze(1) / 4
+        elif self.args.database_size == 1536:
+            resize_ratio = resize_ratio.unsqueeze(1).unsqueeze(1).unsqueeze(1) / 6
+        four_preds_list_fine = [four_preds_list_fine_single * resize_ratio + four_pred for four_preds_list_fine_single in four_preds_list_fine]
         four_pred_fine = four_pred_fine * resize_ratio + four_pred
         four_preds_list = four_preds_list + four_preds_list_fine
         return four_preds_list, four_pred_fine
@@ -403,11 +422,7 @@ def mywarp(x, flow_pred, four_point_org_single):
     flow_4cor[:, :, 1, 1] = flow_pred[:, :, -1, -1]
 
     four_point_1 = torch.zeros((flow_pred.shape[0], 2, 2, 2)).to(flow_pred.device)
-    t_tensor = flow_4cor
-    four_point_1[:, :, 0, 0] = t_tensor[:, :, 0, 0] + four_point_org_single[:, :, 0, 0]
-    four_point_1[:, :, 0, 1] = t_tensor[:, :, 0, 1] + four_point_org_single[:, :, 0, 1]
-    four_point_1[:, :, 1, 0] = t_tensor[:, :, 1, 0] + four_point_org_single[:, :, 1, 0]
-    four_point_1[:, :, 1, 1] = t_tensor[:, :, 1, 1] + four_point_org_single[:, :, 1, 1]
+    four_point_1 = flow_4cor + four_point_org_single
     
     four_point_org = four_point_org_single.repeat(flow_pred.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
     four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 

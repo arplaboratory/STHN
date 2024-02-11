@@ -61,7 +61,7 @@ class homo_dataset(data.Dataset):
             ]
         )
         self.database_transform = base_transform
-        self.database_transform_ori = base_transform
+        self.database_transform_ori = base_transform_ori
         
     def __getitem__(self, query_PIL_image, database_PIL_image, query_utm, database_utm):
         if not self.init_seed:

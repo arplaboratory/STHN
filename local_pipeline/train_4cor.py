@@ -84,13 +84,21 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
         # image2_w = warp(image2, flow)
         model.set_input(image1, image2, flow, image1_ori)
         if i_batch==0:
-            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1.bmp')
-            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2.bmp')
-            save_img(torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2w.bmp')
+            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1.png')
+            save_img(torchvision.utils.make_grid(image1_ori, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1_ori.png')
+            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2.png')
+            save_img(torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2w.png')
             save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
                              torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
-                             args.save_dir + '/train_overlap.png')
+                             args.save_dir + '/train_overlap_gt.png')
         metrics = model.optimize_parameters()
+        if i_batch==0 and args.two_stages:
+            if args.two_stages:
+                save_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1_crop.png')
+                save_img(torchvision.utils.make_grid(model.image_2_crop, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2_crop.png')
+                save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
+                            torchvision.utils.make_grid(model.image_2_crop, nrow=16, padding = 16, pad_value=0), 
+                            args.save_dir + '/train_overlap_crop.png')
         model.update_learning_rate()
         metrics["lr"] = model.scheduler_G.get_lr()
         toc = time.time()
