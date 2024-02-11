@@ -129,9 +129,9 @@ def sequence_loss(four_preds, flow_gt, gamma, args, metrics):
     return ce_loss, metrics
 
 
-def fetch_optimizer(args, model):
+def fetch_optimizer(args, model_para):
     """ Create the optimizer and learning rate scheduler """
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wdecay, eps=args.epsilon)
+    optimizer = optim.AdamW(model_para, lr=args.lr, weight_decay=args.wdecay, eps=args.epsilon)
 
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer=optimizer, max_lr=args.lr, total_steps=args.num_steps + 100,
                                               pct_start=0.05, cycle_momentum=False, anneal_strategy='linear')

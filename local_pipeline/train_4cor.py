@@ -30,8 +30,14 @@ def main(args):
         model.netG.eval()
         for param in model.netG.parameters():
             param.requires_grad = False
+        if args.two_stages:
+            model.netG_fine.eval()
+            for param in model.netG_fine.parameters():
+                param.requires_grad = False
     else:
         model.netG.train()
+        if args.two_stages:
+            model.netG_fine.train()
     logging.info(f"Parameter Count: {count_parameters(model.netG)}")
     if args.use_ue:
         model.netD.train()
@@ -44,6 +50,8 @@ def main(args):
         model.netG.load_state_dict(save_model['netG'])
         if save_model['netD'] is not None:
             model.netD.load_state_dict(save_model['netD'])
+        if save_model['netG_fine'] is not None:
+            model.netG_fine.load_state_dict(save_model['netG_fine'])
         
     train_loader = datasets.fetch_dataloader(args, split="train")
     if os.path.exists(os.path.join(args.datasets_folder, args.dataset_name, "extended_queries.h5")):
@@ -62,6 +70,8 @@ def main(args):
     model.netG.load_state_dict(model_med['netG'])
     if args.use_ue:
         model.netD.load_state_dict(model_med['netD'])
+    if args.two_stages:
+        model.netG_fine.load_state_dict(model_med['netG_fine'])
     evaluate_SNet(model, test_dataset, batch_size=args.batch_size, args=args, wandb_log=True)
 
 def train(model, train_loader, args, total_steps, train_step_limit = None):
@@ -120,6 +130,7 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
             checkpoint = {
                 "netG": model.netG.state_dict(),
                 "netD": model.netD.state_dict() if args.use_ue else None,
+                "netG_fine": model.netG_fine.state_dict() if args.two_stages else None,
             }
             torch.save(checkpoint, PATH)
             if args.use_ue and args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:

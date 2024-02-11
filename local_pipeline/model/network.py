@@ -171,7 +171,7 @@ class STHEGAN():
         self.four_point_org_single[:, :, 1, 0] = torch.Tensor([0, 256 - 1]).to(self.device)
         self.four_point_org_single[:, :, 1, 1] = torch.Tensor([256 - 1, 256 - 1]).to(self.device)
         self.netG = IHN(args)
-        if self.args.two_stages:
+        if args.two_stages:
             self.netG_fine = IHN(args)
         if args.use_ue:
             if args.D_net == 'patchGAN':
@@ -183,9 +183,12 @@ class STHEGAN():
             self.criterionGAN = GANLoss(args.GAN_mode).to(args.device)
         self.criterionAUX = sequence_loss
         if for_training:
-            self.optimizer_G, self.scheduler_G = fetch_optimizer(args, self.netG)
+            if args.two_stages:
+                self.optimizer_G, self.scheduler_G = fetch_optimizer(args, list(self.netG.parameters()) + list(self.netG_fine.parameters()))
+            else:
+                self.optimizer_G, self.scheduler_G = fetch_optimizer(args, list(self.netG.parameters()))
             if args.use_ue:
-                self.optimizer_D, self.scheduler_D = fetch_optimizer(args, self.netD)
+                self.optimizer_D, self.scheduler_D = fetch_optimizer(args, list(self.netD.parameters()))
             self.G_loss_lambda = args.G_loss_lambda
             
     def setup(self):
@@ -400,6 +403,8 @@ class STHEGAN():
             self.optimizer_G.zero_grad()        # set G's gradients to zero
             self.backward_G()                   # calculate graidents for G
             nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
+            if self.args.two_stages:
+                nn.utils.clip_grad_norm_(self.netG_fine.parameters(), self.args.clip)
             self.optimizer_G.step()             # update G's weights
         return self.metrics
 

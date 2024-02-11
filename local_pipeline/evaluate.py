@@ -22,6 +22,8 @@ def validate_process(model, args, total_steps):
     model.netG.eval()
     if args.use_ue:
         model.netD.eval()
+    if args.two_stages:
+        model.netG_fine.eval()
     mace_list = []
     mace_conf_list = []
     mace_conf_error_list = []
@@ -78,8 +80,12 @@ def validate_process(model, args, total_steps):
 
     if args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
         model.netG.eval()
+        if args.two_stages:
+            model.netG_fine.eval()
     else:
         model.netG.train()
+        if args.two_stages:
+            model.netG_fine.train()
     if args.use_ue:
         model.netD.train()
         mace_conf_list = np.array(mace_conf_list)

@@ -25,7 +25,6 @@ import wandb
 def test(args):
     model = STHEGAN(args)
     model_med = torch.load(args.eval_model, map_location='cuda:0')
-
     for key in list(model_med['netG'].keys()):
         model_med['netG'][key.replace('module.','')] = model_med['netG'][key]
     for key in list(model_med['netG'].keys()):
@@ -41,11 +40,21 @@ def test(args):
             if key.startswith('module'):
                 del model_med['netD'][key]
         model.netD.load_state_dict(model_med['netD'])
+    if args.two_stages:
+        model_med = torch.load(args.eval_model, map_location='cuda:0')
+        for key in list(model_med['netG_fine'].keys()):
+            model_med['netG_fine'][key.replace('module.','')] = model_med['netG_fine'][key]
+        for key in list(model_med['netG_fine'].keys()):
+            if key.startswith('module'):
+                del model_med['netG_fine'][key]
+        model.netG_fine.load_state_dict(model_med['netG_fine'])
     
     model.setup() 
     model.netG.eval()
     if args.use_ue:
         model.netD.eval()
+    if args.two_stages:
+        model.netG_fine.eval()
 
     if args.test:
         val_dataset = datasets.fetch_dataloader(args, split='test')
