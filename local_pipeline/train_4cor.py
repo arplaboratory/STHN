@@ -90,9 +90,15 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
     
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
+        # time1 = time.time()
         image1, image2, flow, _, query_utm, database_utm, image1_ori  = [x.cuda() for x in data_blob]
+        # time2 = time.time()
+        # logging.debug("DATA LOADING: {}".format(time2-time1))
         # image2_w = warp(image2, flow)
+        # time1 = time.time()
         model.set_input(image1, image2, flow, image1_ori)
+        # time2 = time.time()
+        # logging.debug("DATA SENDING TO GPU: {}".format(time2-time1))
         if i_batch==0:
             save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1.png')
             save_img(torchvision.utils.make_grid(image1_ori, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1_ori.png')
@@ -101,7 +107,10 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
             save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
                              torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                              args.save_dir + '/train_overlap_gt.png')
+        # time1 = time.time()
         metrics = model.optimize_parameters()
+        # time2 = time.time()
+        # logging.debug("OPTIMIZATION: {}".format(time2-time1))
         if i_batch==0 and args.two_stages:
             if args.two_stages:
                 save_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1_crop.png')

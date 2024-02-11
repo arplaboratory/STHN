@@ -14,7 +14,8 @@ from model.sync_batchnorm import convert_model
 import wandb
 import torchvision
 import random
-from time import time
+import time
+import logging
 
 autocast = torch.cuda.amp.autocast
 class IHN(nn.Module):
@@ -32,15 +33,22 @@ class IHN(nn.Module):
         #     sz = 128
         #     self.update_block_2 = GMA(self.args, sz)
 
+        self.sz = sz
+        self.four_point_org = torch.zeros((2, 2, 2)).to(self.device)
+        self.four_point_org[:, 0, 0] = torch.Tensor([0, 0])
+        self.four_point_org[:, 0, 1] = torch.Tensor([self.sz-1, 0])
+        self.four_point_org[:, 1, 0] = torch.Tensor([0, self.sz-1])
+        self.four_point_org[:, 1, 1] = torch.Tensor([self.sz-1, self.sz-1])
+
     def get_flow_now_4(self, four_point):
         four_point = four_point / 4
-        four_point_org = torch.zeros((2, 2, 2)).to(four_point.device)
-        four_point_org[:, 0, 0] = torch.Tensor([0, 0])
-        four_point_org[:, 0, 1] = torch.Tensor([self.sz[3]-1, 0])
-        four_point_org[:, 1, 0] = torch.Tensor([0, self.sz[2]-1])
-        four_point_org[:, 1, 1] = torch.Tensor([self.sz[3]-1, self.sz[2]-1])
+        # four_point_org = torch.zeros((2, 2, 2)).to(four_point.device)
+        # four_point_org[:, 0, 0] = torch.Tensor([0, 0])
+        # four_point_org[:, 0, 1] = torch.Tensor([self.sz[3]-1, 0])
+        # four_point_org[:, 1, 0] = torch.Tensor([0, self.sz[2]-1])
+        # four_point_org[:, 1, 1] = torch.Tensor([self.sz[3]-1, self.sz[2]-1])
 
-        four_point_org = four_point_org.unsqueeze(0)
+        four_point_org = self.four_point_org.unsqueeze(0)
         four_point_org = four_point_org.repeat(self.sz[0], 1, 1, 1)
         four_point_new = four_point_org + four_point
         four_point_org = four_point_org.flatten(2).permute(0, 2, 1).contiguous()
@@ -100,9 +108,18 @@ class IHN(nn.Module):
         image1 = image1.contiguous()
         image2 = image2.contiguous()
 
+        # time1 = time.time()
         with autocast(enabled=self.args.mixed_precision):
-            fmap1_64, fmap1_128 = self.fnet1(image1)
-            fmap2_64, _ = self.fnet1(image2)
+            # fmap1_64, fmap1_128 = self.fnet1(image1)
+            # fmap2_64, _ = self.fnet1(image2)
+            fmap1_64 = self.fnet1(image1)
+            fmap2_64 = self.fnet1(image2)
+            # fmap_64 = self.fnet1(torch.cat([image1, image2], dim=0))
+            # fmap1_64 = fmap_64[:image1.shape[0]]
+            # fmap2_64 = fmap_64[image1.shape[0]:]
+        # time2 = time.time()
+        # logging.debug("Time for fnet1: " + str(time2 - time1) + " seconds") # 0.004 + # 0.004
+
         fmap1 = fmap1_64.float()
         fmap2 = fmap2_64.float()
 
@@ -113,6 +130,7 @@ class IHN(nn.Module):
         four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
         four_point_predictions = []
 
+        # time1 = time.time()
         for itr in range(iters_lev0):
             corr = corr_fn(coords1)
             flow = coords1 - coords0
@@ -125,7 +143,8 @@ class IHN(nn.Module):
             four_point_disp =  four_point_disp + delta_four_point
             four_point_predictions.append(four_point_disp)
             coords1 = self.get_flow_now_4(four_point_disp)
-
+        # time2 = time.time()
+        # logging.debug("Time for iterative: " + str(time2 - time1) + " seconds") # 0.12
 
         # if self.args.lev1:# next resolution
         #     four_point_disp_med = four_point_disp 
@@ -234,11 +253,20 @@ class STHEGAN():
     def forward(self, use_raw_input=False, noise_std=0, sample_method="target_raw"):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if not use_raw_input:
+            # time1 = time.time()
             self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0)
+            # time2 = time.time()
+            # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
             if self.args.two_stages:
                 # self.four_pred = self.flow_4cor # DEBUG
+                # time1 = time.time()
                 self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2)
-                self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iters_lev0)
+                # time2 = time.time()
+                # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
+                # time1 = time.time()
+                self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iters_lev1)
+                # time2 = time.time()
+                # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
                 self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
         else:
             if sample_method == "target":
@@ -254,7 +282,7 @@ class STHEGAN():
                 raise NotImplementedError()
         self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
 
-    def get_cropped_st_images(self, image_1_ori, four_pred, fine_padding, image_2):
+    def get_cropped_st_images(self, image_1_ori, four_pred, fine_padding, image_2, detach=True):
         # From four_pred to bbox coordinates
         four_point = four_pred + self.four_point_org_single
         x = four_point[:, 0]
@@ -298,6 +326,10 @@ class STHEGAN():
         # align to 256
         four_pred_crop = four_pred_crop / 2 # 512 -> 256
         image_2_crop = mywarp(image_2, four_pred_crop, self.four_point_org_single)
+        if detach:
+            image_1_crop = image_1_crop.detach()
+            image_2_crop = image_2_crop.detach()
+            resize_ratio = resize_ratio.detach()
         return image_1_crop, image_2_crop, resize_ratio
     
     def combine_coarse_fine(self, four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, resize_ratio):

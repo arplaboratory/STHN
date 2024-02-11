@@ -199,7 +199,6 @@ class BasicEncoderQuarter(nn.Module):
         self.layer3 = self._make_layer(96, stride=1)
 
         self.conv2 = nn.Conv2d(96, output_dim, kernel_size=1)
-        self.conv3 = nn.Conv2d(64, output_dim, kernel_size=1)
 
         self.dropout = None
         if dropout > 0:
@@ -222,6 +221,28 @@ class BasicEncoderQuarter(nn.Module):
         self.in_planes = dim
         return nn.Sequential(*layers)
 
+    # def forward(self, x):
+
+    #     is_list = isinstance(x, tuple) or isinstance(x, list)
+    #     if is_list:
+    #         batch_dim = x[0].shape[0]
+    #         x = torch.cat(x, dim=0)
+    #     x = self.conv1(x)
+    #     x = self.norm1(x)
+    #     x = self.relu1(x)
+    #     x = F.max_pool2d(x, 2, stride=2)
+    #     x = self.layer2(x)
+    #     x_64 = self.conv3(x)
+    #     x = F.max_pool2d(x, 2, stride=2)
+    #     x = self.layer3(x)
+    #     x = self.conv2(x)
+    #     if self.training and self.dropout is not None:
+    #         x = self.dropout(x)
+    #     if is_list:
+    #         x = torch.split(x, [batch_dim, batch_dim], dim=0)
+
+    #     return x, x_64
+
     def forward(self, x):
 
         is_list = isinstance(x, tuple) or isinstance(x, list)
@@ -233,7 +254,6 @@ class BasicEncoderQuarter(nn.Module):
         x = self.relu1(x)
         x = F.max_pool2d(x, 2, stride=2)
         x = self.layer2(x)
-        x_64 = self.conv3(x)
         x = F.max_pool2d(x, 2, stride=2)
         x = self.layer3(x)
         x = self.conv2(x)
@@ -242,4 +262,4 @@ class BasicEncoderQuarter(nn.Module):
         if is_list:
             x = torch.split(x, [batch_dim, batch_dim], dim=0)
 
-        return x, x_64
+        return x
