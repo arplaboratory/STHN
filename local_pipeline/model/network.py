@@ -203,10 +203,10 @@ class STHEGAN():
             model = model.to(self.device)
         return model
     
-    def set_input(self, A, B, flow_gt=None, B_ori=None):
+    def set_input(self, A, B, flow_gt=None, A_ori=None):
         self.image_1 = A.to(self.device)
         self.image_2 = B.to(self.device)
-        self.image_2_ori = B_ori.to(self.device)
+        self.image_1_ori = A_ori.to(self.device)
         self.flow_gt = flow_gt
         if self.flow_gt is not None:
             self.flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
@@ -237,9 +237,10 @@ class STHEGAN():
         if not use_raw_input:
             self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
             if self.args.two_stages:
-                image_1_crop, bbox_s, resize_ratio = self.get_cropped_satellite_image(self.image_1, self.four_pred, self.args.fine_padding)
-                image_2_crop = self.get_aligned_thermal_image(self.image_2, self.four_pred, bbox_s)
-                self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=image_1_crop, image2=image_2_crop, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
+                self.four_pred = self.flow_4cor # DEBUG
+                self.image_1_crop, bbox_s, resize_ratio = self.get_cropped_satellite_image(self.image_1_ori, self.four_pred, self.args.fine_padding)
+                self.image_2_crop = self.get_aligned_thermal_image(self.image_2, self.four_pred, bbox_s)
+                self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
                 self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
         else:
             if sample_method == "target":
@@ -255,20 +256,32 @@ class STHEGAN():
                 raise NotImplementedError()
         self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
 
-    def get_cropped_satellite_image(self, image_1, four_pred, fine_padding):
-        x = four_pred[:, 0, :, :] # B, H, W
-        y = four_pred[:, 1, :, :] # B, H, W
+    def get_cropped_satellite_image(self, image_1_ori, four_pred, fine_padding):
+        # From four_pred to bbox coordinates
+        x = four_pred[:, 0, :, :] + self.four_point_org_single[:, 0, :, :].repeat(x.shape[0], 1, 1) # B, 2, 2
+        y = four_pred[:, 1, :, :] + self.four_point_org_single[:, 0, :, :].repeat(x.shape[0], 1, 1) # B, 2, 2
+        # Make it same scale as image_1_ori
+        if self.args.database_size == 512:
+            x = x * 2
+            y = y * 2
+        elif self.args.database_size == 1024:
+            x = x * 4
+            y = y * 4
+        elif self.args.database_size == 1536:
+            x = x * 6
+            y = y * 6
+        # Crop
         left = torch.min(x, dim=[1, 2])  # B
         right = torch.max(x, dim=[1, 2]) # B
         top = torch.min(y, dim=[1, 2]) # B
         bottom = torch.max(y, dim=[1, 2]) # B
         w = torch.max((torch.stack([right-left, bottom-top], dim=1)), dim=1) # B
         c = torch.stack([(left + right)/2, (bottom + top)/2]) # B, 2
-        w_padded = w + 2 * fine_padding
+        w_padded = w + 2 * fine_padding # same as ori scale
         crop_top_left = c - w_padded / 2 # B, 2 = x, y
         bbox_s = bbox.bbox_generator(crop_top_left[:, 0], crop_top_left[:, 1], w_padded, w_padded)
         resize_ratio = w_padded / 256
-        image_1_crop = tgm.crop_and_resize(image_1, bbox_s, (256, 256))
+        image_1_crop = tgm.crop_and_resize(image_1_ori, bbox_s, (256, 256))
         return image_1_crop, bbox_s, resize_ratio
         
     def get_aligned_thermal_image(self, image_2, four_pred, bbox_s):

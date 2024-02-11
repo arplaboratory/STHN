@@ -28,7 +28,7 @@ def validate_process(model, args, total_steps):
     val_loader = datasets.fetch_dataloader(args, split='val')
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
             
-        image1, image2, flow_gt,  H, query_utm, database_utm, image2_ori  = [x.to(model.netG.module.device) for x in data_blob]
+        image1, image2, flow_gt,  H, query_utm, database_utm, image1_ori  = [x.to(model.netG.module.device) for x in data_blob]
         
         if i_batch == 0:
             logging.info("Check the reproducibility by UTM:")
@@ -42,7 +42,7 @@ def validate_process(model, args, total_steps):
         flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
         image1 = image1.to(model.netG.module.device)
         image2 = image2.to(model.netG.module.device)
-        model.set_input(image1, image2, flow_gt, image2_ori)
+        model.set_input(image1, image2, flow_gt, image1_ori)
         model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std)
         if i_batch == 0:
             # Visualize
@@ -52,6 +52,10 @@ def validate_process(model, args, total_steps):
             save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                             args.save_dir + '/train_overlap_gt.png')
+            if args.two_stage:
+                save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
+                            torchvision.utils.make_grid(model.image_2_crop, nrow=16, padding = 16, pad_value=0), 
+                            args.save_dir + '/train_overlap_gt_crop.png')
         four_pr = model.four_pred
         mace = torch.sum((four_pr.cpu().detach() - flow_4cor) ** 2, dim=1).sqrt()
         mace_list.append(mace.view(-1).numpy())

@@ -45,7 +45,6 @@ def parse_arguments():
     parser.add_argument("--exclude_val_region", action="store_true", help="exclude_val_region")
     parser.add_argument("--test", action="store_true", help="test mode")
     parser.add_argument("--two_stages", action="store_true", help="crop at level 2 but same scale")
-    parser.add_argument("--use_coarse_flow", action="store_true", help="use warped image2 for refinement")
     parser.add_argument("--fine_padding", type=int, default=0, help="expanding region of refinement")
     
     args = parser.parse_args()
