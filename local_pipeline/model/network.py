@@ -14,6 +14,7 @@ from model.sync_batchnorm import convert_model
 import wandb
 import torchvision
 import random
+from time import time
 
 autocast = torch.cuda.amp.autocast
 class IHN(nn.Module):
@@ -27,9 +28,9 @@ class IHN(nn.Module):
         if self.args.lev0:
             sz = 64
             self.update_block_4 = GMA(self.args, sz)
-        if self.args.lev1:
-            sz = 128
-            self.update_block_2 = GMA(self.args, sz)
+        # if self.args.lev1:
+        #     sz = 128
+        #     self.update_block_2 = GMA(self.args, sz)
 
     def get_flow_now_4(self, four_point):
         four_point = four_point / 4
@@ -126,36 +127,36 @@ class IHN(nn.Module):
             coords1 = self.get_flow_now_4(four_point_disp)
 
 
-        if self.args.lev1:# next resolution
-            four_point_disp_med = four_point_disp 
-            flow_med = coords1 - coords0
-            flow_med = F.upsample_bilinear(flow_med, None, [4, 4]) * 4    
-            image2 = warp(image2, flow_med)
+        # if self.args.lev1:# next resolution
+        #     four_point_disp_med = four_point_disp 
+        #     flow_med = coords1 - coords0
+        #     flow_med = F.upsample_bilinear(flow_med, None, [4, 4]) * 4    
+        #     image2 = warp(image2, flow_med)
                       
-            with autocast(enabled=self.args.mixed_precision):
-                _, fmap2_128 = self.fnet1(image2)
-            fmap1 = fmap1_128.float()
-            fmap2 = fmap2_128.float()
+        #     with autocast(enabled=self.args.mixed_precision):
+        #         _, fmap2_128 = self.fnet1(image2)
+        #     fmap1 = fmap1_128.float()
+        #     fmap2 = fmap2_128.float()
             
-            corr_fn = CorrBlock(fmap1, fmap2, num_levels = 2, radius= 4)
-            coords0, coords1 = self.initialize_flow_2(image1)                
-            sz = fmap1.shape
-            self.sz = sz
-            four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
+        #     corr_fn = CorrBlock(fmap1, fmap2, num_levels = 2, radius= 4)
+        #     coords0, coords1 = self.initialize_flow_2(image1)                
+        #     sz = fmap1.shape
+        #     self.sz = sz
+        #     four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
             
-            for itr in range(iters_lev1):
-                corr = corr_fn(coords1)
-                flow = coords1 - coords0
-                with autocast(enabled=self.args.mixed_precision):
-                    if self.args.weight:
-                        delta_four_point, weight = self.update_block_2(corr, flow)
-                    else:
-                        delta_four_point = self.update_block_2(corr, flow)
-                four_point_disp = four_point_disp + delta_four_point
-                four_point_predictions.append(four_point_disp)            
-                coords1 = self.get_flow_now_2(four_point_disp)            
+        #     for itr in range(iters_lev1):
+        #         corr = corr_fn(coords1)
+        #         flow = coords1 - coords0
+        #         with autocast(enabled=self.args.mixed_precision):
+        #             if self.args.weight:
+        #                 delta_four_point, weight = self.update_block_2(corr, flow)
+        #             else:
+        #                 delta_four_point = self.update_block_2(corr, flow)
+        #         four_point_disp = four_point_disp + delta_four_point
+        #         four_point_predictions.append(four_point_disp)            
+        #         coords1 = self.get_flow_now_2(four_point_disp)            
             
-            four_point_disp = four_point_disp + four_point_disp_med
+        #     four_point_disp = four_point_disp + four_point_disp_med
 
         return four_point_predictions, four_point_disp
 
@@ -212,11 +213,6 @@ class STHEGAN():
         self.image_1_ori = A_ori.to(self.device)
         self.flow_gt = flow_gt
         if self.flow_gt is not None:
-            self.flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.device)
-            self.flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
-            self.flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
-            self.flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
-            self.flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
             self.real_warped_image_2 = mywarp(self.image_2, self.flow_gt, self.four_point_org_single)
         else:
             self.real_warped_image_2 = None
@@ -238,11 +234,11 @@ class STHEGAN():
     def forward(self, use_raw_input=False, noise_std=0, sample_method="target_raw"):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if not use_raw_input:
-            self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
+            self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0)
             if self.args.two_stages:
                 # self.four_pred = self.flow_4cor # DEBUG
                 self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2)
-                self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iters_lev0, iters_lev1=self.args.iters_lev1)
+                self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iters_lev0)
                 self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
         else:
             if sample_method == "target":
@@ -286,33 +282,31 @@ class STHEGAN():
         x_start = crop_top_left[:, 0] # B
         y_start = crop_top_left[:, 1] # B
         # Do not use bbox_generator because it will repeat to reduce 1 for end index
-        bbox_s = torch.tensor([[[0, 0], [0, 0], [0, 0], [0, 0]]], device=x_start.device, dtype=x_start.dtype).repeat(
-        1 if x_start.dim() == 0 else len(crop_top_left), 1, 1
-        )
+        bbox_s = torch.tensor([[[0, 0], [0, 0], [0, 0], [0, 0]]], device=x_start.device, dtype=x_start.dtype).repeat(1 if x_start.dim() == 0 else len(crop_top_left), 1, 1)
         bbox_s[:, :, 0] += x_start.view(-1, 1)
         bbox_s[:, :, 1] += y_start.view(-1, 1)
         bbox_s[:, 1, 0] += w_padded
         bbox_s[:, 2, 0] += w_padded
         bbox_s[:, 2, 1] += w_padded
         bbox_s[:, 3, 1] += w_padded
-        resize_ratio = w_padded / 256
+        resize_ratio = (w_padded / 256).unsqueeze(1).unsqueeze(1).unsqueeze(1)
         image_1_crop = tgm.crop_and_resize(image_1_ori, bbox_s, (256, 256)) # It will be padded when it is out of boundary
         # swap bbox_s
         bbox_s_swap = torch.stack([bbox_s[:, 0], bbox_s[:, 1], bbox_s[:, 3], bbox_s[:, 2]], dim=1)
         four_cor_bbox = bbox_s_swap.permute(0, 2, 1). view(-1, 2, 2, 2)
         four_pred_crop = torch.stack([x, y], dim=1) - four_cor_bbox # set to align with cropped satellite images
         # align to 256
-        four_pred_crop = four_pred_crop / 2
+        four_pred_crop = four_pred_crop / 2 # 512 -> 256
         image_2_crop = mywarp(image_2, four_pred_crop, self.four_point_org_single)
         return image_1_crop, image_2_crop, resize_ratio
     
     def combine_coarse_fine(self, four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, resize_ratio):
         if self.args.database_size == 512:
-            resize_ratio = resize_ratio.unsqueeze(1).unsqueeze(1).unsqueeze(1) / 2
+            resize_ratio = resize_ratio / 2
         elif self.args.database_size == 1024:
-            resize_ratio = resize_ratio.unsqueeze(1).unsqueeze(1).unsqueeze(1) / 4
+            resize_ratio = resize_ratio / 4
         elif self.args.database_size == 1536:
-            resize_ratio = resize_ratio.unsqueeze(1).unsqueeze(1).unsqueeze(1) / 6
+            resize_ratio = resize_ratio / 6
         four_preds_list_fine = [four_preds_list_fine_single * resize_ratio + four_pred for four_preds_list_fine_single in four_preds_list_fine]
         four_pred_fine = four_pred_fine * resize_ratio + four_pred
         four_preds_list = four_preds_list + four_preds_list_fine
@@ -420,13 +414,15 @@ def mywarp(x, flow_pred, four_point_org_single):
     x: [B, C, H, W] (im2)
     flo: [B, 2, H, W] flow
     """
-    flow_4cor = torch.zeros((flow_pred.shape[0], 2, 2, 2)).to(flow_pred.device)
-    flow_4cor[:, :, 0, 0] = flow_pred[:, :, 0, 0]
-    flow_4cor[:, :, 0, 1] = flow_pred[:, :, 0, -1]
-    flow_4cor[:, :, 1, 0] = flow_pred[:, :, -1, 0]
-    flow_4cor[:, :, 1, 1] = flow_pred[:, :, -1, -1]
+    if flow_pred.shape[-1] != 2:
+        flow_4cor = torch.zeros((flow_pred.shape[0], 2, 2, 2)).to(flow_pred.device)
+        flow_4cor[:, :, 0, 0] = flow_pred[:, :, 0, 0]
+        flow_4cor[:, :, 0, 1] = flow_pred[:, :, 0, -1]
+        flow_4cor[:, :, 1, 0] = flow_pred[:, :, -1, 0]
+        flow_4cor[:, :, 1, 1] = flow_pred[:, :, -1, -1]
+    else:
+        flow_4cor = flow_pred
 
-    four_point_1 = torch.zeros((flow_pred.shape[0], 2, 2, 2)).to(flow_pred.device)
     four_point_1 = flow_4cor + four_point_org_single
     
     four_point_org = four_point_org_single.repeat(flow_pred.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
@@ -434,4 +430,3 @@ def mywarp(x, flow_pred, four_point_org_single):
     H = tgm.get_perspective_transform(four_point_org, four_point_1)
     warped_image = tgm.warp_perspective(x, H, (x.shape[2], x.shape[3]))
     return warped_image
-    

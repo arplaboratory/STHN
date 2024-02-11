@@ -8,7 +8,7 @@ def parse_arguments():
     parser.add_argument('--restore_ckpt', help="restore checkpoint")
     parser.add_argument('--gpuid', type=int, nargs='+', default=[0])
     parser.add_argument('--lev0', default=True, action='store_true', help='warp no')
-    parser.add_argument('--lev1', default=False, action='store_true', help='warp once')
+    # parser.add_argument('--lev1', default=False, action='store_true', help='warp once')
     parser.add_argument('--iters_lev0', type=int, default=6)
     parser.add_argument('--iters_lev1', type=int, default=6)
     parser.add_argument('--val_freq', type=int, default=10000, help='validation frequency')

@@ -10,7 +10,7 @@ import torchvision
 from torch.cuda.amp import GradScaler
 from tqdm import tqdm
 
-from model.network import STHEGAN, mywarp
+from model.network import STHEGAN
 from utils import count_parameters, save_img, save_overlap_img, setup_seed, warp
 import commons
 from os.path import join
