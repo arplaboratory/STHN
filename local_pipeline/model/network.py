@@ -39,8 +39,15 @@ class IHN(nn.Module):
         self.four_point_org[:, 0, 1] = torch.Tensor([self.sz-1, 0])
         self.four_point_org[:, 1, 0] = torch.Tensor([0, self.sz-1])
         self.four_point_org[:, 1, 1] = torch.Tensor([self.sz-1, self.sz-1])
-        self.coords0, self.coords1 = self.initialize_flow_4(torch.zeros((self.args.batch_size, 3, args.resize_width, args.resize_width)).to(self.device))
-        self.four_point_disp = torch.zeros((self.args.batch_size, 2, 2, 2)).to(self.device)
+        self.coords0, self.coords1 = self.initialize_flow_4(torch.zeros((args.batch_size, 3, args.resize_width, args.resize_width)).to(self.device))
+        self.four_point_disp = torch.zeros((args.batch_size, 2, 2, 2)).to(self.device)
+        gridy, gridx = torch.meshgrid(torch.linspace(0, args.resize_width//4-1, steps=args.resize_width//4), torch.linspace(0, args.resize_width//4-1, steps=args.resize_width//4))
+        self.points = torch.cat((gridx.flatten().unsqueeze(0), gridy.flatten().unsqueeze(0), torch.ones((1, args.resize_width//4 * args.resize_width//4))),
+                           dim=0).unsqueeze(0).repeat(args.batch_size, 1, 1).to(self.device)
+        r = args.corr_radius
+        dx = torch.linspace(-r, r, 2 * r + 1)
+        dy = torch.linspace(-r, r, 2 * r + 1)
+        self.delta = torch.stack(torch.meshgrid(dy, dx), axis=-1).to(self.device)
 
     def get_flow_now_4(self, four_point):
         four_point = four_point / 4
@@ -56,10 +63,7 @@ class IHN(nn.Module):
         four_point_org = four_point_org.flatten(2).permute(0, 2, 1).contiguous()
         four_point_new = four_point_new.flatten(2).permute(0, 2, 1).contiguous()
         H = tgm.get_perspective_transform(four_point_org, four_point_new)
-        gridy, gridx = torch.meshgrid(torch.linspace(0, self.sz[3]-1, steps=self.sz[3]), torch.linspace(0, self.sz[2]-1, steps=self.sz[2]))
-        points = torch.cat((gridx.flatten().unsqueeze(0), gridy.flatten().unsqueeze(0), torch.ones((1, self.sz[3] * self.sz[2]))),
-                           dim=0).unsqueeze(0).repeat(self.sz[0], 1, 1).to(four_point.device)
-        points_new = H.bmm(points)
+        points_new = H.bmm(self.points)
         points_new = points_new / points_new[:, 2, :].unsqueeze(1)
         points_new = points_new[:, 0:2, :]
         flow = torch.cat((points_new[:, 0, :].reshape(self.sz[0], self.sz[3], self.sz[2]).unsqueeze(1),
@@ -114,11 +118,13 @@ class IHN(nn.Module):
         with autocast(enabled=self.args.mixed_precision):
             # fmap1_64, fmap1_128 = self.fnet1(image1)
             # fmap2_64, _ = self.fnet1(image2)
-            fmap1_64 = self.fnet1(image1)
-            fmap2_64 = self.fnet1(image2)
-            # fmap_64 = self.fnet1(torch.cat([image1, image2], dim=0))
-            # fmap1_64 = fmap_64[:image1.shape[0]]
-            # fmap2_64 = fmap_64[image1.shape[0]:]
+            if not self.args.fnet_cat:
+                fmap1_64 = self.fnet1(image1)
+                fmap2_64 = self.fnet1(image2)
+            else:
+                fmap_64 = self.fnet1(torch.cat([image1, image2], dim=0))
+                fmap1_64 = fmap_64[:image1.shape[0]]
+                fmap2_64 = fmap_64[image1.shape[0]:]
         # time2 = time.time()
         # print("Time for fnet1: " + str(time2 - time1) + " seconds") # 0.004 + # 0.004
 
@@ -126,7 +132,7 @@ class IHN(nn.Module):
         fmap2 = fmap2_64.float()
 
         # print(fmap1.shape, fmap2.shape)
-        corr_fn = CorrBlock(fmap1, fmap2, num_levels=corr_level, radius=corr_radius)
+        corr_fn = CorrBlock(fmap1, fmap2, self.delta, num_levels=corr_level, radius=corr_radius)
         coords0 = self.coords0[:fmap1.shape[0]]
         coords1 = self.coords1[:fmap1.shape[0]]
         # print(coords0.shape, coords1.shape)
