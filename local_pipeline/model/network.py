@@ -39,6 +39,8 @@ class IHN(nn.Module):
         self.four_point_org[:, 0, 1] = torch.Tensor([self.sz-1, 0])
         self.four_point_org[:, 1, 0] = torch.Tensor([0, self.sz-1])
         self.four_point_org[:, 1, 1] = torch.Tensor([self.sz-1, self.sz-1])
+        self.coords0, self.coords1 = self.initialize_flow_4(torch.zeros((self.args.batch_size, 3, args.resize_width, args.resize_width)).to(self.device))
+        self.four_point_disp = torch.zeros((self.args.batch_size, 2, 2, 2)).to(self.device)
 
     def get_flow_now_4(self, four_point):
         four_point = four_point / 4
@@ -118,18 +120,19 @@ class IHN(nn.Module):
             # fmap1_64 = fmap_64[:image1.shape[0]]
             # fmap2_64 = fmap_64[image1.shape[0]:]
         # time2 = time.time()
-        # logging.debug("Time for fnet1: " + str(time2 - time1) + " seconds") # 0.004 + # 0.004
+        # print("Time for fnet1: " + str(time2 - time1) + " seconds") # 0.004 + # 0.004
 
         fmap1 = fmap1_64.float()
         fmap2 = fmap2_64.float()
 
         # print(fmap1.shape, fmap2.shape)
         corr_fn = CorrBlock(fmap1, fmap2, num_levels=corr_level, radius=corr_radius)
-        coords0, coords1 = self.initialize_flow_4(image1)
+        coords0 = self.coords0[:fmap1.shape[0]]
+        coords1 = self.coords1[:fmap1.shape[0]]
         # print(coords0.shape, coords1.shape)
         sz = fmap1_64.shape
         self.sz = sz
-        four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
+        four_point_disp = self.four_point_disp[:fmap1.shape[0]]
         four_point_predictions = []
 
         # time1 = time.time()
@@ -147,7 +150,7 @@ class IHN(nn.Module):
             four_point_predictions.append(four_point_disp)
             coords1 = self.get_flow_now_4(four_point_disp)
         # time2 = time.time()
-        # logging.debug("Time for iterative: " + str(time2 - time1) + " seconds") # 0.12
+        # print("Time for iterative: " + str(time2 - time1) + " seconds") # 0.12
 
         # if self.args.lev1:# next resolution
         #     four_point_disp_med = four_point_disp 
@@ -257,20 +260,46 @@ class STHEGAN():
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if not use_raw_input:
             # time1 = time.time()
-            self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
-            # time2 = time.time()
-            # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
-            if self.args.two_stages:
-                # self.four_pred = self.flow_4cor # DEBUG
-                # time1 = time.time()
-                self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2)
+            if self.args.iterative == 0:
+                self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
                 # time2 = time.time()
-                # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
-                # time1 = time.time()
-                self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iters_lev1)
-                # time2 = time.time()
-                # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
-                self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
+                # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
+                if self.args.two_stages:
+                    # self.four_pred = self.flow_4cor # DEBUG
+                    # time1 = time.time()
+                    self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2)
+                    # time2 = time.time()
+                    # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
+                    # time1 = time.time()
+                    self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iters_lev1)
+                    # time2 = time.time()
+                    # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
+                    self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
+            else:
+                for i in range(self.args.iters_lev0 // self.args.iterative):
+                    # time1_1 = time.time()
+                    if i == 0:
+                        time1 = time.time()
+                        self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iterative)
+                        time2 = time.time()
+                        print("Time for g: " + str(time2 - time1) + " seconds")
+                        # time1 = time.time()
+                        self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2, detach=False)
+                        # time2 = time.time()
+                        # print("Time for crop: " + str(time2 - time1) + " seconds")
+                    else:
+                        time1 = time.time()
+                        self.four_preds_list_fine, self.four_pred_fine = self.netG(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iterative)
+                        time2 = time.time()
+                        print("Time for g: " + str(time2 - time1) + " seconds")
+                        self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
+                        # time1 = time.time()
+                        if i != self.args.iters_lev0 // self.args.iterative - 1:
+                            self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2, detach=False)
+                        # time2 = time.time()
+                        # print("Time for crop: " + str(time2 - time1) + " seconds")
+                    # time2_1 = time.time()
+                    # print("Time for all: " + str(time2_1 - time1_1) + " seconds")
         else:
             if sample_method == "target":
                 self.four_pred = self.flow_4cor + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
@@ -291,12 +320,7 @@ class STHEGAN():
         x = four_point[:, 0]
         y = four_point[:, 1]
         # Make it same scale as image_1_ori
-        if self.args.database_size == 512:
-            alpha = 2
-        elif self.args.database_size == 1024:
-            alpha = 4
-        elif self.args.database_size == 1536:
-            alpha = 6
+        alpha = self.args.database_size / self.args.resize_width
         x[:, :, 0] = x[:, :, 0] * alpha
         x[:, :, 1] = (x[:, :, 1] + 1) * alpha
         y[:, 0, :] = y[:, 0, :] * alpha
@@ -337,12 +361,8 @@ class STHEGAN():
         return image_1_crop, image_2_crop, resize_ratio
     
     def combine_coarse_fine(self, four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, resize_ratio):
-        if self.args.database_size == 512:
-            resize_ratio = resize_ratio / 2
-        elif self.args.database_size == 1024:
-            resize_ratio = resize_ratio / 4
-        elif self.args.database_size == 1536:
-            resize_ratio = resize_ratio / 6
+        alpha = self.args.database_size / self.args.resize_width
+        resize_ratio = resize_ratio / alpha
         four_preds_list_fine = [four_preds_list_fine_single * resize_ratio + four_pred for four_preds_list_fine_single in four_preds_list_fine]
         four_pred_fine = four_pred_fine * resize_ratio + four_pred
         four_preds_list = four_preds_list + four_preds_list_fine
