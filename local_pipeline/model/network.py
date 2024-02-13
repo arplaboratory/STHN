@@ -285,19 +285,19 @@ class STHEGAN():
                 for i in range(self.args.iters_lev0 // self.args.iterative):
                     # time1_1 = time.time()
                     if i == 0:
-                        time1 = time.time()
+                        # time1 = time.time()
                         self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iterative)
-                        time2 = time.time()
-                        print("Time for g: " + str(time2 - time1) + " seconds")
+                        # time2 = time.time()
+                        # print("Time for g: " + str(time2 - time1) + " seconds")
                         # time1 = time.time()
                         self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2, detach=False)
                         # time2 = time.time()
                         # print("Time for crop: " + str(time2 - time1) + " seconds")
                     else:
-                        time1 = time.time()
+                        # time1 = time.time()
                         self.four_preds_list_fine, self.four_pred_fine = self.netG(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iterative)
-                        time2 = time.time()
-                        print("Time for g: " + str(time2 - time1) + " seconds")
+                        # time2 = time.time()
+                        # print("Time for g: " + str(time2 - time1) + " seconds")
                         self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
                         # time1 = time.time()
                         if i != self.args.iters_lev0 // self.args.iterative - 1:
