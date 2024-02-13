@@ -30,7 +30,7 @@ def test(args):
     for key in list(model_med['netG'].keys()):
         if key.startswith('module'):
             del model_med['netG'][key]
-    model.netG.load_state_dict(model_med['netG'])
+    model.netG.load_state_dict(model_med['netG'], strict=True)
     if args.use_ue:
         if args.eval_model_ue is not None:
             model_med = torch.load(args.eval_model_ue, map_location='cuda:0')

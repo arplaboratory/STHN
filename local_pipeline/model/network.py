@@ -27,7 +27,7 @@ class IHN(nn.Module):
         self.context_dim = 128
         self.fnet1 = BasicEncoderQuarter(output_dim=256, norm_fn='instance')
         if self.args.lev0:
-            sz = 64
+            sz = self.args.resize_width // 4
             self.update_block_4 = GMA(self.args, sz)
         # if self.args.lev1:
         #     sz = 128
@@ -102,7 +102,7 @@ class IHN(nn.Module):
 
         return coords0, coords1
 
-    def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3):
+    def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3, corr_level=2, corr_radius=4):
         # image1 = 2 * (image1 / 255.0) - 1.0
         # image2 = 2 * (image2 / 255.0) - 1.0
         image1 = image1.contiguous()
@@ -123,8 +123,10 @@ class IHN(nn.Module):
         fmap1 = fmap1_64.float()
         fmap2 = fmap2_64.float()
 
-        corr_fn = CorrBlock(fmap1, fmap2, num_levels=2, radius=4)
+        # print(fmap1.shape, fmap2.shape)
+        corr_fn = CorrBlock(fmap1, fmap2, num_levels=corr_level, radius=corr_radius)
         coords0, coords1 = self.initialize_flow_4(image1)
+        # print(coords0.shape, coords1.shape)
         sz = fmap1_64.shape
         self.sz = sz
         four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
@@ -134,6 +136,7 @@ class IHN(nn.Module):
         for itr in range(iters_lev0):
             corr = corr_fn(coords1)
             flow = coords1 - coords0
+            # print(corr.shape, flow.shape)
             with autocast(enabled=self.args.mixed_precision):
                 if self.args.weight:
                     delta_four_point, weight = self.update_block_4(corr, flow)
@@ -187,9 +190,9 @@ class STHEGAN():
         self.device = args.device
         self.four_point_org_single = torch.zeros((1, 2, 2, 2)).to(self.device)
         self.four_point_org_single[:, :, 0, 0] = torch.Tensor([0, 0]).to(self.device)
-        self.four_point_org_single[:, :, 0, 1] = torch.Tensor([256 - 1, 0]).to(self.device)
-        self.four_point_org_single[:, :, 1, 0] = torch.Tensor([0, 256 - 1]).to(self.device)
-        self.four_point_org_single[:, :, 1, 1] = torch.Tensor([256 - 1, 256 - 1]).to(self.device)
+        self.four_point_org_single[:, :, 0, 1] = torch.Tensor([self.args.resize_width - 1, 0]).to(self.device)
+        self.four_point_org_single[:, :, 1, 0] = torch.Tensor([0, self.args.resize_width - 1]).to(self.device)
+        self.four_point_org_single[:, :, 1, 1] = torch.Tensor([self.args.resize_width - 1, self.args.resize_width - 1]).to(self.device)
         self.netG = IHN(args)
         if args.two_stages:
             self.netG_fine = IHN(args)
@@ -254,7 +257,7 @@ class STHEGAN():
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if not use_raw_input:
             # time1 = time.time()
-            self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0)
+            self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
             # time2 = time.time()
             # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
             if self.args.two_stages:
@@ -317,14 +320,15 @@ class STHEGAN():
         bbox_s[:, 2, 0] += w_padded
         bbox_s[:, 2, 1] += w_padded
         bbox_s[:, 3, 1] += w_padded
-        resize_ratio = (w_padded / 256).unsqueeze(1).unsqueeze(1).unsqueeze(1)
-        image_1_crop = tgm.crop_and_resize(image_1_ori, bbox_s, (256, 256)) # It will be padded when it is out of boundary
+        resize_ratio = (w_padded / self.args.resize_width).unsqueeze(1).unsqueeze(1).unsqueeze(1)
+        image_1_crop = tgm.crop_and_resize(image_1_ori, bbox_s, (self.args.resize_width, self.args.resize_width)) # It will be padded when it is out of boundary
         # swap bbox_s
         bbox_s_swap = torch.stack([bbox_s[:, 0], bbox_s[:, 1], bbox_s[:, 3], bbox_s[:, 2]], dim=1)
         four_cor_bbox = bbox_s_swap.permute(0, 2, 1). view(-1, 2, 2, 2)
         four_pred_crop = torch.stack([x, y], dim=1) - four_cor_bbox # set to align with cropped satellite images
-        # align to 256
-        four_pred_crop = four_pred_crop / 2 # 512 -> 256
+        # align to resize_width
+        beta = 512 / self.args.resize_width # thermal is 512
+        four_pred_crop = four_pred_crop / beta
         image_2_crop = mywarp(image_2, four_pred_crop, self.four_point_org_single)
         if detach:
             image_1_crop = image_1_crop.detach()

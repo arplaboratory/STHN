@@ -46,7 +46,10 @@ def parse_arguments():
     parser.add_argument("--test", action="store_true", help="test mode")
     parser.add_argument("--two_stages", action="store_true", help="crop at level 2 but same scale")
     parser.add_argument("--fine_padding", type=int, default=0, help="expanding region of refinement")
-    
+    parser.add_argument("--corr_level", type=int, default=2, choices=[2, 4], help="expanding region of refinement")
+    parser.add_argument("--corr_radius", type=int, default=4, choices=[4, 6], help="expanding region of refinement")
+    parser.add_argument("--resize_width", type=int, default=256, choices=[256, 512], help="expanding region of refinement")
+
     args = parser.parse_args()
     args.save_dir = "local_he"
     

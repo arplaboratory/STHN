@@ -17,7 +17,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 
 marginal = 0
-patch_size = 256
+# patch_size = 256
 
 imagenet_mean = [0.485, 0.456, 0.406]
 imagenet_std = [0.229, 0.224, 0.225]
@@ -33,8 +33,9 @@ inv_base_transforms = transforms.Compose(
 )
 
 class homo_dataset(data.Dataset):
-    def __init__(self, permute=False):
+    def __init__(self, args, permute=False):
 
+        self.args = args
         self.is_test = False
         self.init_seed = True
         self.image_list_img1 = []
@@ -43,7 +44,7 @@ class homo_dataset(data.Dataset):
         self.permute = permute
         base_transform = transforms.Compose(
             [
-                transforms.Resize([256, 256]),
+                transforms.Resize([self.args.resize_width, self.args.resize_width]),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
             ]
@@ -179,23 +180,17 @@ class homo_dataset(data.Dataset):
             H = H.squeeze()
         else:
             img1, img2, img2_ori = self.query_transform(img1), self.database_transform(img2), self.database_transform_ori(img2)
-            if self.args.database_size == 512:
-                t = t/2 # 512 -> 256
-            elif self.args.database_size == 1024:
-                t = t/4 # 1024 -> 256
-            elif self.args.database_size == 1536:
-                t = t/6 # 1536 -> 256
-            else:
-                raise NotImplementedError()
+            alpha = self.args.database_size / self.args.resize_width
+            t = t / alpha # align with the resized image
             
             t_tensor = torch.Tensor(t).squeeze(0)
             y_grid, x_grid = np.mgrid[0:img1.shape[1], 0:img1.shape[2]]
             point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
             four_point_org = torch.zeros((2, 2, 2))
             top_left = torch.Tensor([0, 0])
-            top_right = torch.Tensor([256 - 1, 0])
-            bottom_left = torch.Tensor([0, 256 - 1])
-            bottom_right = torch.Tensor([256 - 1, 256 - 1])
+            top_right = torch.Tensor([self.args.resize_width - 1, 0])
+            bottom_left = torch.Tensor([0, self.args.resize_width - 1])
+            bottom_right = torch.Tensor([self.args.resize_width - 1, self.args.resize_width - 1])
             four_point_org[:, 0, 0] = top_left
             four_point_org[:, 0, 1] = top_right
             four_point_org[:, 1, 0] = bottom_left
@@ -207,19 +202,19 @@ class homo_dataset(data.Dataset):
                 four_point_1[:, 1, 0] = t_tensor + bottom_left
                 four_point_1[:, 1, 1] = t_tensor + bottom_right
             elif self.args.database_size == 1024:
-                top_left_resize = torch.Tensor([64, 64])
-                top_right_resize = torch.Tensor([256 - 64 - 1, 64])
-                bottom_left_resize = torch.Tensor([64, 256 - 64 - 1])
-                bottom_right_resize = torch.Tensor([256 - 64 - 1, 256 - 64 - 1])
+                top_left_resize = torch.Tensor([self.args.resize_width/4, self.args.resize_width/4])
+                top_right_resize = torch.Tensor([self.args.resize_width - self.args.resize_width/4 - 1, self.args.resize_width/4])
+                bottom_left_resize = torch.Tensor([self.args.resize_width/4, self.args.resize_width - self.args.resize_width/4 - 1])
+                bottom_right_resize = torch.Tensor([self.args.resize_width - self.args.resize_width/4 - 1, self.args.resize_width - self.args.resize_width/4 - 1])
                 four_point_1[:, 0, 0] = t_tensor + top_left_resize
                 four_point_1[:, 0, 1] = t_tensor + top_right_resize
                 four_point_1[:, 1, 0] = t_tensor + bottom_left_resize
                 four_point_1[:, 1, 1] = t_tensor + bottom_right_resize
             elif self.args.database_size == 1536:
-                top_left_resize2 = torch.Tensor([256/3, 256/3])
-                top_right_resize2 = torch.Tensor([256 - 256/3 - 1, 256/3])
-                bottom_left_resize2 = torch.Tensor([256/3, 256 - 256/3 - 1])
-                bottom_right_resize2 = torch.Tensor([256 - 256/3 - 1, 256 - 256/3 - 1])
+                top_left_resize2 = torch.Tensor([self.args.resize_width/3, self.args.resize_width/3])
+                top_right_resize2 = torch.Tensor([self.args.resize_width - self.args.resize_width/3 - 1, self.args.resize_width/3])
+                bottom_left_resize2 = torch.Tensor([self.args.resize_width/3, self.args.resize_width - self.args.resize_width/3 - 1])
+                bottom_right_resize2 = torch.Tensor([self.args.resize_width - self.args.resize_width/3 - 1, self.args.resize_width - self.args.resize_width/3 - 1])
                 four_point_1[:, 0, 0] = t_tensor + top_left_resize2
                 four_point_1[:, 0, 1] = t_tensor + top_right_resize2
                 four_point_1[:, 1, 0] = t_tensor + bottom_left_resize2
@@ -238,7 +233,7 @@ class homo_dataset(data.Dataset):
 
             diff_x_branch1 = diff_x_branch1.reshape((img1.shape[1], img1.shape[2]))
             diff_y_branch1 = diff_y_branch1.reshape((img1.shape[1], img1.shape[2]))
-            pf_patch = np.zeros((256, 256, 2))
+            pf_patch = np.zeros((self.args.resize_width, self.args.resize_width, 2))
             pf_patch[:, :, 0] = diff_x_branch1
             pf_patch[:, :, 1] = diff_y_branch1
             flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
@@ -247,7 +242,7 @@ class homo_dataset(data.Dataset):
 
 class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train", exclude_val_region=False):
-        super(MYDATA, self).__init__(permute= (args.permute == "img"))
+        super(MYDATA, self).__init__(args, permute= (args.permute == "img"))
         self.args = args
         self.dataset_name = dataset_name
         self.split = split

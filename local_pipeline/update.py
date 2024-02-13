@@ -206,11 +206,11 @@ class CNN_128(nn.Module):
 
 
 class CNN_64(nn.Module):
-    def __init__(self, input_dim=256, hidden_dim=256):
+    def __init__(self, input_dim=256, hidden_dim=256, init_dim=164):
         super(CNN_64, self).__init__()
 
         outputdim = input_dim
-        self.layer1 = nn.Sequential(nn.Conv2d(164, outputdim, 3, padding=1, stride=1),
+        self.layer1 = nn.Sequential(nn.Conv2d(init_dim, outputdim, 3, padding=1, stride=1),
                                     nn.GroupNorm(num_groups=outputdim//8, num_channels=outputdim), nn.ReLU(), nn.MaxPool2d(kernel_size = 2, stride=2))
 
         input_dim = outputdim
@@ -305,7 +305,15 @@ class GMA(nn.Module):
             if self.args.weight:
                 self.cnn_weight = CNN_weight_64(128)
             else:
-                self.cnn = CNN_64(128)
+                if args.corr_level == 2 and args.corr_radius == 4:
+                    init_dim = 164
+                elif args.corr_level == 4 and args.corr_radius == 4:
+                    init_dim = 326
+                elif args.corr_level == 2 and args.corr_radius == 6:
+                    init_dim = 340
+                else:
+                    raise NotImplementedError()
+                self.cnn = CNN_64(128, init_dim=init_dim)
         
         if sz==128:
             if self.args.weight:

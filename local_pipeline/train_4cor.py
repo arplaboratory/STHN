@@ -78,15 +78,6 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
     count = 0
     last_best_val_mace = None
     last_best_val_mace_conf_error = None
-    top_left = torch.Tensor([0, 0]).to(model.netG.module.device)
-    top_right = torch.Tensor([256 - 1, 0]).to(model.netG.module.device)
-    bottom_left = torch.Tensor([0, 256 - 1]).to(model.netG.module.device)
-    bottom_right = torch.Tensor([256 - 1, 256 - 1]).to(model.netG.module.device)
-    four_point_org_single = torch.zeros((1, 2, 2, 2)).to(model.netG.module.device)
-    four_point_org_single[:, :, 0, 0] = top_left
-    four_point_org_single[:, :, 0, 1] = top_right
-    four_point_org_single[:, :, 1, 0] = bottom_left
-    four_point_org_single[:, :, 1, 1] = bottom_right
     
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
