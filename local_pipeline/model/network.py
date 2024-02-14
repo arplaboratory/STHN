@@ -63,7 +63,7 @@ class IHN(nn.Module):
         four_point_org = four_point_org.flatten(2).permute(0, 2, 1).contiguous()
         four_point_new = four_point_new.flatten(2).permute(0, 2, 1).contiguous()
         H = tgm.get_perspective_transform(four_point_org, four_point_new)
-        points_new = H.bmm(self.points)
+        points_new = H.bmm(self.points[:H.shape[0]])
         points_new = points_new / points_new[:, 2, :].unsqueeze(1)
         points_new = points_new[:, 0:2, :]
         flow = torch.cat((points_new[:, 0, :].reshape(self.sz[0], self.sz[3], self.sz[2]).unsqueeze(1),
