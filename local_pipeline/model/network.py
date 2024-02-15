@@ -195,7 +195,10 @@ class STHEGAN():
         self.four_point_org_large_single[:, :, 1, 1] = torch.Tensor([self.args.database_size, self.args.database_size]).to(self.device) # Only to calculate flow so no -1
         self.netG = IHN(args)
         if args.two_stages:
+            corr_level = args.corr_level
+            args.corr_level = 2
             self.netG_fine = IHN(args)
+            args.corr_level = corr_level
         if args.use_ue:
             if args.D_net == 'patchGAN':
                 self.netD = NLayerDiscriminator(9, norm="instance") # satellite=3 thermal=3 warped_thermal=3. norm should be instance?
