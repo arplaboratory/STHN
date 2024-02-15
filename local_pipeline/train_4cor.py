@@ -60,10 +60,12 @@ def main(args):
         extended_loader = None
 
     total_steps = 0
+    last_best_val_mace = None
+    last_best_val_mace_conf_error = None
     while total_steps <= args.num_steps:
-        total_steps = train(model, train_loader, args, total_steps)
+        total_steps, last_best_val_mace, last_best_val_mace_conf_error = train(model, train_loader, args, total_steps, last_best_val_mace, last_best_val_mace_conf_error)
         if extended_loader is not None:
-            total_steps = train(model, extended_loader, args, total_steps, train_step_limit=len(train_loader))
+            total_steps, last_best_val_mace, last_best_val_mace_conf_error = train(model, extended_loader, args, total_steps, last_best_val_mace, last_best_val_mace_conf_error, train_step_limit=len(train_loader))
 
     test_dataset = datasets.fetch_dataloader(args, split='test')
     model_med = torch.load(args.save_dir + f'/{args.name}.pth')
@@ -74,11 +76,8 @@ def main(args):
         model.netG_fine.load_state_dict(model_med['netG_fine'])
     evaluate_SNet(model, test_dataset, batch_size=args.batch_size, args=args, wandb_log=True)
 
-def train(model, train_loader, args, total_steps, train_step_limit = None):
+def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_val_mace_conf_error, train_step_limit = None):
     count = 0
-    last_best_val_mace = None
-    last_best_val_mace_conf_error = None
-    
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
         # time1 = time.time()
@@ -154,7 +153,7 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
             break
         else:
             count += 1
-    return total_steps
+    return total_steps, last_best_val_mace, last_best_val_mace_conf_error
 
 def validate(model, args, total_steps):
     results = {}
