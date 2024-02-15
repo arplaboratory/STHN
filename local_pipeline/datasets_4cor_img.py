@@ -61,6 +61,12 @@ class homo_dataset(data.Dataset):
                 base_transform
             ]
         )
+        self.query_transform_ori = transforms.Compose(
+            [
+                transforms.Grayscale(num_output_channels=3),
+                base_transform_ori
+            ]
+        )
         self.database_transform = base_transform
         self.database_transform_ori = base_transform_ori
         
@@ -179,7 +185,7 @@ class homo_dataset(data.Dataset):
             H = tgm.get_perspective_transform(four_point_org, four_point)
             H = H.squeeze()
         else:
-            img1, img2, img2_ori = self.query_transform(img1), self.database_transform(img2), self.database_transform_ori(img2)
+            img1, img2, img2_ori, img1_ori = self.query_transform(img1), self.database_transform(img2), self.database_transform_ori(img2), self.query_transform_ori(img1)
             alpha = self.args.database_size / self.args.resize_width
             t = t / alpha # align with the resized image
             
@@ -238,7 +244,7 @@ class homo_dataset(data.Dataset):
             pf_patch[:, :, 1] = diff_y_branch1
             flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
             H = H.squeeze()
-        return img2, img1, flow, H, query_utm, database_utm, img2_ori
+        return img2, img1, flow, H, query_utm, database_utm, img2_ori, img1_ori
 
 class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train", exclude_val_region=False):

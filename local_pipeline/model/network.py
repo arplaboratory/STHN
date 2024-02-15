@@ -224,11 +224,12 @@ class STHEGAN():
             model = model.to(self.device)
         return model
     
-    def set_input(self, A, B, flow_gt=None, A_ori=None):
+    def set_input(self, A, B, flow_gt=None, A_ori=None, B_ori=None):
         self.image_1 = A.to(self.device, non_blocking=True)
         self.image_2 = B.to(self.device, non_blocking=True)
         self.image_1_ori = A_ori.to(self.device, non_blocking=True)
-        self.flow_gt = flow_gt
+        self.image_2_ori = B_ori.to(self.device, non_blocking=True)
+        self.flow_gt = flow_gt.to(self.device, non_blocking=True)
         if self.flow_gt is not None:
             self.real_warped_image_2 = mywarp(self.image_2, self.flow_gt, self.four_point_org_single)
         else:
@@ -259,7 +260,7 @@ class STHEGAN():
                 if self.args.two_stages:
                     # self.four_pred = self.flow_4cor # DEBUG
                     # time1 = time.time()
-                    self.image_1_crop, self.image_2_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2)
+                    self.image_1_crop, self.image_2_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2_ori)
                     # time2 = time.time()
                     # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
                     # time1 = time.time()
@@ -276,7 +277,7 @@ class STHEGAN():
                         # time2 = time.time()
                         # print("Time for g: " + str(time2 - time1) + " seconds")
                         # time1 = time.time()
-                        self.image_1_crop, self.image_2_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2, detach=False)
+                        self.image_1_crop, self.image_2_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2_ori, detach=False)
                         # time2 = time.time()
                         # print("Time for crop: " + str(time2 - time1) + " seconds")
                     else:
@@ -287,7 +288,7 @@ class STHEGAN():
                         self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta)
                         # time1 = time.time()
                         if i != self.args.iters_lev0 // self.args.iterative - 1:
-                            self.image_1_crop, self.image_2_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2, detach=False)
+                            self.image_1_crop, self.image_2_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2_ori, detach=False)
                         # time2 = time.time()
                         # print("Time for crop: " + str(time2 - time1) + " seconds")
                     # time2_1 = time.time()
@@ -306,7 +307,7 @@ class STHEGAN():
                 raise NotImplementedError()
         self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
 
-    def get_cropped_st_images(self, image_1_ori, four_pred, fine_padding, image_2, detach=True):
+    def get_cropped_st_images(self, image_1_ori, four_pred, fine_padding, image_2_ori, detach=True):
         # From four_pred to bbox coordinates
         four_point = four_pred + self.four_point_org_single
         x = four_point[:, 0]
@@ -343,8 +344,10 @@ class STHEGAN():
         four_cor_bbox = bbox_s_swap.permute(0, 2, 1). view(-1, 2, 2, 2)
         four_pred_crop = torch.stack([x, y], dim=1) - four_cor_bbox # set to align with cropped satellite images
         # align to resize_width
-        four_pred_crop = four_pred_crop / delta
-        image_2_crop = mywarp(image_2, four_pred_crop, self.four_point_org_single)
+        beta = (w_padded / self.args.database_width).unsqueeze(1).unsqueeze(1).unsqueeze(1)
+        four_pred_crop = four_pred_crop / beta
+        image_2_crop = tgm.resize(image_2_ori, (w_padded, w_padded))
+        image_2_crop = mywarp(image_2_crop, four_pred_crop, self.four_point_org_single)
         if detach:
             image_1_crop = image_1_crop.detach()
             image_2_crop = image_2_crop.detach()

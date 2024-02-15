@@ -82,12 +82,12 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
         # time1 = time.time()
-        image1, image2, flow, _, query_utm, database_utm, image1_ori  = [x.cuda() for x in data_blob]
+        image1, image2, flow, _, query_utm, database_utm, image1_ori, image2_ori  = [x for x in data_blob]
         # time2 = time.time()
         # logging.debug("DATA LOADING: {}".format(time2-time1))
         # image2_w = warp(image2, flow)
         # time1 = time.time()
-        model.set_input(image1, image2, flow, image1_ori)
+        model.set_input(image1, image2, flow, image1_ori, image2_ori)
         # time2 = time.time()
         # logging.debug("DATA SENDING TO GPU: {}".format(time2-time1))
         if i_batch==0:
