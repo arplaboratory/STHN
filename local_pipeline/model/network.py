@@ -284,10 +284,10 @@ class STHEGAN():
                         self.four_preds_list_fine, self.four_pred_fine = self.netG(image1=self.image_1_crop, image2=self.image_2, iters_lev0=self.args.iterative)
                         # time2 = time.time()
                         # print("Time for g: " + str(time2 - time1) + " seconds")
-                        self.four_preds_list, self.four_pred, four_cor_bbox = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, four_cor_bbox)
+                        self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, four_cor_bbox)
                         # time1 = time.time()
                         if i != self.args.iters_lev0 // self.args.iterative - 1:
-                            self.image_1_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, detach=False)
+                            self.image_1_crop, delta, four_cor_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, detach=False)
                         # time2 = time.time()
                         # print("Time for crop: " + str(time2 - time1) + " seconds")
                     # time2_1 = time.time()
