@@ -447,12 +447,12 @@ def fetch_dataloader(args, split='train', exclude_val_region=False):
     train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split, exclude_val_region=exclude_val_region)
     if split == 'train' or split == 'extended':
         train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                        pin_memory=True, shuffle=True, num_workers=8, drop_last=True)
+                                        pin_memory=True, shuffle=True, num_workers=args.num_workers, drop_last=True)
     elif split == 'val' or split == 'test':
         g = torch.Generator()
         g.manual_seed(0)
         train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                pin_memory=True, shuffle=False, num_workers=8,
+                                pin_memory=True, shuffle=False, num_workers=args.num_workers,
                                 drop_last=False, worker_init_fn=seed_worker, generator=g)
     logging.info(f"{split} set: {train_dataset}")
     return train_loader

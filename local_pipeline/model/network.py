@@ -188,6 +188,11 @@ class STHEGAN():
         self.four_point_org_single[:, :, 0, 1] = torch.Tensor([self.args.resize_width - 1, 0]).to(self.device)
         self.four_point_org_single[:, :, 1, 0] = torch.Tensor([0, self.args.resize_width - 1]).to(self.device)
         self.four_point_org_single[:, :, 1, 1] = torch.Tensor([self.args.resize_width - 1, self.args.resize_width - 1]).to(self.device)
+        self.four_point_org_large_single = torch.zeros((1, 2, 2, 2)).to(self.device)
+        self.four_point_org_large_single[:, :, 0, 0] = torch.Tensor([0, 0]).to(self.device)
+        self.four_point_org_large_single[:, :, 0, 1] = torch.Tensor([self.args.database_size, 0]).to(self.device)
+        self.four_point_org_large_single[:, :, 1, 0] = torch.Tensor([0, self.args.database_size]).to(self.device)
+        self.four_point_org_large_single[:, :, 1, 1] = torch.Tensor([self.args.database_size, self.args.database_size]).to(self.device) # Only to calculate flow so no -1
         self.netG = IHN(args)
         if args.two_stages:
             self.netG_fine = IHN(args)
@@ -257,16 +262,23 @@ class STHEGAN():
                 # time2 = time.time()
                 # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
                 if self.args.two_stages:
-                    # self.four_pred = self.flow_4cor # DEBUG
+                    '''
+                    flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.flow_gt.device)
+                    flow_4cor[:, :, 0, 0] = self.flow_gt[:, :, 0, 0]
+                    flow_4cor[:, :, 0, 1] = self.flow_gt[:, :, 0, -1]
+                    flow_4cor[:, :, 1, 0] = self.flow_gt[:, :, -1, 0]
+                    flow_4cor[:, :, 1, 1] = self.flow_gt[:, :, -1, -1]
+                    self.four_pred = flow_4cor # DEBUG
+                    '''
                     # time1 = time.time()
-                    self.image_1_crop, delta, four_cor_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding)
+                    self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding)
                     # time2 = time.time()
                     # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
                     # time1 = time.time()
                     self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2, iters_lev0=self.args.iters_lev1)
                     # time2 = time.time()
                     # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
-                    self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, four_cor_bbox)
+                    self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
             else:
                 for i in range(self.args.iters_lev0 // self.args.iterative):
                     # time1_1 = time.time()
@@ -276,7 +288,7 @@ class STHEGAN():
                         # time2 = time.time()
                         # print("Time for g: " + str(time2 - time1) + " seconds")
                         # time1 = time.time()
-                        self.image_1_crop, delta, four_cor_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, detach=False)
+                        self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, detach=False)
                         # time2 = time.time()
                         # print("Time for crop: " + str(time2 - time1) + " seconds")
                     else:
@@ -284,10 +296,10 @@ class STHEGAN():
                         self.four_preds_list_fine, self.four_pred_fine = self.netG(image1=self.image_1_crop, image2=self.image_2, iters_lev0=self.args.iterative)
                         # time2 = time.time()
                         # print("Time for g: " + str(time2 - time1) + " seconds")
-                        self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, four_cor_bbox)
+                        self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
                         # time1 = time.time()
                         if i != self.args.iters_lev0 // self.args.iterative - 1:
-                            self.image_1_crop, delta, four_cor_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, detach=False)
+                            self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, detach=False)
                         # time2 = time.time()
                         # print("Time for crop: " + str(time2 - time1) + " seconds")
                     # time2_1 = time.time()
@@ -341,16 +353,17 @@ class STHEGAN():
         # swap bbox_s
         bbox_s_swap = torch.stack([bbox_s[:, 0], bbox_s[:, 1], bbox_s[:, 3], bbox_s[:, 2]], dim=1)
         four_cor_bbox = bbox_s_swap.permute(0, 2, 1). view(-1, 2, 2, 2)
+        flow_bbox = four_cor_bbox - self.four_point_org_large_single
         if detach:
             image_1_crop = image_1_crop.detach()
             delta = delta.detach()
-        return image_1_crop, delta, four_cor_bbox
+        return image_1_crop, delta, flow_bbox
     
-    def combine_coarse_fine(self, four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, delta, four_cor_bbox):
+    def combine_coarse_fine(self, four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, delta, flow_bbox):
         alpha = self.args.database_size / self.args.resize_width
         kappa = delta / alpha
-        four_preds_list_fine = [four_preds_list_fine_single * kappa + four_cor_bbox for four_preds_list_fine_single in four_preds_list_fine]
-        four_pred_fine = four_pred_fine * kappa + four_cor_bbox
+        four_preds_list_fine = [four_preds_list_fine_single * kappa + flow_bbox / alpha for four_preds_list_fine_single in four_preds_list_fine]
+        four_pred_fine = four_pred_fine * kappa + flow_bbox / alpha
         four_preds_list = four_preds_list + four_preds_list_fine
         return four_preds_list, four_pred_fine
 
