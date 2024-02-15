@@ -105,9 +105,9 @@ def train(model, train_loader, args, total_steps, train_step_limit = None):
         if i_batch==0 and args.two_stages:
             if args.two_stages:
                 save_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1_crop.png')
-                save_img(torchvision.utils.make_grid(model.image_2_crop, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2_crop.png')
+                save_img(torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2_crop.png')
                 save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
-                            torchvision.utils.make_grid(model.image_2_crop, nrow=16, padding = 16, pad_value=0), 
+                            torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
                             args.save_dir + '/train_overlap_crop.png')
         model.update_learning_rate()
         metrics["lr"] = model.scheduler_G.get_lr()
