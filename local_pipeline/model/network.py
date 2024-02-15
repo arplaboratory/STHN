@@ -259,14 +259,14 @@ class STHEGAN():
                 if self.args.two_stages:
                     # self.four_pred = self.flow_4cor # DEBUG
                     # time1 = time.time()
-                    self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2)
+                    self.image_1_crop, self.image_2_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2)
                     # time2 = time.time()
                     # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
                     # time1 = time.time()
                     self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iters_lev1)
                     # time2 = time.time()
                     # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
-                    self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
+                    self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta)
             else:
                 for i in range(self.args.iters_lev0 // self.args.iterative):
                     # time1_1 = time.time()
@@ -276,7 +276,7 @@ class STHEGAN():
                         # time2 = time.time()
                         # print("Time for g: " + str(time2 - time1) + " seconds")
                         # time1 = time.time()
-                        self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2, detach=False)
+                        self.image_1_crop, self.image_2_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2, detach=False)
                         # time2 = time.time()
                         # print("Time for crop: " + str(time2 - time1) + " seconds")
                     else:
@@ -284,10 +284,10 @@ class STHEGAN():
                         self.four_preds_list_fine, self.four_pred_fine = self.netG(image1=self.image_1_crop, image2=self.image_2_crop, iters_lev0=self.args.iterative)
                         # time2 = time.time()
                         # print("Time for g: " + str(time2 - time1) + " seconds")
-                        self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, resize_ratio)
+                        self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta)
                         # time1 = time.time()
                         if i != self.args.iters_lev0 // self.args.iterative - 1:
-                            self.image_1_crop, self.image_2_crop, resize_ratio = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2, detach=False)
+                            self.image_1_crop, self.image_2_crop, delta = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.image_2, detach=False)
                         # time2 = time.time()
                         # print("Time for crop: " + str(time2 - time1) + " seconds")
                     # time2_1 = time.time()
@@ -336,27 +336,26 @@ class STHEGAN():
         bbox_s[:, 2, 0] += w_padded
         bbox_s[:, 2, 1] += w_padded
         bbox_s[:, 3, 1] += w_padded
-        resize_ratio = (w_padded / self.args.resize_width).unsqueeze(1).unsqueeze(1).unsqueeze(1)
+        delta = (w_padded / self.args.resize_width).unsqueeze(1).unsqueeze(1).unsqueeze(1)
         image_1_crop = tgm.crop_and_resize(image_1_ori, bbox_s, (self.args.resize_width, self.args.resize_width)) # It will be padded when it is out of boundary
         # swap bbox_s
         bbox_s_swap = torch.stack([bbox_s[:, 0], bbox_s[:, 1], bbox_s[:, 3], bbox_s[:, 2]], dim=1)
         four_cor_bbox = bbox_s_swap.permute(0, 2, 1). view(-1, 2, 2, 2)
         four_pred_crop = torch.stack([x, y], dim=1) - four_cor_bbox # set to align with cropped satellite images
         # align to resize_width
-        beta = 512 / self.args.resize_width # thermal is 512
-        four_pred_crop = four_pred_crop / beta
+        four_pred_crop = four_pred_crop / delta
         image_2_crop = mywarp(image_2, four_pred_crop, self.four_point_org_single)
         if detach:
             image_1_crop = image_1_crop.detach()
             image_2_crop = image_2_crop.detach()
-            resize_ratio = resize_ratio.detach()
-        return image_1_crop, image_2_crop, resize_ratio
+            delta = delta.detach()
+        return image_1_crop, image_2_crop, delta
     
-    def combine_coarse_fine(self, four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, resize_ratio):
+    def combine_coarse_fine(self, four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, delta):
         alpha = self.args.database_size / self.args.resize_width
-        resize_ratio = resize_ratio / alpha
-        four_preds_list_fine = [four_preds_list_fine_single * resize_ratio + four_pred for four_preds_list_fine_single in four_preds_list_fine]
-        four_pred_fine = four_pred_fine * resize_ratio + four_pred
+        kappa = delta / alpha
+        four_preds_list_fine = [four_preds_list_fine_single * kappa + four_pred for four_preds_list_fine_single in four_preds_list_fine]
+        four_pred_fine = four_pred_fine * kappa + four_pred
         four_preds_list = four_preds_list + four_preds_list_fine
         return four_preds_list, four_pred_fine
 
