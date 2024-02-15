@@ -30,7 +30,7 @@ def validate_process(model, args, total_steps):
     val_loader = datasets.fetch_dataloader(args, split='val')
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
             
-        image1, image2, flow_gt,  H, query_utm, database_utm, image1_ori, image2_ori  = [x for x in data_blob]
+        image1, image2, flow_gt,  H, query_utm, database_utm, image1_ori  = [x for x in data_blob]
         
         if i_batch == 0:
             logging.info("Check the reproducibility by UTM:")
@@ -44,7 +44,7 @@ def validate_process(model, args, total_steps):
         flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
         image1 = image1.to(model.netG.module.device)
         image2 = image2.to(model.netG.module.device)
-        model.set_input(image1, image2, flow_gt, image1_ori, image2_ori)
+        model.set_input(image1, image2, flow_gt, image1_ori)
         model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std)
         if i_batch == 0:
             # Visualize

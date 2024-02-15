@@ -72,7 +72,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
     timeall=[]
     mace_conf_list = []
     for i_batch, data_blob in enumerate(tqdm(val_dataset)):
-        img1, img2, flow_gt,  H, query_utm, database_utm, image1_ori, image2_ori  = [x for x in data_blob]
+        img1, img2, flow_gt,  H, query_utm, database_utm, image1_ori  = [x for x in data_blob]
 
         if i_batch == 0:
             logging.info("Check the reproducibility by UTM:")
@@ -86,7 +86,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                      args.save_dir + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.png')
 
         time_start = time.time()
-        model.set_input(img1, img2, flow_gt, image1_ori, image2_ori)
+        model.set_input(img1, img2, flow_gt, image1_ori)
         model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std)
         four_pred = model.four_pred
         time_end = time.time()
