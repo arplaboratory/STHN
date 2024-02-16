@@ -51,6 +51,9 @@ def parse_arguments():
     parser.add_argument("--corr_radius", type=int, default=4, choices=[4, 6], help="expanding region of refinement")
     parser.add_argument("--resize_width", type=int, default=256, choices=[256, 512], help="expanding region of refinement")
     parser.add_argument("--fnet_cat", action="store_true", help="fnet_cat")
+    parser.add_argument("--num_workers", type=int, default=8)
+    parser.add_argument("--vis_all", action="store_true")
+    parser.add_argument("--identity", action="store_true")
     
     args = parser.parse_args()
     args.save_dir = "local_he"

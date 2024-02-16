@@ -97,6 +97,17 @@ def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_
             save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
                              torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                              args.save_dir + '/train_overlap_gt.png')
+        if args.vis_all:
+            save_dir = os.path.join(args.save_dir, 'vis')
+            if not os.path.exists(save_dir):
+                os.mkdir(save_dir)
+            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_{i_batch}.png')
+            save_img(torchvision.utils.make_grid(image1_ori, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_ori_{i_batch}.png')
+            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2_{i_batch}.png')
+            save_img(torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2w_{i_batch}.png')
+            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
+                             torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0),
+                             save_dir + f'/train_overlap_gt_{i_batch}.png')
         # time1 = time.time()
         metrics = model.optimize_parameters()
         # time2 = time.time()
