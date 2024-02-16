@@ -95,11 +95,13 @@ class IHN(nn.Module):
 
         return coords0, coords1
 
-    def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3, corr_level=2, corr_radius=4):
+    def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3, corr_level=2, corr_radius=4, iterative=False, image1_ori=None):
         # image1 = 2 * (image1 / 255.0) - 1.0
         # image2 = 2 * (image2 / 255.0) - 1.0
         image1 = image1.contiguous()
         image2 = image2.contiguous()
+        if iterative:
+            image1_ori = image1_ori.contiguous()
 
         # time1 = time.time()
         with autocast(enabled=self.args.mixed_precision):
@@ -141,6 +143,16 @@ class IHN(nn.Module):
             four_point_disp =  four_point_disp + delta_four_point
             four_point_predictions.append(four_point_disp)
             coords1 = self.get_flow_now_4(four_point_disp)
+            if iterative:
+                if itr < (iters_lev0-1):
+                    flow_med = coords1 - coords0
+                    flow_med = F.upsample_bilinear(flow_med, None, [4, 4]) * 4              
+                    flow_med = flow_med.detach()         
+                    image1_warp = warp(image1_ori, flow_med)
+                    # save_img(torchvision.utils.make_grid((image2_warp+1)/2*255), './watch/' + 'test_img2_w_' + str(itr) + '.bmp')
+                    fmap1_64_warp, _  = self.encoder(image1_warp)
+                    fmap1_64 = fmap1_64_warp.float()      
+                    corr_fn = CorrBlock(fmap1_64, fmap2, num_levels=corr_level, radius=corr_radius)
         # time2 = time.time()
         # print("Time for iterative: " + str(time2 - time1) + " seconds") # 0.12
 
@@ -260,7 +272,7 @@ class STHEGAN():
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if not use_raw_input:
             # time1 = time.time()
-            if self.args.iterative == 0:
+            if self.args.iterative:
                 self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
                 # time2 = time.time()
                 # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
@@ -283,30 +295,7 @@ class STHEGAN():
                     # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
                     self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
             else:
-                for i in range(self.args.iters_lev0 // self.args.iterative):
-                    # time1_1 = time.time()
-                    if i == 0:
-                        # time1 = time.time()
-                        self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iterative)
-                        # time2 = time.time()
-                        # print("Time for g: " + str(time2 - time1) + " seconds")
-                        # time1 = time.time()
-                        self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, detach=False)
-                        # time2 = time.time()
-                        # print("Time for crop: " + str(time2 - time1) + " seconds")
-                    else:
-                        # time1 = time.time()
-                        self.four_preds_list_fine, self.four_pred_fine = self.netG(image1=self.image_1_crop, image2=self.image_2, iters_lev0=self.args.iterative)
-                        # time2 = time.time()
-                        # print("Time for g: " + str(time2 - time1) + " seconds")
-                        self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
-                        # time1 = time.time()
-                        if i != self.args.iters_lev0 // self.args.iterative - 1:
-                            self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, detach=False)
-                        # time2 = time.time()
-                        # print("Time for crop: " + str(time2 - time1) + " seconds")
-                    # time2_1 = time.time()
-                    # print("Time for all: " + str(time2_1 - time1_1) + " seconds")
+                self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius, iterative=True, image_1_ori=self.self.image_1_ori)
         else:
             if sample_method == "target":
                 self.four_pred = self.flow_4cor + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
