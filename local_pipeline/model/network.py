@@ -96,65 +96,88 @@ class IHN(nn.Module):
         return coords0, coords1
 
     def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3, corr_level=2, corr_radius=4, iterative=False, image1_ori=None):
-        # image1 = 2 * (image1 / 255.0) - 1.0
-        # image2 = 2 * (image2 / 255.0) - 1.0
-        image1 = image1.contiguous()
-        image2 = image2.contiguous()
-        if iterative:
-            image1_ori = image1_ori.contiguous()
+        if not iterative:
+            # image1 = 2 * (image1 / 255.0) - 1.0
+            # image2 = 2 * (image2 / 255.0) - 1.0
+            image1 = image1.contiguous()
+            image2 = image2.contiguous()
 
-        # time1 = time.time()
-        with autocast(enabled=self.args.mixed_precision):
-            # fmap1_64, fmap1_128 = self.fnet1(image1)
-            # fmap2_64, _ = self.fnet1(image2)
-            if not self.args.fnet_cat:
-                fmap1_64 = self.fnet1(image1)
-                fmap2_64 = self.fnet1(image2)
-            else:
-                fmap_64 = self.fnet1(torch.cat([image1, image2], dim=0))
-                fmap1_64 = fmap_64[:image1.shape[0]]
-                fmap2_64 = fmap_64[image1.shape[0]:]
-        # time2 = time.time()
-        # print("Time for fnet1: " + str(time2 - time1) + " seconds") # 0.004 + # 0.004
-
-        fmap1 = fmap1_64.float()
-        fmap2 = fmap2_64.float()
-
-        # print(fmap1.shape, fmap2.shape)
-        corr_fn = CorrBlock(fmap1, fmap2, num_levels=corr_level, radius=corr_radius)
-        coords0, coords1 = self.initialize_flow_4(image1)
-        # print(coords0.shape, coords1.shape)
-        sz = fmap1_64.shape
-        self.sz = sz
-        four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
-        four_point_predictions = []
-
-        # time1 = time.time()
-        for itr in range(iters_lev0):
-            corr = corr_fn(coords1)
-            flow = coords1 - coords0
-            # print(corr.shape, flow.shape)
+            # time1 = time.time()
             with autocast(enabled=self.args.mixed_precision):
-                if self.args.weight:
-                    delta_four_point, weight = self.update_block_4(corr, flow)
+                # fmap1_64, fmap1_128 = self.fnet1(image1)
+                # fmap2_64, _ = self.fnet1(image2)
+                if not self.args.fnet_cat:
+                    fmap1_64 = self.fnet1(image1)
+                    fmap2_64 = self.fnet1(image2)
                 else:
-                    delta_four_point = self.update_block_4(corr, flow)
-                    
-            four_point_disp =  four_point_disp + delta_four_point
-            four_point_predictions.append(four_point_disp)
-            coords1 = self.get_flow_now_4(four_point_disp)
-            if iterative:
-                if itr < (iters_lev0-1):
-                    flow_med = coords1 - coords0
-                    flow_med = F.upsample_bilinear(flow_med, None, [4, 4]) * 4              
-                    flow_med = flow_med.detach()         
-                    image1_warp = warp(image1_ori, flow_med)
-                    # save_img(torchvision.utils.make_grid((image2_warp+1)/2*255), './watch/' + 'test_img2_w_' + str(itr) + '.bmp')
-                    fmap1_64_warp, _  = self.encoder(image1_warp)
-                    fmap1_64 = fmap1_64_warp.float()      
-                    corr_fn = CorrBlock(fmap1_64, fmap2, num_levels=corr_level, radius=corr_radius)
-        # time2 = time.time()
-        # print("Time for iterative: " + str(time2 - time1) + " seconds") # 0.12
+                    fmap_64 = self.fnet1(torch.cat([image1, image2], dim=0))
+                    fmap1_64 = fmap_64[:image1.shape[0]]
+                    fmap2_64 = fmap_64[image1.shape[0]:]
+            # time2 = time.time()
+            # print("Time for fnet1: " + str(time2 - time1) + " seconds") # 0.004 + # 0.004
+
+            fmap1 = fmap1_64.float()
+            fmap2 = fmap2_64.float()
+
+            # print(fmap1.shape, fmap2.shape)
+            corr_fn = CorrBlock(fmap1, fmap2, num_levels=corr_level, radius=corr_radius)
+            coords0, coords1 = self.initialize_flow_4(image1)
+            # print(coords0.shape, coords1.shape)
+            sz = fmap1_64.shape
+            self.sz = sz
+            four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
+            four_point_predictions = []
+
+            # time1 = time.time()
+            for itr in range(iters_lev0):
+                corr = corr_fn(coords1)
+                flow = coords1 - coords0
+                # print(corr.shape, flow.shape)
+                with autocast(enabled=self.args.mixed_precision):
+                    if self.args.weight:
+                        delta_four_point, weight = self.update_block_4(corr, flow)
+                    else:
+                        delta_four_point = self.update_block_4(corr, flow)
+                        
+                four_point_disp =  four_point_disp + delta_four_point
+                four_point_predictions.append(four_point_disp)
+                coords1 = self.get_flow_now_4(four_point_disp)
+            # time2 = time.time()
+            # print("Time for iterative: " + str(time2 - time1) + " seconds") # 0.12
+        else:
+            # image1 = 2 * (image1 / 255.0) - 1.0
+            # image2 = 2 * (image2 / 255.0) - 1.0
+            image1 = image1.contiguous()
+            image2 = image2.contiguous()
+            image1_ori = image1_ori.contiguous()
+            image2_org = image2
+
+            fmap2_64 = self.fnet1(image2)
+            fmap2 = fmap2_64.float()
+            fmap1_64 = self.fnet1(image1)
+            fmap1 = fmap1_64.float()
+            sz = fmap1_64.shape
+            self.sz = sz
+            four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
+            four_point_predictions = []
+            coords0, coords1 = self.initialize_flow_4(image1)
+            
+            for itr in range(iters_lev0):
+                corr_fn = CorrBlock(fmap1, fmap2, num_levels=corr_level, radius=corr_radius)
+                corr = corr_fn(coords1)
+                flow = coords1 - coords0
+                with autocast(enabled=self.args.mixed_precision):
+                    if self.args.weight:
+                        delta_four_point, weight = self.update_block_4(corr, flow)
+                    else:
+                        delta_four_point = self.update_block_4(corr, flow)
+                four_point_disp =  four_point_disp + delta_four_point
+                four_point_predictions.append(four_point_disp)
+                coords1 = self.get_flow_now_4(four_point_disp)
+                if itr < (iters_lev0-1):      
+                    image2_warp = mywarp(image2_org, four_point_disp, self.four_point_org_single)
+                    fmap2_64_warp, _  = self.fnet1(image2_warp)
+                    fmap2 = fmap2_64_warp.float()
 
         # if self.args.lev1:# next resolution
         #     four_point_disp_med = four_point_disp 
