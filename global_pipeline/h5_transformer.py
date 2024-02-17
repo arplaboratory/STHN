@@ -27,9 +27,9 @@ def calc_overlap(database_region, query_region):
     print("Get valid region: " + str(valid_region))
     return valid_region
 
-def create_h5_file(args, name, split, sample_num):
+def create_h5_file(args, set_name, split, sample_num):
     # Check input
-    if not name in ['database', 'queries']:
+    if not set_name in ['database', 'queries']:
         raise NotImplementedError('Name must be database or queries')
     if not split in ['train', 'val', 'test']:
         raise NotImplementedError('Split must be train or val or test')
@@ -38,8 +38,8 @@ def create_h5_file(args, name, split, sample_num):
     with open(folder_config_path, 'r') as f:
         folder_config = yaml.safe_load(f)
 
-    # Check name
-    if name == 'database':
+    # Check set_name
+    if set_name == 'database':
         image = np.array(Image.open(os.path.join(
             datasets_folder, folder_config[args.database_name]['name'], folder_config[args.database_name]['maps'][args.database_index])).convert('RGB'))
         save_path = os.path.join(datasets_folder, args.database_name + '_' + str(args.database_index) + '_' + args.queries_name + '_' + str(args.queries_index), f'{split}_database.h5')
@@ -138,25 +138,31 @@ def create_h5_file(args, name, split, sample_num):
             img_names.append(name)
             # Boundary condition
             top = cood_y[i]-args.crop_width//2
+            if set_name == 'database':
+                selected_region = database_region
+            elif set_name == 'queries':
+                selected_region = queries_region
+            else:
+                raise NotImplementedError('Name must be database or queries')
             top_pad = 0
-            if top < valid_region[0]:
-                top_pad = valid_region[0]-top
-                top = valid_region[0]
+            if top < selected_region[0]:
+                top_pad = selected_region[0]-top
+                top = selected_region[0]
             left = cood_x[i]-args.crop_width//2
             left_pad = 0
-            if left < valid_region[1]:
-                left_pad = valid_region[1]-left
-                left = valid_region[1]
+            if left < selected_region[1]:
+                left_pad = selected_region[1]-left
+                left = selected_region[1]
             bottom = cood_y[i]+args.crop_width//2
             bottom_pad = 0
-            if bottom > valid_region[2]-1:
-                bottom_pad = bottom - (valid_region[2]-1)
-                bottom = valid_region[2]-1
+            if bottom > selected_region[2]-1:
+                bottom_pad = bottom - (selected_region[2]-1)
+                bottom = selected_region[2]-1
             right = cood_x[i]+args.crop_width//2
             right_pad = 0
-            if right > valid_region[3]-1:
-                right_pad = right - (valid_region[3]-1)
-                right = valid_region[3]-1
+            if right > selected_region[3]-1:
+                right_pad = right - (selected_region[3]-1)
+                right = selected_region[3]-1
             img_np = image[top: bottom,
                            left: right, :]
             img_np = np.pad(img_np, ((top_pad, bottom_pad),(left_pad, right_pad),(0,0)))
