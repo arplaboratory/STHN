@@ -295,7 +295,7 @@ class STHEGAN():
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if not use_raw_input:
             # time1 = time.time()
-            if self.args.iterative:
+            if not self.args.iterative:
                 self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
                 # time2 = time.time()
                 # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
