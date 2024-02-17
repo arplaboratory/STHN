@@ -95,7 +95,7 @@ class IHN(nn.Module):
 
         return coords0, coords1
 
-    def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3, corr_level=2, corr_radius=4, iterative=False, image1_ori=None):
+    def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3, corr_level=2, corr_radius=4, iterative=False):
         if not iterative:
             # image1 = 2 * (image1 / 255.0) - 1.0
             # image2 = 2 * (image2 / 255.0) - 1.0
@@ -149,8 +149,13 @@ class IHN(nn.Module):
             # image2 = 2 * (image2 / 255.0) - 1.0
             image1 = image1.contiguous()
             image2 = image2.contiguous()
-            image1_ori = image1_ori.contiguous()
             image2_org = image2
+
+            four_point_org_single = torch.zeros((1, 2, 2, 2)).to(image1.device)
+            four_point_org_single[:, :, 0, 0] = torch.Tensor([0, 0]).to(image1.device)
+            four_point_org_single[:, :, 0, 1] = torch.Tensor([self.args.resize_width - 1, 0]).to(image1.device)
+            four_point_org_single[:, :, 1, 0] = torch.Tensor([0, self.args.resize_width - 1]).to(image1.device)
+            four_point_org_single[:, :, 1, 1] = torch.Tensor([self.args.resize_width - 1, self.args.resize_width - 1]).to(image1.device)
 
             fmap2_64 = self.fnet1(image2)
             fmap2 = fmap2_64.float()
@@ -175,8 +180,8 @@ class IHN(nn.Module):
                 four_point_predictions.append(four_point_disp)
                 coords1 = self.get_flow_now_4(four_point_disp)
                 if itr < (iters_lev0-1):      
-                    image2_warp = mywarp(image2_org, four_point_disp, self.four_point_org_single)
-                    fmap2_64_warp, _  = self.fnet1(image2_warp)
+                    image2_warp = mywarp(image2_org, four_point_disp, four_point_org_single)
+                    fmap2_64_warp  = self.fnet1(image2_warp)
                     fmap2 = fmap2_64_warp.float()
 
         # if self.args.lev1:# next resolution
@@ -318,7 +323,7 @@ class STHEGAN():
                     # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
                     self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
             else:
-                self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius, iterative=True, image_1_ori=self.image_1_ori)
+                self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius, iterative=True)
         else:
             if sample_method == "target":
                 self.four_pred = self.flow_4cor + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
