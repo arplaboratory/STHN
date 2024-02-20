@@ -128,6 +128,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         mace_ = (flow_4cor - four_pred.cpu().detach())**2
         mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
         mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
+        # print(mace_[0,:])
       
         flow_ = (flow_4cor)**2
         flow_ = ((flow_[:,0,:,:] + flow_[:,1,:,:])**0.5)
@@ -143,7 +144,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         four_point_org_single[:, :, 0, 1] = torch.Tensor([args.resize_width - 1, 0])
         four_point_org_single[:, :, 1, 0] = torch.Tensor([0, args.resize_width - 1])
         four_point_org_single[:, :, 1, 1] = torch.Tensor([args.resize_width - 1, args.resize_width - 1])
-        four_point_1 = four_pred + four_point_org_single
+        four_point_1 = four_pred.cpu().detach() + four_point_org_single
         four_point_org = four_point_org_single.repeat(four_point_1.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
         four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
         H = tgm.get_perspective_transform(four_point_org, four_point_1)
@@ -151,7 +152,9 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         center_pred_offset = torch.bmm(H, center_T)[:, :2].squeeze(2) - center_T[:, :2].squeeze(2)
         alpha = args.database_size / args.resize_width
         center_gt_offset = (query_utm - database_utm).squeeze(1) / alpha
-        center_gt_offset[:, 0], center_gt_offset[:, 1] = center_gt_offset[:, 1], center_gt_offset[:, 0] # Swap!
+        temp = center_gt_offset[:, 0].clone()
+        center_gt_offset[:, 0] = center_gt_offset[:, 1]
+        center_gt_offset[:, 1] = temp # Swap!
         ce_ = (center_pred_offset - center_gt_offset)**2
         ce_ = ((ce_[:,0] + ce_[:,1])**0.5)
         ce_vec = ce_
@@ -177,9 +180,9 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                                 torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                                 args.save_dir + f'/eval_overlap_{i_batch}_{mace_vec.mean().item()}.png')
     logging.info(f"MACE Metric: {final_mace}")
-    logging.info(f'CE Metric:{final_ce}')
+    logging.info(f'CE Metric: {final_ce}')
     print(f"MACE Metric: {final_mace}")
-    print(f'CE Metric:{final_ce}')
+    print(f'CE Metric: {final_ce}')
     if wandb_log:
         wandb.log({"test_mace": final_mace})
     if args.use_ue:
