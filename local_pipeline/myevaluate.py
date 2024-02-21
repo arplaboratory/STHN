@@ -3,7 +3,7 @@ import os
 import torch
 import argparse
 from model.network import STHEGAN
-from utils import save_overlap_img, save_img, setup_seed
+from utils import save_overlap_img, save_img, setup_seed, save_overlap_bbox_img
 import datasets_4cor_img as datasets
 import scipy.io as io
 import torchvision
@@ -98,27 +98,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
             # print(time_end-time_start)
         else:
             four_pred = torch.zeros((flow_gt.shape[0], 2, 2, 2))
-
-        if args.vis_all:
-            save_dir = os.path.join(args.save_dir, 'vis')
-            if not os.path.exists(save_dir):
-                os.mkdir(save_dir)
-            save_img(torchvision.utils.make_grid(img1, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_{i_batch}.png')
-            # save_img(torchvision.utils.make_grid(image1_ori, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_ori_{i_batch}.png')
-            save_img(torchvision.utils.make_grid(img2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2_{i_batch}.png')
-            save_img(torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2w_{i_batch}.png')
-            save_overlap_img(torchvision.utils.make_grid(img1, nrow=16, padding = 16, pad_value=0),
-                             torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0),
-                             save_dir + f'/train_overlap_gt_{i_batch}.png')
-            save_overlap_img(torchvision.utils.make_grid(img1, nrow=16, padding = 16, pad_value=0),
-                    torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0),
-                    save_dir + f'/train_overlap_pred_{i_batch}.png')
-            if args.two_stages:
-                save_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_crop_{i_batch}.png')
-                save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
-                            torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
-                            args.save_dir + f'/train_overlap_crop_{i_batch}.png')
-                            
+                                    
         flow_4cor = torch.zeros((four_pred.shape[0], 2, 2, 2))
         flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
         flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
@@ -146,7 +126,9 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         four_point_org_single[:, :, 1, 1] = torch.Tensor([args.resize_width - 1, args.resize_width - 1])
         four_point_1 = four_pred.cpu().detach() + four_point_org_single
         four_point_org = four_point_org_single.repeat(four_point_1.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
-        four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
+        four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous()
+        four_point_gt = flow_4cor.cpu().detach() + four_point_org_single
+        four_point_gt = four_point_gt.flatten(2).permute(0, 2, 1).contiguous()
         H = tgm.get_perspective_transform(four_point_org, four_point_1)
         center_T = torch.tensor([args.resize_width/2-0.5, args.resize_width/2-0.5, 1]).unsqueeze(1).unsqueeze(0).repeat(H.shape[0], 1, 1)
         w = torch.bmm(H, center_T).squeeze(2)
@@ -162,6 +144,20 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         total_ce = torch.cat([total_ce, ce_vec], dim=0)
         final_ce = torch.mean(total_ce).item()
         
+        if args.vis_all:
+            save_dir = os.path.join(args.save_dir, 'vis')
+            if not os.path.exists(save_dir):
+                os.mkdir(save_dir)
+            save_img(torchvision.utils.make_grid(img1, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_{i_batch}.png')
+            save_img(torchvision.utils.make_grid(img2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2_{i_batch}.png')
+            save_img(torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2w_{i_batch}.png')
+            save_overlap_bbox_img(img1, model.fake_warped_image_2, save_dir + f'/train_overlap_bbox_{i_batch}.png', four_point_gt, four_point_1)
+            if args.two_stages:
+                save_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_crop_{i_batch}.png')
+                save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
+                            torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
+                            args.save_dir + f'/train_overlap_crop_{i_batch}.png')
+                
         if not args.identity:
             if args.use_ue:
                 with torch.no_grad():

@@ -12,7 +12,8 @@ import logging
 import wandb
 import matplotlib.pyplot as plt
 from datasets_4cor_img import inv_base_transforms
-
+import torchvision
+import cv2
 
 def bilinear_sampler(img, coords, mode='bilinear', mask=False):
     """ Wrapper for grid_sample, uses pixel coordinates """
@@ -54,7 +55,41 @@ def save_overlap_img(img1, img2, path):
     plt.savefig(path, bbox_inches='tight')
     plt.close()
 
-
+def save_overlap_bbox_img(img1, img2, path, four_point_gt, four_point_pred):
+    four_point_gt = np.round(four_point_gt.cpu().numpy())
+    four_point_pred = np.round(four_point_pred.cpu().numpy())
+    plt.figure(figsize=(50, 10), dpi=200)
+    plt.axis('off')
+    img1_list = np.empty((img1.shape[0], img1.shape[2], img1.shape[3], img1.shape[1]))
+    img2_list = np.empty((img1.shape[0], img1.shape[2], img1.shape[3], img1.shape[1]))
+    for i in range(len(img2)):
+        image1 = inv_base_transforms(img1[i].detach().cpu())
+        image1 = np.array(image1)
+        image2 = inv_base_transforms(img2[i].detach().cpu())
+        image2 = np.array(image2)
+        four_point_gt_single = np.int32(four_point_gt[i]).reshape((-1,1,2))
+        temp = four_point_gt_single[2].copy()
+        four_point_gt_single[2] = four_point_gt_single[3]
+        four_point_gt_single[3] = temp
+        four_point_pred_single = np.int32(four_point_pred[i]).reshape((-1,1,2))
+        temp = four_point_pred_single[2].copy()
+        four_point_pred_single[2] = four_point_pred_single[3]
+        four_point_pred_single[3] = temp
+        image2=cv2.polylines(image2,[four_point_gt_single],True,(0,255,0),2)
+        image2=cv2.polylines(image2,[four_point_pred_single],True,(255,0,0),1)
+        img1_list[i] = image1
+        img2_list[i] = image2
+    img1_tensor = torch.from_numpy(img1_list).permute(0, 3, 1, 2)
+    img2_tensor = torch.from_numpy(img2_list).permute(0, 3, 1, 2)
+    img1_tensor = torchvision.utils.make_grid(img1_tensor, nrow=16, padding = 16, pad_value=255)
+    img2_tensor = torchvision.utils.make_grid(img2_tensor, nrow=16, padding = 16, pad_value=255)
+    img1 = np.array(img1_tensor.permute(1, 2, 0)).astype(np.uint8)
+    img2 = np.array(img2_tensor.permute(1, 2, 0)).astype(np.uint8)
+    plt.imshow(img2)
+    plt.imshow(img1, alpha=0.25)
+    plt.savefig(path, bbox_inches='tight')
+    plt.close()
+    
 def setup_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
