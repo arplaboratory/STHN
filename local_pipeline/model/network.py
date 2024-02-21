@@ -239,6 +239,8 @@ class STHEGAN():
             args.corr_level = 2
             self.netG_fine = IHN(args)
             args.corr_level = corr_level
+            if args.restore_ckpt is not None:
+                self.set_requires_grad(self.netG, False)
         if args.use_ue:
             if args.D_net == 'patchGAN':
                 self.netD = NLayerDiscriminator(9, norm="instance") # satellite=3 thermal=3 warped_thermal=3. norm should be instance?
@@ -250,7 +252,10 @@ class STHEGAN():
         self.criterionAUX = sequence_loss
         if for_training:
             if args.two_stages:
-                self.optimizer_G, self.scheduler_G = fetch_optimizer(args, list(self.netG.parameters()) + list(self.netG_fine.parameters()))
+                if args.restore_ckpt is None:
+                    self.optimizer_G, self.scheduler_G = fetch_optimizer(args, list(self.netG.parameters()) + list(self.netG_fine.parameters()))
+                else:
+                    self.optimizer_G, self.scheduler_G = fetch_optimizer(args,list(self.netG_fine.parameters()))
             else:
                 self.optimizer_G, self.scheduler_G = fetch_optimizer(args, list(self.netG.parameters()))
             if args.use_ue:
@@ -471,7 +476,8 @@ class STHEGAN():
         if not self.args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
             self.optimizer_G.zero_grad()        # set G's gradients to zero
             self.backward_G()                   # calculate graidents for G
-            nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
+            if self.args.restore_ckpt is None:
+                nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
             if self.args.two_stages:
                 nn.utils.clip_grad_norm_(self.netG_fine.parameters(), self.args.clip)
             self.optimizer_G.step()             # update G's weights
