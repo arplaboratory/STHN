@@ -81,8 +81,8 @@ def save_overlap_bbox_img(img1, img2, path, four_point_gt, four_point_pred):
         img2_list[i] = image2
     img1_tensor = torch.from_numpy(img1_list).permute(0, 3, 1, 2)
     img2_tensor = torch.from_numpy(img2_list).permute(0, 3, 1, 2)
-    img1_tensor = torchvision.utils.make_grid(img1_tensor, nrow=16, padding = 16, pad_value=255)
-    img2_tensor = torchvision.utils.make_grid(img2_tensor, nrow=16, padding = 16, pad_value=255)
+    img1_tensor = torchvision.utils.make_grid(img1_tensor, nrow=16, padding = 0, pad_value=255)
+    img2_tensor = torchvision.utils.make_grid(img2_tensor, nrow=16, padding = 0, pad_value=255)
     img1 = np.array(img1_tensor.permute(1, 2, 0)).astype(np.uint8)
     img2 = np.array(img2_tensor.permute(1, 2, 0)).astype(np.uint8)
     plt.imshow(img2)
