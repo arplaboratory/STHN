@@ -148,8 +148,9 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         four_point_org = four_point_org_single.repeat(four_point_1.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
         four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
         H = tgm.get_perspective_transform(four_point_org, four_point_1)
-        center_T = torch.tensor([args.resize_width/2, args.resize_width/2, 1]).unsqueeze(1).unsqueeze(0).repeat(H.shape[0], 1, 1)
-        center_pred_offset = torch.bmm(H, center_T)[:, :2].squeeze(2) - center_T[:, :2].squeeze(2)
+        center_T = torch.tensor([args.resize_width/2-0.5, args.resize_width/2-0.5, 1]).unsqueeze(1).unsqueeze(0).repeat(H.shape[0], 1, 1)
+        w = torch.bmm(H, center_T).squeeze(2)
+        center_pred_offset = w[:, :2]/w[:, 2].unsqueeze(1) - center_T[:, :2].squeeze(2)
         alpha = args.database_size / args.resize_width
         center_gt_offset = (query_utm - database_utm).squeeze(1) / alpha
         temp = center_gt_offset[:, 0].clone()
