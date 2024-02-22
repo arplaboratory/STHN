@@ -56,6 +56,7 @@ def parse_arguments():
     parser.add_argument("--identity", action="store_true")
     parser.add_argument("--lam", type=float, default=1.0)
     parser.add_argument("--finetune", action="store_true")
+    parser.add_argument("--detach", action="store_true")
     
     args = parser.parse_args()
     args.save_dir = "local_he"

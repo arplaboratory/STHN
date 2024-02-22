@@ -310,22 +310,24 @@ class STHEGAN():
                 # time2 = time.time()
                 # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
                 if self.args.two_stages:
-                    '''
-                    flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.flow_gt.device)
-                    flow_4cor[:, :, 0, 0] = self.flow_gt[:, :, 0, 0]
-                    flow_4cor[:, :, 0, 1] = self.flow_gt[:, :, 0, -1]
-                    flow_4cor[:, :, 1, 0] = self.flow_gt[:, :, -1, 0]
-                    flow_4cor[:, :, 1, 1] = self.flow_gt[:, :, -1, -1]
-                    self.four_pred = flow_4cor # DEBUG
-                    '''
+                    # flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.flow_gt.device)
+                    # flow_4cor[:, :, 0, 0] = self.flow_gt[:, :, 0, 0]
+                    # flow_4cor[:, :, 0, 1] = self.flow_gt[:, :, 0, -1]
+                    # flow_4cor[:, :, 1, 0] = self.flow_gt[:, :, -1, 0]
+                    # flow_4cor[:, :, 1, 1] = self.flow_gt[:, :, -1, -1]
+                    # self.four_pred = flow_4cor # DEBUG
+                    # self.four_preds_list[-1] = self.four_pred # DEBUG
+                    # self.four_preds_list[-1] = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
                     # time1 = time.time()
-                    self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding)
+                    self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.args.detach)
                     # time2 = time.time()
                     # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
                     # time1 = time.time()
                     self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2, iters_lev0=self.args.iters_lev1)
                     # time2 = time.time()
                     # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
+                    # self.four_pred_fine = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
+                    # self.four_preds_list_fine[-1] = self.four_pred_fine # DEBUG
                     self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
             else:
                 self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius, iterative=True)
@@ -382,6 +384,7 @@ class STHEGAN():
         if detach:
             image_1_crop = image_1_crop.detach()
             delta = delta.detach()
+            flow_bbox = flow_bbox.detach()
         return image_1_crop, delta, flow_bbox
     
     def combine_coarse_fine(self, four_preds_list, four_pred, four_preds_list_fine, four_pred_fine, delta, flow_bbox):
