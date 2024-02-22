@@ -34,7 +34,7 @@ def parse_arguments():
     parser.add_argument("--use_ue", action="store_true", help="train uncertainty estimator with GAN")
     parser.add_argument("--G_loss_lambda", type=float, default=1.0, help="G_loss_lambda only for homo")
     parser.add_argument("--D_net", type=str, default="patchGAN_deep", choices=["none", "patchGAN", "patchGAN_deep"], help="D_net")
-    parser.add_argument("--GAN_mode", type=str, default="macegan", choices=["vanilla", "lsgan", "macegan", "macegancross"], help="Choices of GAN loss")
+    parser.add_argument("--GAN_mode", type=str, default="macegan", choices=["vanilla", "lsgan", "macegan"], help="Choices of GAN loss")
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
     parser.add_argument("--train_ue_method", type=str, choices=['train_end_to_end', 'train_only_ue', 'train_only_ue_raw_input', 'finetune'], default='train_end_to_end', help="train uncertainty estimator")
     parser.add_argument("--ue_alpha", type=float, default=-0.1, help="Alpha for ue")
