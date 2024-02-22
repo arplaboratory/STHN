@@ -149,7 +149,7 @@ def sequence_loss(four_preds, flow_gt, gamma, args, metrics):
     for i in range(args.iters_lev0):
         i_weight = gamma ** (args.iters_lev0 - i - 1)
         i4cor_loss = (four_preds[i] - flow_4cor).abs()
-        ce_loss += i_weight * (i4cor_loss).mean()
+        ce_loss += args.lam * i_weight * (i4cor_loss).mean()
 
     if args.two_stages:
         for i in range(args.iters_lev0, args.iters_lev1 + args.iters_lev0):

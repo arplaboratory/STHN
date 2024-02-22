@@ -239,7 +239,7 @@ class STHEGAN():
             args.corr_level = 2
             self.netG_fine = IHN(args)
             args.corr_level = corr_level
-            if args.restore_ckpt is not None:
+            if args.restore_ckpt is not None and not args.finetune:
                 self.set_requires_grad(self.netG, False)
         if args.use_ue:
             if args.D_net == 'patchGAN':
@@ -252,7 +252,7 @@ class STHEGAN():
         self.criterionAUX = sequence_loss
         if for_training:
             if args.two_stages:
-                if args.restore_ckpt is None:
+                if args.restore_ckpt is None or args.finetune:
                     self.optimizer_G, self.scheduler_G = fetch_optimizer(args, list(self.netG.parameters()) + list(self.netG_fine.parameters()))
                 else:
                     self.optimizer_G, self.scheduler_G = fetch_optimizer(args,list(self.netG_fine.parameters()))
@@ -476,7 +476,7 @@ class STHEGAN():
         if not self.args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
             self.optimizer_G.zero_grad()        # set G's gradients to zero
             self.backward_G()                   # calculate graidents for G
-            if self.args.restore_ckpt is None:
+            if self.args.restore_ckpt is None or self.args.finetune:
                 nn.utils.clip_grad_norm_(self.netG.parameters(), self.args.clip)
             if self.args.two_stages:
                 nn.utils.clip_grad_norm_(self.netG_fine.parameters(), self.args.clip)

@@ -83,8 +83,10 @@ def validate_process(model, args, total_steps):
         if args.two_stages:
             model.netG_fine.eval()
     else:
-        if args.restore_ckpt is None:
+        if args.restore_ckpt is None or args.finetune:
             model.netG.train()
+        else:
+            model.netG.eval()
         if args.two_stages:
             model.netG_fine.train()
     if args.use_ue:

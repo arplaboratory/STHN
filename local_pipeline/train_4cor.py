@@ -35,8 +35,10 @@ def main(args):
             for param in model.netG_fine.parameters():
                 param.requires_grad = False
     else:
-        if args.restore_ckpt is None:
+        if args.restore_ckpt is None or args.finetune:
             model.netG.train()
+        else:
+            model.netG.eval()
         if args.two_stages:
             model.netG_fine.train()
     logging.info(f"Parameter Count: {count_parameters(model.netG)}")
