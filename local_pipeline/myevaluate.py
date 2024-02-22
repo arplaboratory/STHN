@@ -91,7 +91,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         time_start = time.time()
         if not args.identity:
             model.set_input(img1, img2, flow_gt, image1_ori)
-            model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std)
+            model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std, sample_method=args.sample_method)
             four_pred = model.four_pred
             time_end = time.time()
             timeall.append(time_end-time_start)
@@ -161,12 +161,18 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         if not args.identity:
             if args.use_ue:
                 with torch.no_grad():
-                    conf_pred, conf_gt = model.predict_uncertainty(GAN_mode=args.GAN_mode)
+                    conf_pred = model.predict_uncertainty(GAN_mode=args.GAN_mode)
                 conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
-                conf_gt_vec = torch.mean(conf_gt, dim=[1,2,3])
-                logging.debug(f"conf_pred_diff:{conf_vec.cpu() - torch.exp(args.ue_alpha * mace_vec)}.\n conf_gt:{conf_gt_vec.cpu()}.")
+                logging.debug(f"conf_pred_diff:{conf_vec.cpu() - torch.exp(args.ue_alpha * mace_vec)}.")
                 logging.debug(f"pred_mace:{mace_vec}")
-                mace_conf_error_vec = F.l1_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
+                if args.GAN_mode == "macegan":
+                    mace_conf_error_vec = F.l1_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
+                elif args.GAN_mode == "vanilla_rej":
+                    mace_bool = torch.ones_like(mace_vec)
+                    mace_bool[mace_bool >= args.rej_threshold] = 0.0
+                    mace_conf_error_vec = F.binary_cross_entropy_with_logits(conf_vec.cpu(), mace_bool)
+                else:
+                    raise NotImplementedError()
                 total_mace_conf_error = torch.cat([total_mace_conf_error, mace_conf_error_vec.reshape(1)], dim=0)
                 final_mace_conf_error = torch.mean(total_mace_conf_error).item()
                 for i in range(len(mace_vec)):

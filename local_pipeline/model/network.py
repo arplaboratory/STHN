@@ -243,9 +243,9 @@ class STHEGAN():
                 self.set_requires_grad(self.netG, False)
         if args.use_ue:
             if args.D_net == 'patchGAN':
-                self.netD = NLayerDiscriminator(9, norm="instance") # satellite=3 thermal=3 warped_thermal=3. norm should be instance?
+                self.netD = NLayerDiscriminator(6, norm="instance") # satellite=3 thermal=3 warped_thermal=3. norm should be instance?
             elif args.D_net == 'patchGAN_deep':
-                self.netD = NLayerDiscriminator(9, n_layers=4, norm="instance")
+                self.netD = NLayerDiscriminator(6, n_layers=4, norm="instance")
             else:
                 raise NotImplementedError()
             self.criterionGAN = GANLoss(args.GAN_mode).to(args.device)
@@ -284,22 +284,25 @@ class STHEGAN():
         self.flow_gt = flow_gt.to(self.device, non_blocking=True)
         if self.flow_gt is not None:
             self.real_warped_image_2 = mywarp(self.image_2, self.flow_gt, self.four_point_org_single)
+            self.flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.flow_gt.device)
+            self.flow_4cor[:, :, 0, 0] = self.flow_gt[:, :, 0, 0]
+            self.flow_4cor[:, :, 0, 1] = self.flow_gt[:, :, 0, -1]
+            self.flow_4cor[:, :, 1, 0] = self.flow_gt[:, :, -1, 0]
+            self.flow_4cor[:, :, 1, 1] = self.flow_gt[:, :, -1, -1]
         else:
             self.real_warped_image_2 = None
 
     def predict_uncertainty(self, GAN_mode='vanilla'):
-        fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
-        fake_AB_conf = self.netD(fake_AB)
-        if GAN_mode == 'vanilla':
-            fake_AB_conf = nn.Sigmoid()(fake_AB_conf)
-        if self.real_warped_image_2 is not None:
-            real_AB = torch.cat((self.image_1, self.image_2, self.real_warped_image_2), 1)
-            real_AB_conf = self.netD(real_AB)
-            if GAN_mode == 'vanilla':
-                real_AB_conf = nn.Sigmoid()(real_AB_conf)
+        if self.args.two_stages:
+            fake_AB = torch.cat((self.image_1_crop, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
         else:
-            real_AB_conf = None
-        return fake_AB_conf, real_AB_conf
+            fake_AB = torch.cat((self.image_1, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
+        fake_AB_conf = self.netD(fake_AB)
+        if GAN_mode in ['vanilla', 'vanilla_rej']:
+            fake_AB_conf = nn.Sigmoid()(fake_AB_conf)
+        else:
+            raise NotImplementedError()
+        return fake_AB_conf
         
     def forward(self, use_raw_input=False, noise_std=0, sample_method="target_raw"):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
@@ -310,12 +313,7 @@ class STHEGAN():
                 # time2 = time.time()
                 # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
                 if self.args.two_stages:
-                    # flow_4cor = torch.zeros((self.flow_gt.shape[0], 2, 2, 2)).to(self.flow_gt.device)
-                    # flow_4cor[:, :, 0, 0] = self.flow_gt[:, :, 0, 0]
-                    # flow_4cor[:, :, 0, 1] = self.flow_gt[:, :, 0, -1]
-                    # flow_4cor[:, :, 1, 0] = self.flow_gt[:, :, -1, 0]
-                    # flow_4cor[:, :, 1, 1] = self.flow_gt[:, :, -1, -1]
-                    # self.four_pred = flow_4cor # DEBUG
+                    # self.four_pred = self.flow_4cor # DEBUG
                     # self.four_preds_list[-1] = self.four_pred # DEBUG
                     # self.four_preds_list[-1] = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
                     # time1 = time.time()
@@ -395,6 +393,38 @@ class STHEGAN():
         four_preds_list = four_preds_list + four_preds_list_fine
         return four_preds_list, four_pred_fine
 
+    # def backward_D(self):
+    #     """Calculate GAN loss for the discriminator"""
+    #     # Fake; stop backprop to the generator by detaching fake_B
+    #     if self.args.two_stages:
+    #         fake_AB = torch.cat((self.image_1_crop, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
+    #     else:
+    #         fake_AB = torch.cat((self.image_1, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
+    #     pred_fake = self.netD(fake_AB.detach())
+    #     if self.args.GAN_mode in ['vanilla', 'lsgan']:
+    #         self.loss_D_fake = self.criterionGAN(pred_fake, False)
+    #     elif self.args.GAN_mode == 'macegan':
+    #         mace_ = (self.flow_4cor - self.four_pred)**2
+    #         mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
+    #         self.mace_vec_fake = torch.exp(self.args.ue_alpha * torch.mean(torch.mean(mace_, dim=1), dim=1)).detach() # exp(-0.1x)
+    #         self.loss_D_fake = self.criterionGAN(pred_fake, self.mace_vec_fake)
+    #     else:
+    #         raise NotImplementedError()
+    #     # Real
+    #     real_AB = torch.cat((self.image_1, self.image_2, self.real_warped_image_2), 1)
+    #     pred_real = self.netD(real_AB)
+    #     if self.args.GAN_mode in ['vanilla', 'lsgan']:
+    #         self.loss_D_real = self.criterionGAN(pred_real, True)
+    #     elif self.args.GAN_mode == 'macegan':
+    #         self.mace_vec_real = torch.ones((real_AB.shape[0])).to(self.args.device)
+    #         self.loss_D_real = self.criterionGAN(pred_real, self.mace_vec_real)
+    #     else:
+    #         raise NotImplementedError()
+    #     # combine loss and calculate gradients
+    #     self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
+    #     self.loss_D.backward()
+    #     self.metrics["D_loss"] = self.loss_D.cpu().item()
+
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
         # Fake; stop backprop to the generator by detaching fake_B
@@ -410,20 +440,16 @@ class STHEGAN():
             mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
             self.mace_vec_fake = torch.exp(self.args.ue_alpha * torch.mean(torch.mean(mace_, dim=1), dim=1)).detach() # exp(-0.1x)
             self.loss_D_fake = self.criterionGAN(pred_fake, self.mace_vec_fake)
+        elif self.args.GAN_mode == 'vanilla_rej':
+            mace_ = (self.flow_4cor - self.four_pred)**2
+            mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
+            mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
+            mace_bool = torch.ones_like(mace_vec)
+            mace_bool[mace_bool >= self.args.rej_threshold] = 0.0
+            self.loss_D_fake = self.criterionGAN(pred_fake, mace_bool)
         else:
             raise NotImplementedError()
-        # Real
-        real_AB = torch.cat((self.image_1, self.image_2, self.real_warped_image_2), 1)
-        pred_real = self.netD(real_AB)
-        if self.args.GAN_mode in ['vanilla', 'lsgan']:
-            self.loss_D_real = self.criterionGAN(pred_real, True)
-        elif self.args.GAN_mode == 'macegan':
-            self.mace_vec_real = torch.ones((real_AB.shape[0])).to(self.args.device)
-            self.loss_D_real = self.criterionGAN(pred_real, self.mace_vec_real)
-        else:
-            raise NotImplementedError()
-        # combine loss and calculate gradients
-        self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
+        self.loss_D = self.loss_D_fake
         self.loss_D.backward()
         self.metrics["D_loss"] = self.loss_D.cpu().item()
 
@@ -442,6 +468,8 @@ class STHEGAN():
                 self.loss_G_GAN = self.criterionGAN(pred_fake, True)
             elif self.args.GAN_mode == 'macegan':
                 self.loss_G_GAN = self.criterionGAN(pred_fake, self.mace_vec_fake) # Try not real
+            elif self.args.GAN_mode == 'vanilla_rej':
+                self.loss_G_GAN = 0
             else:
                 raise NotImplementedError()
             self.loss_G = self.loss_G + self.loss_G_GAN
