@@ -218,7 +218,7 @@ class IHN(nn.Module):
         return four_point_predictions, four_point_disp
 
 
-class STHEGAN():
+class STHN():
     def __init__(self, args, for_training=False):
         super().__init__()
         self.args = args
@@ -308,27 +308,24 @@ class STHEGAN():
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if not use_raw_input:
             # time1 = time.time()
-            if not self.args.iterative:
-                self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
+            self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
+            # time2 = time.time()
+            # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
+            if self.args.two_stages:
+                # self.four_pred = self.flow_4cor # DEBUG
+                # self.four_preds_list[-1] = self.four_pred # DEBUG
+                # self.four_preds_list[-1] = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
+                # time1 = time.time()
+                self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.args.detach)
                 # time2 = time.time()
-                # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
-                if self.args.two_stages:
-                    # self.four_pred = self.flow_4cor # DEBUG
-                    # self.four_preds_list[-1] = self.four_pred # DEBUG
-                    # self.four_preds_list[-1] = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
-                    # time1 = time.time()
-                    self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.args.detach)
-                    # time2 = time.time()
-                    # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
-                    # time1 = time.time()
-                    self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2, iters_lev0=self.args.iters_lev1)
-                    # time2 = time.time()
-                    # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
-                    # self.four_pred_fine = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
-                    # self.four_preds_list_fine[-1] = self.four_pred_fine # DEBUG
-                    self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
-            else:
-                self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius, iterative=True)
+                # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
+                # time1 = time.time()
+                self.four_preds_list_fine, self.four_pred_fine = self.netG_fine(image1=self.image_1_crop, image2=self.image_2, iters_lev0=self.args.iters_lev1)
+                # time2 = time.time()
+                # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
+                # self.four_pred_fine = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
+                # self.four_preds_list_fine[-1] = self.four_pred_fine # DEBUG
+                self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
             self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
         elif self.args.GAN_mode == "vanilla_rej":
             pass

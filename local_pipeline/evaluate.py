@@ -46,21 +46,19 @@ def validate_process(model, args, total_steps):
         image2 = image2.to(model.netG.module.device)
         model.set_input(image1, image2, flow_gt, image1_ori)
         model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std, sample_method=args.sample_method)
-        if i_batch == 0:
-            # Visualize
-            if hasattr(model, "fake_warped_image_2"):
+        if args.train_ue_method != 'train_only_ue_raw_input':
+            if i_batch == 0:
+                # Visualize
                 save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                                 torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                                 args.save_dir + '/val_overlap_pred.png')
-            if hasattr(model, "real_warped_image_2"):
                 save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
                                 torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                                 args.save_dir + '/val_overlap_gt.png')
-            if args.two_stages:
-                save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
-                            torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
-                            args.save_dir + '/val_overlap_crop.png')
-        if args.GAN_mode != "vanilla_rej":
+                if args.two_stages:
+                    save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
+                                torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
+                                args.save_dir + '/val_overlap_crop.png')
             four_pr = model.four_pred
             mace = torch.sum((four_pr.cpu().detach() - flow_4cor) ** 2, dim=1).sqrt()
             mace_list.append(mace.view(-1).numpy())
@@ -81,9 +79,7 @@ def validate_process(model, args, total_steps):
                 flow_bool = torch.ones_like(flow_vec)
                 alpha = args.database_size / args.resize_width
                 flow_bool[flow_vec >= (args.rej_threshold / alpha)] = 0.0
-                mace_conf_error = F.binary_cross_entropy_with_logits(conf_pred_vec.cpu(), flow_bool)
-            else:
-                raise NotImplementedError()
+                mace_conf_error = F.binary_cross_entropy(conf_pred_vec.cpu(), flow_bool) # sigmoid in predict uncertainty
             mace_conf_error_list.append(mace_conf_error.numpy())
             if args.GAN_mode == "macegan":
                 for i in range(len(mace_pred_vec)):

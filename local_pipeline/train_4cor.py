@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import json
 import sys
 import argparse
@@ -10,7 +9,7 @@ import torchvision
 from torch.cuda.amp import GradScaler
 from tqdm import tqdm
 
-from model.network import STHEGAN
+from model.network import STHN
 from utils import count_parameters, save_img, save_overlap_img, setup_seed, warp
 import commons
 from os.path import join
@@ -24,7 +23,7 @@ import logging
 from myevaluate import evaluate_SNet
 
 def main(args):
-    model = STHEGAN(args, for_training=True)
+    model = STHN(args, for_training=True)
     model.setup()
     if args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
         model.netG.eval()
@@ -98,35 +97,24 @@ def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_
             save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
                              torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                              args.save_dir + '/train_overlap_gt.png')
-        if args.vis_all:
-            save_dir = os.path.join(args.save_dir, 'vis')
-            if not os.path.exists(save_dir):
-                os.mkdir(save_dir)
-            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_{i_batch}.png')
-            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2_{i_batch}.png')
-            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
-                             torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0),
-                             save_dir + f'/train_overlap_gt_{i_batch}.png')
-            if hasattr(model, "fake_warped_image_2"):
-                save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
-                                torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0),
-                                save_dir + f'/train_overlap_pred_{i_batch}.png')
         # time1 = time.time()
         metrics = model.optimize_parameters()
         # time2 = time.time()
         # logging.debug("OPTIMIZATION: {}".format(time2-time1))
-        if i_batch==0:
-            if hasattr(model, "fake_warped_image_2"):
-                save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
-                                torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0),
-                                args.save_dir + f'/train_overlap_pred.png')
+        if i_batch==0 and args.train_ue_method != 'train_only_ue_raw_input':
+            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
+                            torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0),
+                            args.save_dir + f'/train_overlap_pred.png')
             if args.two_stages:
                 save_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1_crop.png')
                 save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
-                                 torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
-                                 args.save_dir + '/train_overlap_crop.png')
+                                torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
+                                args.save_dir + '/train_overlap_crop.png')
         model.update_learning_rate()
-        metrics["lr"] = model.scheduler_G.get_lr()
+        if args.train_ue_method != 'train_only_ue_raw_input':
+            metrics["lr"] = model.scheduler_G.get_lr()
+        else:
+            metrics["lr"] = model.scheduler_D.get_lr()
         toc = time.time()
         metrics['time'] = toc - tic
         wandb.log({

@@ -2,7 +2,7 @@ import numpy as np
 import os
 import torch
 import argparse
-from model.network import STHEGAN
+from model.network import STHN
 from utils import save_overlap_img, save_img, setup_seed, save_overlap_bbox_img
 import datasets_4cor_img as datasets
 import scipy.io as io
@@ -24,7 +24,7 @@ import wandb
 
 def test(args):
     if not args.identity:
-        model = STHEGAN(args)
+        model = STHN(args)
         model_med = torch.load(args.eval_model, map_location='cuda:0')
         for key in list(model_med['netG'].keys()):
             model_med['netG'][key.replace('module.','')] = model_med['netG'][key]
@@ -89,74 +89,67 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                      args.save_dir + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.png')
 
         time_start = time.time()
-        if not args.identity:
-            model.set_input(img1, img2, flow_gt, image1_ori)
-            model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std, sample_method=args.sample_method)
-            four_pred = model.four_pred
-            time_end = time.time()
-            timeall.append(time_end-time_start)
-            # print(time_end-time_start)
-        else:
-            four_pred = torch.zeros((flow_gt.shape[0], 2, 2, 2))
-                                    
-        flow_4cor = torch.zeros((four_pred.shape[0], 2, 2, 2))
-        flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
-        flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
-        flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
-        flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
+        if args.train_ue_method != 'train_only_ue_raw_input':
+            if not args.identity:
+                model.set_input(img1, img2, flow_gt, image1_ori)
+                model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std, sample_method=args.sample_method)
+                four_pred = model.four_pred
+                time_end = time.time()
+                timeall.append(time_end-time_start)
+                # print(time_end-time_start)
+            else:
+                four_pred = torch.zeros((flow_gt.shape[0], 2, 2, 2))
+                                        
+            flow_4cor = torch.zeros((four_pred.shape[0], 2, 2, 2))
+            flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
+            flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
+            flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
+            flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
 
-        mace_ = (flow_4cor - four_pred.cpu().detach())**2
-        mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
-        mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
-        # print(mace_[0,:])
-      
-        flow_ = (flow_4cor)**2
-        flow_ = ((flow_[:,0,:,:] + flow_[:,1,:,:])**0.5)
-        flow_vec = torch.mean(torch.mean(flow_, dim=1), dim=1)
-        total_mace = torch.cat([total_mace,mace_vec], dim=0)
-        final_mace = torch.mean(total_mace).item()
-        total_flow = torch.cat([total_flow,flow_vec], dim=0)
-        final_flow = torch.mean(total_flow).item()
+            mace_ = (flow_4cor - four_pred.cpu().detach())**2
+            mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
+            mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
+            # print(mace_[0,:])
         
-        # CE
-        four_point_org_single = torch.zeros((1, 2, 2, 2))
-        four_point_org_single[:, :, 0, 0] = torch.Tensor([0, 0])
-        four_point_org_single[:, :, 0, 1] = torch.Tensor([args.resize_width - 1, 0])
-        four_point_org_single[:, :, 1, 0] = torch.Tensor([0, args.resize_width - 1])
-        four_point_org_single[:, :, 1, 1] = torch.Tensor([args.resize_width - 1, args.resize_width - 1])
-        four_point_1 = four_pred.cpu().detach() + four_point_org_single
-        four_point_org = four_point_org_single.repeat(four_point_1.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
-        four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous()
-        four_point_gt = flow_4cor.cpu().detach() + four_point_org_single
-        four_point_gt = four_point_gt.flatten(2).permute(0, 2, 1).contiguous()
-        H = tgm.get_perspective_transform(four_point_org, four_point_1)
-        center_T = torch.tensor([args.resize_width/2-0.5, args.resize_width/2-0.5, 1]).unsqueeze(1).unsqueeze(0).repeat(H.shape[0], 1, 1)
-        w = torch.bmm(H, center_T).squeeze(2)
-        center_pred_offset = w[:, :2]/w[:, 2].unsqueeze(1) - center_T[:, :2].squeeze(2)
-        alpha = args.database_size / args.resize_width
-        center_gt_offset = (query_utm - database_utm).squeeze(1) / alpha
-        temp = center_gt_offset[:, 0].clone()
-        center_gt_offset[:, 0] = center_gt_offset[:, 1]
-        center_gt_offset[:, 1] = temp # Swap!
-        ce_ = (center_pred_offset - center_gt_offset)**2
-        ce_ = ((ce_[:,0] + ce_[:,1])**0.5)
-        ce_vec = ce_
-        total_ce = torch.cat([total_ce, ce_vec], dim=0)
-        final_ce = torch.mean(total_ce).item()
-        
-        if args.vis_all:
-            save_dir = os.path.join(args.save_dir, 'vis')
-            if not os.path.exists(save_dir):
-                os.mkdir(save_dir)
-            # save_img(torchvision.utils.make_grid(img1, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_{i_batch}.png')
-            # save_img(torchvision.utils.make_grid(img2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2_{i_batch}.png')
-            # save_img(torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2w_{i_batch}.png')
-            save_overlap_bbox_img(img1, model.fake_warped_image_2, save_dir + f'/train_overlap_bbox_{i_batch}.png', four_point_gt, four_point_1)
-            # if args.two_stages:
-            #     save_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_crop_{i_batch}.png')
-            #     save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
-            #                 torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
-            #                 save_dir + f'/train_overlap_crop_{i_batch}.png')
+            flow_ = (flow_4cor)**2
+            flow_ = ((flow_[:,0,:,:] + flow_[:,1,:,:])**0.5)
+            flow_vec = torch.mean(torch.mean(flow_, dim=1), dim=1)
+            total_mace = torch.cat([total_mace,mace_vec], dim=0)
+            final_mace = torch.mean(total_mace).item()
+            total_flow = torch.cat([total_flow,flow_vec], dim=0)
+            final_flow = torch.mean(total_flow).item()
+            
+            # CE
+            four_point_org_single = torch.zeros((1, 2, 2, 2))
+            four_point_org_single[:, :, 0, 0] = torch.Tensor([0, 0])
+            four_point_org_single[:, :, 0, 1] = torch.Tensor([args.resize_width - 1, 0])
+            four_point_org_single[:, :, 1, 0] = torch.Tensor([0, args.resize_width - 1])
+            four_point_org_single[:, :, 1, 1] = torch.Tensor([args.resize_width - 1, args.resize_width - 1])
+            four_point_1 = four_pred.cpu().detach() + four_point_org_single
+            four_point_org = four_point_org_single.repeat(four_point_1.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
+            four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous()
+            four_point_gt = flow_4cor.cpu().detach() + four_point_org_single
+            four_point_gt = four_point_gt.flatten(2).permute(0, 2, 1).contiguous()
+            H = tgm.get_perspective_transform(four_point_org, four_point_1)
+            center_T = torch.tensor([args.resize_width/2-0.5, args.resize_width/2-0.5, 1]).unsqueeze(1).unsqueeze(0).repeat(H.shape[0], 1, 1)
+            w = torch.bmm(H, center_T).squeeze(2)
+            center_pred_offset = w[:, :2]/w[:, 2].unsqueeze(1) - center_T[:, :2].squeeze(2)
+            alpha = args.database_size / args.resize_width
+            center_gt_offset = (query_utm - database_utm).squeeze(1) / alpha
+            temp = center_gt_offset[:, 0].clone()
+            center_gt_offset[:, 0] = center_gt_offset[:, 1]
+            center_gt_offset[:, 1] = temp # Swap!
+            ce_ = (center_pred_offset - center_gt_offset)**2
+            ce_ = ((ce_[:,0] + ce_[:,1])**0.5)
+            ce_vec = ce_
+            total_ce = torch.cat([total_ce, ce_vec], dim=0)
+            final_ce = torch.mean(total_ce).item()
+            
+            if args.vis_all:
+                save_dir = os.path.join(args.save_dir, 'vis')
+                if not os.path.exists(save_dir):
+                    os.mkdir(save_dir)
+                save_overlap_bbox_img(img1, model.fake_warped_image_2, save_dir + f'/train_overlap_bbox_{i_batch}.png', four_point_gt, four_point_1)
                 
         if not args.identity:
             if args.use_ue:
@@ -171,9 +164,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                     flow_bool = torch.ones_like(flow_vec)
                     alpha = args.database_size / args.resize_width
                     flow_bool[flow_vec >= (args.rej_threshold / alpha)] = 0.0
-                    mace_conf_error_vec = F.binary_cross_entropy_with_logits(conf_vec.cpu(), flow_bool)
-                else:
-                    raise NotImplementedError()
+                    mace_conf_error_vec = F.binary_cross_entropy(conf_vec.cpu(), flow_bool) # sigmoid in predict uncertainty
                 total_mace_conf_error = torch.cat([total_mace_conf_error, mace_conf_error_vec.reshape(1)], dim=0)
                 final_mace_conf_error = torch.mean(total_mace_conf_error).item()
                 if args.GAN_mode == "macegan":

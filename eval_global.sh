@@ -3,16 +3,14 @@
 eval "$(conda shell.bash hook)"
 conda activate STGL
 
-# python3 ./IHN/myevaluate.py --dataset_name satellite_0_thermalmapping_135_dense --model IHN_results/satellite_thermal_dense_smalldb/RHWF.pth --lev0
+# # netvlad DANN
+python3 global_pipeline/eval.py --resume='logs/global_retrieval/satellite_0_thermalmapping_135_contrast_dense_exclusion-2024-02-19_12-10-07-dd8b1b8b-d529-4277-b96c-2480b813eb69/best_model.pth' --dataset_name=satellite_0_thermalmapping_135 --datasets_folder ./datasets --aggregation netvlad --infer_batch_size 16 --prior_location_threshold=512 --backbone resnet50conv4 --fc_output_dim 4096 --G_contrast manual
 
-# python3 ./IHN/myevaluate.py --dataset_name satellite_0_thermalmapping_135_dense --model IHN_results/satellite_thermal_ext_dense/RHWF.pth --lev0
+# # netvlad
+python3 global_pipeline/eval.py --resume='logs/global_retrieval/satellite_0_thermalmapping_135_contrast_dense_exclusion-2024-02-19_12-37-10-32caa09a-06c0-4549-a30e-f1e99424ed16/best_model.pth' --dataset_name=satellite_0_thermalmapping_135 --datasets_folder ./datasets --aggregation netvlad --infer_batch_size 16 --prior_location_threshold=512 --backbone resnet50conv4 --fc_output_dim 4096 --G_contrast manual
 
-# python3 ./IHN/myevaluate.py --dataset_name satellite_0_thermalmapping_135_dense --model IHN_results/satellite_thermal_ext_contrast_dense/RHWF.pth --G_contrast manual --lev0
+# # gem DANN
+# python3 global_pipeline/eval.py --resume='logs/global_retrieval/satellite_0_thermalmapping_135_contrast_dense_exclusion-2024-02-14_23-02-31-91400d55-5881-48e5-b6cb-cecff4f47a3f/best_model.pth' --dataset_name=satellite_0_thermalmapping_135 --datasets_folder ./datasets --aggregation gem --infer_batch_size 16 --prior_location_threshold=512 --backbone resnet50conv4 --fc_output_dim 4096 --G_contrast manual
 
-# python3 ./IHN/myevaluate.py --dataset_name satellite_0_thermalmapping_135_sparse_64_nocontrast_exclusion --model IHN_results/satellite_thermal_ext_sparse_64/RHWF.pth --val_positive_dist_threshold 64 --lev0
-# python3 ./IHN/myevaluate.py --dataset_name satellite_0_thermalmapping_135_sparse_64_nocontrast_exclusion --model IHN_results/satellite_thermal_ext_sparse_64_macegan/RHWF.pth --val_positive_dist_threshold 64 --lev0 --use_ue --GAN_mode macegan
-
-# python3 ./IHN/myevaluate.py --dataset_name satellite_0_thermalmapping_135_sparse_128_nocontrast_exclusion --model IHN_results/satellite_thermal_ext_sparse_128/RHWF.pth --val_positive_dist_threshold 128 --lev0
-# python3 ./IHN/myevaluate.py --dataset_name satellite_0_thermalmapping_135_sparse_128_nocontrast_exclusion --model IHN_results/satellite_thermal_ext_sparse_128_macegan/RHWF.pth --val_positive_dist_threshold 128 --lev0 --use_ue --GAN_mode macegan
-
-# python3 ./IHN/myevaluate.py --dataset_name satellite_0_thermalmapping_135_nocontrast_sparse_64_exclusion --model IHN_results/satellite_thermal_ext_sparse_64_macegan_onlyuerawinput/190000_RHWF.pth --lev0 --use_ue --use_raw_input
+# # gem
+# python3 global_pipeline/eval.py --resume='logs/global_retrieval/satellite_0_thermalmapping_135_contrast_dense_exclusion-2024-02-14_23-05-05-be2c36a5-1841-4667-a95d-05d7cc0a7472/best_model.pth' --dataset_name=satellite_0_thermalmapping_135 --datasets_folder ./datasets --aggregation gem --infer_batch_size 16 --prior_location_threshold=512 --backbone resnet50conv4 --fc_output_dim 4096 --G_contrast manual
