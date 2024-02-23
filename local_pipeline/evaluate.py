@@ -79,7 +79,8 @@ def validate_process(model, args, total_steps):
                 mace_conf_error = F.l1_loss(conf_pred_vec.cpu(), torch.exp(args.ue_alpha * torch.mean(torch.mean(mace, dim=1), dim=1)))
             elif args.GAN_mode == "vanilla_rej":
                 flow_bool = torch.ones_like(flow_vec)
-                flow_bool[flow_bool >= args.rej_threshold] = 0.0
+                alpha = args.database_size / args.resize_width
+                flow_bool[flow_vec >= (args.rej_threshold / alpha)] = 0.0
                 mace_conf_error = F.binary_cross_entropy_with_logits(conf_pred_vec.cpu(), flow_bool)
             else:
                 raise NotImplementedError()

@@ -163,13 +163,14 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                 with torch.no_grad():
                     conf_pred = model.predict_uncertainty(GAN_mode=args.GAN_mode)
                 conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
-                logging.debug(f"conf_pred_diff:{conf_vec.cpu() - torch.exp(args.ue_alpha * mace_vec)}.")
-                logging.debug(f"pred_mace:{mace_vec}")
                 if args.GAN_mode == "macegan":
+                    logging.debug(f"conf_pred_diff:{conf_vec.cpu() - torch.exp(args.ue_alpha * mace_vec)}.")
+                    logging.debug(f"pred_mace:{mace_vec}")
                     mace_conf_error_vec = F.l1_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
                 elif args.GAN_mode == "vanilla_rej":
                     flow_bool = torch.ones_like(flow_vec)
-                    flow_bool[flow_bool >= args.rej_threshold] = 0.0
+                    alpha = args.database_size / args.resize_width
+                    flow_bool[flow_vec >= (args.rej_threshold / alpha)] = 0.0
                     mace_conf_error_vec = F.binary_cross_entropy_with_logits(conf_vec.cpu(), flow_bool)
                 else:
                     raise NotImplementedError()

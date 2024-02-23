@@ -448,7 +448,8 @@ class STHEGAN():
             flow_ = ((flow_[:,0,:,:] + flow_[:,1,:,:])**0.5)
             flow_vec = torch.mean(torch.mean(flow_, dim=1), dim=1)
             flow_bool = torch.ones_like(flow_vec)
-            flow_bool[flow_bool >= self.args.rej_threshold] = 0.0
+            alpha = self.args.database_size / self.args.resize_width
+            flow_bool[flow_vec >= (self.args.rej_threshold / alpha)] = 0.0
             self.loss_D_fake = self.criterionGAN(pred_fake, flow_bool)
         else:
             raise NotImplementedError()
