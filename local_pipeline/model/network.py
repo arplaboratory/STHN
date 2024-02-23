@@ -329,6 +329,9 @@ class STHEGAN():
                     self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
             else:
                 self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius, iterative=True)
+            self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
+        elif self.args.GAN_mode == "vanilla_rej":
+            pass
         else:
             if sample_method == "target":
                 self.four_pred = self.flow_4cor + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
@@ -341,7 +344,7 @@ class STHEGAN():
                     self.four_pred = torch.zeros_like(self.flow_4cor) + noise_std * torch.randn(self.flow_4cor.shape[0], 2, 2, 2).to(self.device)
             else:
                 raise NotImplementedError()
-        self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
+            self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
 
     def get_cropped_st_images(self, image_1_ori, four_pred, fine_padding, detach=True):
         # From four_pred to bbox coordinates
@@ -441,12 +444,12 @@ class STHEGAN():
             self.mace_vec_fake = torch.exp(self.args.ue_alpha * torch.mean(torch.mean(mace_, dim=1), dim=1)).detach() # exp(-0.1x)
             self.loss_D_fake = self.criterionGAN(pred_fake, self.mace_vec_fake)
         elif self.args.GAN_mode == 'vanilla_rej':
-            mace_ = (self.flow_4cor - self.four_pred)**2
-            mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
-            mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
-            mace_bool = torch.ones_like(mace_vec)
-            mace_bool[mace_bool >= self.args.rej_threshold] = 0.0
-            self.loss_D_fake = self.criterionGAN(pred_fake, mace_bool)
+            flow_ = (self.flow_4cor)**2
+            flow_ = ((flow_[:,0,:,:] + flow_[:,1,:,:])**0.5)
+            flow_vec = torch.mean(torch.mean(flow_, dim=1), dim=1)
+            flow_bool = torch.ones_like(flow_vec)
+            flow_bool[flow_bool >= self.args.rej_threshold] = 0.0
+            self.loss_D_fake = self.criterionGAN(pred_fake, flow_bool)
         else:
             raise NotImplementedError()
         self.loss_D = self.loss_D_fake

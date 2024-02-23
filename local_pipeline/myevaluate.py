@@ -168,15 +168,19 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                 if args.GAN_mode == "macegan":
                     mace_conf_error_vec = F.l1_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
                 elif args.GAN_mode == "vanilla_rej":
-                    mace_bool = torch.ones_like(mace_vec)
-                    mace_bool[mace_bool >= args.rej_threshold] = 0.0
-                    mace_conf_error_vec = F.binary_cross_entropy_with_logits(conf_vec.cpu(), mace_bool)
+                    flow_bool = torch.ones_like(flow_vec)
+                    flow_bool[flow_bool >= args.rej_threshold] = 0.0
+                    mace_conf_error_vec = F.binary_cross_entropy_with_logits(conf_vec.cpu(), flow_bool)
                 else:
                     raise NotImplementedError()
                 total_mace_conf_error = torch.cat([total_mace_conf_error, mace_conf_error_vec.reshape(1)], dim=0)
                 final_mace_conf_error = torch.mean(total_mace_conf_error).item()
-                for i in range(len(mace_vec)):
-                    mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
+                if args.GAN_mode == "macegan":
+                    for i in range(len(mace_vec)):
+                        mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
+                elif args.GAN_mode == "vanilla_rej":
+                    for i in range(len(flow_vec)):
+                        mace_conf_list.append((flow_vec[i].item(), conf_vec[i].item()))
 
             if i_batch%10000 == 0:
                 save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
