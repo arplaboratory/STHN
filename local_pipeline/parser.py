@@ -61,7 +61,4 @@ def parse_arguments():
     args = parser.parse_args()
     args.save_dir = "local_he"
 
-    if args.two_stages and args.iterative != 0:
-        raise NotImplementedError()
-    
     return args
