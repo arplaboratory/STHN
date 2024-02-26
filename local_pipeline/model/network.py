@@ -463,7 +463,7 @@ class STHN():
         self.metrics["G_loss"] = self.loss_G.cpu().item()
         if self.args.use_ue:
             # First, G(A) should fake the discriminator
-            fake_AB = torch.cat((self.image_1, self.image_2, self.fake_warped_image_2), 1)
+            fake_AB = torch.cat((self.image_1, self.image_2), 1)
             pred_fake = self.netD(fake_AB)
             if self.args.GAN_mode in ['vanilla', 'lsgan']:
                 self.loss_G_GAN = self.criterionGAN(pred_fake, True)

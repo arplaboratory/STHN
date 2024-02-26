@@ -61,9 +61,6 @@ def parse_arguments():
     args = parser.parse_args()
     args.save_dir = "local_he"
 
-    if args.two_stages and args.iterative != 0:
-        raise NotImplementedError()
-    
     if args.use_ue and args.train_ue_method == 'train_only_ue_raw_input':
         ratio = args.rej_threshold / 512.0
         args.bce_weight = (1- ratio)/ratio
