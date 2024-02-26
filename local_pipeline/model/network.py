@@ -248,7 +248,7 @@ class STHN():
                 self.netD = NLayerDiscriminator(6, n_layers=4, norm="instance")
             else:
                 raise NotImplementedError()
-            self.criterionGAN = GANLoss(args.GAN_mode).to(args.device)
+            self.criterionGAN = GANLoss(args.GAN_mode, bce_weight=args.bce_weight if args.GAN_mode=="vanilla_rej" else 1.0).to(args.device)
         self.criterionAUX = sequence_loss
         if for_training:
             if args.two_stages:
@@ -292,13 +292,13 @@ class STHN():
         else:
             self.real_warped_image_2 = None
 
-    def predict_uncertainty(self, GAN_mode='vanilla'):
+    def predict_uncertainty(self, GAN_mode='vanilla', for_training=False):
         if self.args.two_stages:
             fake_AB = torch.cat((self.image_1_crop, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
         else:
             fake_AB = torch.cat((self.image_1, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
         fake_AB_conf = self.netD(fake_AB)
-        if GAN_mode in ['vanilla', 'vanilla_rej']:
+        if GAN_mode in ['vanilla', 'vanilla_rej'] and not for_training:
             fake_AB_conf = nn.Sigmoid()(fake_AB_conf)
         else:
             raise NotImplementedError()
