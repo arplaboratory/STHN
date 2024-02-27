@@ -10,7 +10,7 @@ class GANLoss(nn.Module):
     that has the same size as the input.
     """
 
-    def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0):
+    def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0, bce_weight=1.0):
         """ Initialize the GANLoss class.
         Parameters:
             gan_mode (str) - - the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
@@ -30,7 +30,7 @@ class GANLoss(nn.Module):
         elif gan_mode == 'macegan':
             self.loss = nn.L1Loss()
         elif gan_mode == 'vanilla_rej':
-            self.loss = nn.BCEWithLogitsLoss()
+            self.loss = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(bce_weight).view(1, 1, 1))
         elif gan_mode in ['wgangp']:
             self.loss = None
         else:
