@@ -42,13 +42,22 @@ def test(args):
                     del model_med['netD'][key]
             model.netD.load_state_dict(model_med['netD'])
         if args.two_stages:
-            model_med = torch.load(args.eval_model, map_location='cuda:0')
-            for key in list(model_med['netG_fine'].keys()):
-                model_med['netG_fine'][key.replace('module.','')] = model_med['netG_fine'][key]
-            for key in list(model_med['netG_fine'].keys()):
-                if key.startswith('module'):
-                    del model_med['netG_fine'][key]
-            model.netG_fine.load_state_dict(model_med['netG_fine'])
+            if args.eval_model_fine is None:
+                model_med = torch.load(args.eval_model, map_location='cuda:0')
+                for key in list(model_med['netG_fine'].keys()):
+                    model_med['netG_fine'][key.replace('module.','')] = model_med['netG_fine'][key]
+                for key in list(model_med['netG_fine'].keys()):
+                    if key.startswith('module'):
+                        del model_med['netG_fine'][key]
+                model.netG_fine.load_state_dict(model_med['netG_fine'])
+            else:
+                model_med = torch.load(args.eval_model_fine, map_location='cuda:0')
+                for key in list(model_med['netG'].keys()):
+                    model_med['netG'][key.replace('module.','')] = model_med['netG'][key]
+                for key in list(model_med['netG'].keys()):
+                    if key.startswith('module'):
+                        del model_med['netG'][key]
+                model.netG_fine.load_state_dict(model_med['netG'], strict=False)
         
         model.setup() 
         model.netG.eval()
@@ -149,7 +158,17 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                 save_dir = os.path.join(args.save_dir, 'vis')
                 if not os.path.exists(save_dir):
                     os.mkdir(save_dir)
-                save_overlap_bbox_img(img1, model.fake_warped_image_2, save_dir + f'/train_overlap_bbox_{i_batch}.png', four_point_gt, four_point_1)
+                if not args.two_stages:
+                    save_overlap_bbox_img(img1, model.fake_warped_image_2, save_dir + f'/train_overlap_bbox_{i_batch}.png', four_point_gt, four_point_1)
+                else:
+                    four_point_org_single_ori = torch.zeros((1, 2, 2, 2))
+                    four_point_org_single_ori[:, :, 0, 0] = torch.Tensor([0, 0])
+                    four_point_org_single_ori[:, :, 0, 1] = torch.Tensor([args.database_size - 1, 0])
+                    four_point_org_single_ori[:, :, 1, 0] = torch.Tensor([0, args.database_size - 1])
+                    four_point_org_single_ori[:, :, 1, 1] = torch.Tensor([args.database_size - 1, args.database_size - 1])
+                    four_point_bbox = model.flow_bbox.cpu().detach() + four_point_org_single_ori
+                    four_point_bbox = four_point_bbox.flatten(2).permute(0, 2, 1).contiguous() / alpha
+                    save_overlap_bbox_img(img1, model.fake_warped_image_2, save_dir + f'/train_overlap_bbox_{i_batch}.png', four_point_gt, four_point_1, crop_bbox=four_point_bbox)
                 
         if not args.identity:
             if args.use_ue:

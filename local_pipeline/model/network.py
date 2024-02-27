@@ -316,7 +316,7 @@ class STHN():
                 # self.four_preds_list[-1] = self.four_pred # DEBUG
                 # self.four_preds_list[-1] = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
                 # time1 = time.time()
-                self.image_1_crop, delta, flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.args.detach)
+                self.image_1_crop, delta, self.flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.args.detach)
                 # time2 = time.time()
                 # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
                 # time1 = time.time()
@@ -325,7 +325,7 @@ class STHN():
                 # logging.debug("Time for 2nd forward pass: " + str(time2 - time1) + " seconds")
                 # self.four_pred_fine = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
                 # self.four_preds_list_fine[-1] = self.four_pred_fine # DEBUG
-                self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, flow_bbox)
+                self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, self.flow_bbox)
             self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
         elif self.args.GAN_mode == "vanilla_rej":
             pass
