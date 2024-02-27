@@ -141,7 +141,7 @@ def warp(x, flo):
     return output * mask
 
 
-def sequence_loss(four_preds, flow_gt, gamma, args, metrics):
+def sequence_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
     """ Loss function defined over sequence of flow predictions """
 
     flow_4cor = torch.zeros((four_preds[0].shape[0], 2, 2, 2)).to(four_preds[0].device)
@@ -167,6 +167,17 @@ def sequence_loss(four_preds, flow_gt, gamma, args, metrics):
     metrics['1px'] = (mace < 1).float().mean().item()
     metrics['3px'] = (mace < 3).float().mean().item()
     metrics['mace'] = mace.mean().item()
+
+    if four_ue is not None:
+        ue_loss = 0.0
+        for i in range(args.iters_lev0):
+            i_weight = gamma ** (args.iters_lev0 - i - 1)
+            i4cor_loss = (four_preds[i] - flow_4cor).abs()
+            i4cor_loss_norm =  torch.exp(args.ue_alpha * i4cor_loss)
+            ue_loss += args.lam * i_weight * (i4cor_loss_norm).mean()
+        ce_loss += ue_loss
+        metrics['ue'] = ue_loss.item()
+
     return ce_loss, metrics
 
 

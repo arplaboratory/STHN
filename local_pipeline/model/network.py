@@ -19,16 +19,17 @@ import logging
 
 autocast = torch.cuda.amp.autocast
 class IHN(nn.Module):
-    def __init__(self, args):
+    def __init__(self, args, first_stage):
         super().__init__()
         self.device = torch.device('cuda:' + str(args.gpuid[0]))
         self.args = args
         self.hidden_dim = 128
         self.context_dim = 128
+        self.first_stage = first_stage
         self.fnet1 = BasicEncoderQuarter(output_dim=256, norm_fn='instance')
         if self.args.lev0:
             sz = self.args.resize_width // 4
-            self.update_block_4 = GMA(self.args, sz)
+            self.update_block_4 = GMA(self.args, sz, first_stage)
         # if self.args.lev1:
         #     sz = 128
         #     self.update_block_2 = GMA(self.args, sz)
@@ -95,127 +96,62 @@ class IHN(nn.Module):
 
         return coords0, coords1
 
-    def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3, corr_level=2, corr_radius=4, iterative=False):
-        if not iterative:
-            # image1 = 2 * (image1 / 255.0) - 1.0
-            # image2 = 2 * (image2 / 255.0) - 1.0
-            image1 = image1.contiguous()
-            image2 = image2.contiguous()
+    def forward(self, image1, image2, iters_lev0 = 6, iters_lev1=3, corr_level=2, corr_radius=4):
+        # image1 = 2 * (image1 / 255.0) - 1.0
+        # image2 = 2 * (image2 / 255.0) - 1.0
+        image1 = image1.contiguous()
+        image2 = image2.contiguous()
 
-            # time1 = time.time()
+        # time1 = time.time()
+        with autocast(enabled=self.args.mixed_precision):
+            # fmap1_64, fmap1_128 = self.fnet1(image1)
+            # fmap2_64, _ = self.fnet1(image2)
+            if not self.args.fnet_cat:
+                fmap1_64 = self.fnet1(image1)
+                fmap2_64 = self.fnet1(image2)
+            else:
+                fmap_64 = self.fnet1(torch.cat([image1, image2], dim=0))
+                fmap1_64 = fmap_64[:image1.shape[0]]
+                fmap2_64 = fmap_64[image1.shape[0]:]
+        # time2 = time.time()
+        # print("Time for fnet1: " + str(time2 - time1) + " seconds") # 0.004 + # 0.004
+
+        fmap1 = fmap1_64.float()
+        fmap2 = fmap2_64.float()
+
+        # print(fmap1.shape, fmap2.shape)
+        corr_fn = CorrBlock(fmap1, fmap2, num_levels=corr_level, radius=corr_radius)
+        coords0, coords1 = self.initialize_flow_4(image1)
+        # print(coords0.shape, coords1.shape)
+        sz = fmap1_64.shape
+        self.sz = sz
+        four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
+        four_point_predictions = []
+        if self.first_stage and self.args.use_ue and self.args.D_net=="ue_branch":
+            four_point_ue = []
+        # time1 = time.time()
+        for itr in range(iters_lev0):
+            corr = corr_fn(coords1)
+            flow = coords1 - coords0
+            # print(corr.shape, flow.shape)
             with autocast(enabled=self.args.mixed_precision):
-                # fmap1_64, fmap1_128 = self.fnet1(image1)
-                # fmap2_64, _ = self.fnet1(image2)
-                if not self.args.fnet_cat:
-                    fmap1_64 = self.fnet1(image1)
-                    fmap2_64 = self.fnet1(image2)
+                if self.args.weight:
+                    delta_four_point, weight = self.update_block_4(corr, flow)
                 else:
-                    fmap_64 = self.fnet1(torch.cat([image1, image2], dim=0))
-                    fmap1_64 = fmap_64[:image1.shape[0]]
-                    fmap2_64 = fmap_64[image1.shape[0]:]
-            # time2 = time.time()
-            # print("Time for fnet1: " + str(time2 - time1) + " seconds") # 0.004 + # 0.004
+                    delta_four_point = self.update_block_4(corr, flow)
+                    
+            four_point_disp =  four_point_disp + delta_four_point[:, :2]
+            if self.first_stage and self.args.use_ue and self.args.D_net=="ue_branch":
+                four_point_ue.append(delta_four_point[:, 2])
+            four_point_predictions.append(four_point_disp)
+            coords1 = self.get_flow_now_4(four_point_disp)
+        # time2 = time.time()
+        # print("Time for iterative: " + str(time2 - time1) + " seconds") # 0.12
 
-            fmap1 = fmap1_64.float()
-            fmap2 = fmap2_64.float()
-
-            # print(fmap1.shape, fmap2.shape)
-            corr_fn = CorrBlock(fmap1, fmap2, num_levels=corr_level, radius=corr_radius)
-            coords0, coords1 = self.initialize_flow_4(image1)
-            # print(coords0.shape, coords1.shape)
-            sz = fmap1_64.shape
-            self.sz = sz
-            four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
-            four_point_predictions = []
-
-            # time1 = time.time()
-            for itr in range(iters_lev0):
-                corr = corr_fn(coords1)
-                flow = coords1 - coords0
-                # print(corr.shape, flow.shape)
-                with autocast(enabled=self.args.mixed_precision):
-                    if self.args.weight:
-                        delta_four_point, weight = self.update_block_4(corr, flow)
-                    else:
-                        delta_four_point = self.update_block_4(corr, flow)
-                        
-                four_point_disp =  four_point_disp + delta_four_point
-                four_point_predictions.append(four_point_disp)
-                coords1 = self.get_flow_now_4(four_point_disp)
-            # time2 = time.time()
-            # print("Time for iterative: " + str(time2 - time1) + " seconds") # 0.12
+        if self.first_stage and self.args.use_ue and self.args.D_net=="ue_branch":
+            return four_point_predictions, four_point_disp, four_point_ue
         else:
-            # image1 = 2 * (image1 / 255.0) - 1.0
-            # image2 = 2 * (image2 / 255.0) - 1.0
-            image1 = image1.contiguous()
-            image2 = image2.contiguous()
-            image2_org = image2
-
-            four_point_org_single = torch.zeros((1, 2, 2, 2)).to(image1.device)
-            four_point_org_single[:, :, 0, 0] = torch.Tensor([0, 0]).to(image1.device)
-            four_point_org_single[:, :, 0, 1] = torch.Tensor([self.args.resize_width - 1, 0]).to(image1.device)
-            four_point_org_single[:, :, 1, 0] = torch.Tensor([0, self.args.resize_width - 1]).to(image1.device)
-            four_point_org_single[:, :, 1, 1] = torch.Tensor([self.args.resize_width - 1, self.args.resize_width - 1]).to(image1.device)
-
-            fmap2_64 = self.fnet1(image2)
-            fmap2 = fmap2_64.float()
-            fmap1_64 = self.fnet1(image1)
-            fmap1 = fmap1_64.float()
-            sz = fmap1_64.shape
-            self.sz = sz
-            four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
-            four_point_predictions = []
-            coords0, coords1 = self.initialize_flow_4(image1)
-            
-            for itr in range(iters_lev0):
-                corr_fn = CorrBlock(fmap1, fmap2, num_levels=corr_level, radius=corr_radius)
-                corr = corr_fn(coords1)
-                flow = coords1 - coords0
-                with autocast(enabled=self.args.mixed_precision):
-                    if self.args.weight:
-                        delta_four_point, weight = self.update_block_4(corr, flow)
-                    else:
-                        delta_four_point = self.update_block_4(corr, flow)
-                four_point_disp =  four_point_disp + delta_four_point
-                four_point_predictions.append(four_point_disp)
-                coords1 = self.get_flow_now_4(four_point_disp)
-                if itr < (iters_lev0-1):      
-                    image2_warp = mywarp(image2_org, four_point_disp, four_point_org_single)
-                    fmap2_64_warp  = self.fnet1(image2_warp)
-                    fmap2 = fmap2_64_warp.float()
-
-        # if self.args.lev1:# next resolution
-        #     four_point_disp_med = four_point_disp 
-        #     flow_med = coords1 - coords0
-        #     flow_med = F.upsample_bilinear(flow_med, None, [4, 4]) * 4    
-        #     image2 = warp(image2, flow_med)
-                      
-        #     with autocast(enabled=self.args.mixed_precision):
-        #         _, fmap2_128 = self.fnet1(image2)
-        #     fmap1 = fmap1_128.float()
-        #     fmap2 = fmap2_128.float()
-            
-        #     corr_fn = CorrBlock(fmap1, fmap2, num_levels = 2, radius= 4)
-        #     coords0, coords1 = self.initialize_flow_2(image1)                
-        #     sz = fmap1.shape
-        #     self.sz = sz
-        #     four_point_disp = torch.zeros((sz[0], 2, 2, 2)).to(fmap1.device)
-            
-        #     for itr in range(iters_lev1):
-        #         corr = corr_fn(coords1)
-        #         flow = coords1 - coords0
-        #         with autocast(enabled=self.args.mixed_precision):
-        #             if self.args.weight:
-        #                 delta_four_point, weight = self.update_block_2(corr, flow)
-        #             else:
-        #                 delta_four_point = self.update_block_2(corr, flow)
-        #         four_point_disp = four_point_disp + delta_four_point
-        #         four_point_predictions.append(four_point_disp)            
-        #         coords1 = self.get_flow_now_2(four_point_disp)            
-            
-        #     four_point_disp = four_point_disp + four_point_disp_med
-
-        return four_point_predictions, four_point_disp
+            return four_point_predictions, four_point_disp
 
 
 class STHN():
@@ -233,11 +169,11 @@ class STHN():
         self.four_point_org_large_single[:, :, 0, 1] = torch.Tensor([self.args.database_size, 0]).to(self.device)
         self.four_point_org_large_single[:, :, 1, 0] = torch.Tensor([0, self.args.database_size]).to(self.device)
         self.four_point_org_large_single[:, :, 1, 1] = torch.Tensor([self.args.database_size, self.args.database_size]).to(self.device) # Only to calculate flow so no -1
-        self.netG = IHN(args)
+        self.netG = IHN(args, True)
         if args.two_stages:
             corr_level = args.corr_level
             args.corr_level = 2
-            self.netG_fine = IHN(args)
+            self.netG_fine = IHN(args, False)
             args.corr_level = corr_level
             if args.restore_ckpt is not None and not args.finetune:
                 self.set_requires_grad(self.netG, False)
@@ -246,6 +182,8 @@ class STHN():
                 self.netD = NLayerDiscriminator(6, norm="instance") # satellite=3 thermal=3 warped_thermal=3. norm should be instance?
             elif args.D_net == 'patchGAN_deep':
                 self.netD = NLayerDiscriminator(6, n_layers=4, norm="instance")
+            elif args.D_net == 'ue_branch':
+                pass
             else:
                 raise NotImplementedError()
             self.criterionGAN = GANLoss(args.GAN_mode, bce_weight=args.bce_weight if args.GAN_mode=="vanilla_rej" else 1.0).to(args.device)
@@ -310,7 +248,10 @@ class STHN():
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if not use_raw_input:
             # time1 = time.time()
-            self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
+            if self.args.use_ue and self.args.D_net == "ue_branch":
+                self.four_preds_list, self.four_pred, self.four_ue = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
+            else:
+                self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
             # time2 = time.time()
             # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
             if self.args.two_stages:
@@ -459,7 +400,10 @@ class STHN():
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
         # Second, G(A) = B
-        self.loss_G_Homo, self.metrics = self.criterionAUX(self.four_preds_list, self.flow_gt, self.args.gamma, self.args, self.metrics) 
+        if self.args.use_ue and self.args.D_net == "ue_branch":
+            self.loss_G_Homo, self.metrics = self.criterionAUX(self.four_preds_list, self.flow_gt, self.args.gamma, self.args, self.metrics, four_ue=self.four_ue) 
+        else:
+            self.loss_G_Homo, self.metrics = self.criterionAUX(self.four_preds_list, self.flow_gt, self.args.gamma, self.args, self.metrics) 
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_Homo * self.G_loss_lambda
         self.metrics["G_loss"] = self.loss_G.cpu().item()
@@ -496,7 +440,7 @@ class STHN():
         self.forward(use_raw_input = (self.args.train_ue_method == 'train_only_ue_raw_input'), noise_std=self.args.noise_std, sample_method=self.args.sample_method) # Calculate Fake A
         self.metrics = dict()
         # update D
-        if self.args.use_ue:
+        if self.args.use_ue and self.args.D_net != "ue_branch":
             self.set_requires_grad(self.netD, True)  # enable backprop for D
             self.optimizer_D.zero_grad()     # set D's gradients to zero
             self.backward_D()                # calculate gradients for D
