@@ -300,6 +300,8 @@ class STHN():
         fake_AB_conf = self.netD(fake_AB)
         if GAN_mode in ['vanilla', 'vanilla_rej'] and not for_training:
             fake_AB_conf = nn.Sigmoid()(fake_AB_conf)
+        elif for_training:
+            pass
         else:
             raise NotImplementedError()
         return fake_AB_conf
