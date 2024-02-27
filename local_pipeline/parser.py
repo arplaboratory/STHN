@@ -57,6 +57,7 @@ def parse_arguments():
     parser.add_argument("--finetune", action="store_true")
     parser.add_argument("--detach", action="store_true")
     parser.add_argument("--rej_threshold", type=float, default=128.0)
+    parser.add_argument('--eval_model_fine', type=str, default=None, help="restore checkpoint")
     
     args = parser.parse_args()
     args.save_dir = "local_he"
