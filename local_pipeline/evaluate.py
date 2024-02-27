@@ -79,7 +79,7 @@ def validate_process(model, args, total_steps):
                 flow_bool = torch.ones_like(flow_vec)
                 alpha = args.database_size / args.resize_width
                 flow_bool[flow_vec >= (args.rej_threshold / alpha)] = 0.0
-                mace_conf_error = F.binary_cross_entropy_with_logits(conf_pred_vec.cpu(), flow_bool, pos_weight=torch.tensor(args.bce_weight).view(1, 1, 1)) # sigmoid in predict uncertainty
+                mace_conf_error = F.binary_cross_entropy_with_logits(conf_pred_vec.cpu(), flow_bool, pos_weight=torch.tensor(args.bce_weight)) # sigmoid in predict uncertainty
             mace_conf_error_list.append(mace_conf_error.numpy())
             if args.GAN_mode == "macegan":
                 for i in range(len(mace_pred_vec)):
