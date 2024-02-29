@@ -72,7 +72,7 @@ def main(args):
     test_dataset = datasets.fetch_dataloader(args, split='test')
     model_med = torch.load(args.save_dir + f'/{args.name}.pth')
     model.netG.load_state_dict(model_med['netG'])
-    if args.use_ue:
+    if args.use_ue and args.D_net != "ue_branch":
         model.netD.load_state_dict(model_med['netD'])
     if args.two_stages:
         model.netG_fine.load_state_dict(model_med['netG_fine'])
@@ -134,7 +134,7 @@ def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_
             PATH = args.save_dir + f'/{total_steps+1}_{args.name}.pth'
             checkpoint = {
                 "netG": model.netG.state_dict(),
-                "netD": model.netD.state_dict() if args.use_ue else None,
+                "netD": model.netD.state_dict() if args.use_ue and args.D_net != "ue_branch" else None,
                 "netG_fine": model.netG_fine.state_dict() if args.two_stages else None,
             }
             torch.save(checkpoint, PATH)

@@ -20,7 +20,7 @@ import logging
 def validate_process(model, args, total_steps):
     """ Perform evaluation on the FlyingChairs (test) split """
     model.netG.eval()
-    if args.use_ue:
+    if args.use_ue and args.D_net != "ue_branch":
         model.netD.eval()
     if args.two_stages:
         model.netG_fine.eval()
@@ -65,15 +65,18 @@ def validate_process(model, args, total_steps):
         else:
             mace_list.append(np.zeros((image1.shape[0])))
         if args.use_ue:
-            if args.GAN_mode =="macegan" and args.D_net != "ue_branch":
+            if args.GAN_mode =="macegan":
                 mace_pred_vec =  torch.mean(torch.mean(mace, dim=1), dim=1)
             elif args.GAN_mode == "vanilla_rej":
                 flow = (flow_4cor)**2
                 flow = ((flow[:,0,:,:] + flow[:,1,:,:])**0.5)
                 flow_vec = torch.mean(torch.mean(flow, dim=1), dim=1)
             conf_pred = model.predict_uncertainty(GAN_mode=args.GAN_mode, for_training=True)
-            conf_pred_vec = torch.mean(conf_pred, dim=[1, 2, 3])
-            if args.GAN_mode == "macegan" and args.D_net != "ue_branch":
+            if args.D_net == "ue_branch":
+                conf_pred_vec = torch.mean(conf_pred, dim=[1, 2])
+            else:
+                conf_pred_vec = torch.mean(conf_pred, dim=[1, 2, 3])
+            if args.GAN_mode == "macegan":
                 mace_conf_error = F.l1_loss(conf_pred_vec.cpu(), torch.exp(args.ue_alpha * torch.mean(torch.mean(mace, dim=1), dim=1)))
             elif args.GAN_mode == "vanilla_rej":
                 flow_bool = torch.ones_like(flow_vec)
@@ -81,7 +84,7 @@ def validate_process(model, args, total_steps):
                 flow_bool[flow_vec >= (args.rej_threshold / alpha)] = 0.0
                 mace_conf_error = F.binary_cross_entropy_with_logits(conf_pred_vec.cpu(), flow_bool, pos_weight=torch.tensor(args.bce_weight)) # sigmoid in predict uncertainty
             mace_conf_error_list.append(mace_conf_error.numpy())
-            if args.GAN_mode == "macegan" and args.D_net != "ue_branch":
+            if args.GAN_mode == "macegan":
                 for i in range(len(mace_pred_vec)):
                     mace_conf_list.append((mace_pred_vec[i].item(), conf_pred_vec[i].item()))
             elif args.GAN_mode == "vanilla_rej":
@@ -99,7 +102,7 @@ def validate_process(model, args, total_steps):
             model.netG.eval()
         if args.two_stages:
             model.netG_fine.train()
-    if args.use_ue:
+    if args.use_ue and args.D_net != "ue_branch":
         model.netD.train()
         mace_conf_list = np.array(mace_conf_list)
         # plot mace conf

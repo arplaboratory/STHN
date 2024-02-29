@@ -231,17 +231,20 @@ class STHN():
             self.real_warped_image_2 = None
 
     def predict_uncertainty(self, GAN_mode='vanilla', for_training=False):
-        if self.args.two_stages:
-            fake_AB = torch.cat((self.image_1_crop, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
+        if self.args.D_net == "ue_branch":
+            fake_AB_conf = self.four_ue[-1]
         else:
-            fake_AB = torch.cat((self.image_1, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
-        fake_AB_conf = self.netD(fake_AB)
-        if GAN_mode in ['vanilla', 'vanilla_rej'] and not for_training:
-            fake_AB_conf = nn.Sigmoid()(fake_AB_conf)
-        elif for_training:
-            pass
-        else:
-            raise NotImplementedError()
+            if self.args.two_stages:
+                fake_AB = torch.cat((self.image_1_crop, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
+            else:
+                fake_AB = torch.cat((self.image_1, self.image_2), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
+            fake_AB_conf = self.netD(fake_AB)
+            if GAN_mode in ['vanilla', 'vanilla_rej'] and not for_training:
+                fake_AB_conf = nn.Sigmoid()(fake_AB_conf)
+            elif for_training:
+                pass
+            else:
+                raise NotImplementedError()
         return fake_AB_conf
         
     def forward(self, use_raw_input=False, noise_std=0, sample_method="target_raw"):
