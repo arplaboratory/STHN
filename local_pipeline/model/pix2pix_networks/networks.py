@@ -86,7 +86,7 @@ class GANLoss(nn.Module):
         if self.gan_mode in ['lsgan', 'vanilla']:
             target_tensor = self.get_target_tensor(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
-        elif self.gan_mode == 'macegan':
+        elif self.gan_mode == 'macegan' and args.D_net != "ue_branch":
             target_tensor = self.get_target_tensor_sqerror(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
         elif self.gan_mode == 'vanilla_rej':
@@ -97,6 +97,8 @@ class GANLoss(nn.Module):
                 loss = -prediction.mean()
             else:
                 loss = prediction.mean()
+        else:
+            raise NotImplementedError()
         return loss
 
 class NLayerDiscriminator(nn.Module):

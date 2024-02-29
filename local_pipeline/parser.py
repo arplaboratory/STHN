@@ -34,7 +34,7 @@ def parse_arguments():
     parser.add_argument("--use_ue", action="store_true", help="train uncertainty estimator with GAN")
     parser.add_argument("--G_loss_lambda", type=float, default=1.0, help="G_loss_lambda only for homo")
     parser.add_argument("--D_net", type=str, default="patchGAN", choices=["none", "patchGAN", "patchGAN_deep", "ue_branch"], help="D_net")
-    parser.add_argument("--GAN_mode", type=str, default="vanilla_rej", choices=["vanilla", "lsgan", "macegan", "vanilla_rej"], help="Choices of GAN loss")
+    parser.add_argument("--GAN_mode", type=str, default="macegan", choices=["vanilla", "lsgan", "macegan", "vanilla_rej"], help="Choices of GAN loss")
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
     parser.add_argument("--train_ue_method", type=str, choices=['train_end_to_end', 'train_only_ue', 'train_only_ue_raw_input', 'finetune'], default='train_end_to_end', help="train uncertainty estimator")
     parser.add_argument("--ue_alpha", type=float, default=-0.1, help="Alpha for ue")
@@ -54,15 +54,17 @@ def parse_arguments():
     parser.add_argument("--vis_all", action="store_true")
     parser.add_argument("--identity", action="store_true")
     parser.add_argument("--lam", type=float, default=1.0)
+    parser.add_argument("--lam_ue", type=float, default=1.0)
     parser.add_argument("--finetune", action="store_true")
     parser.add_argument("--detach", action="store_true")
     parser.add_argument("--rej_threshold", type=float, default=128.0)
     parser.add_argument('--eval_model_fine', type=str, default=None, help="restore checkpoint")
+    parser.add_argument('--augment_two_stages', type=float, default=0)
     
     args = parser.parse_args()
     args.save_dir = "local_he"
 
-    if args.use_ue and args.train_ue_method == 'train_only_ue_raw_input':
+    if args.use_ue:
         ratio = args.rej_threshold / 512.0
         args.bce_weight = (1- ratio)/ratio
     return args

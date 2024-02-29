@@ -182,7 +182,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                 with torch.no_grad():
                     conf_pred = model.predict_uncertainty(GAN_mode=args.GAN_mode)
                 conf_vec = torch.mean(conf_pred, dim=[1, 2, 3])
-                if args.GAN_mode == "macegan":
+                if args.GAN_mode == "macegan" and args.D_net != "ue_branch":
                     logging.debug(f"conf_pred_diff:{conf_vec.cpu() - torch.exp(args.ue_alpha * mace_vec)}.")
                     logging.debug(f"pred_mace:{mace_vec}")
                     mace_conf_error_vec = F.l1_loss(conf_vec.cpu(), torch.exp(args.ue_alpha * mace_vec))
@@ -193,7 +193,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                     mace_conf_error_vec = F.binary_cross_entropy(conf_vec.cpu(), flow_bool) # sigmoid in predict uncertainty
                 total_mace_conf_error = torch.cat([total_mace_conf_error, mace_conf_error_vec.reshape(1)], dim=0)
                 final_mace_conf_error = torch.mean(total_mace_conf_error).item()
-                if args.GAN_mode == "macegan":
+                if args.GAN_mode == "macegan" and args.D_net != "ue_branch":
                     for i in range(len(mace_vec)):
                         mace_conf_list.append((mace_vec[i].item(), conf_vec[i].item()))
                 elif args.GAN_mode == "vanilla_rej":

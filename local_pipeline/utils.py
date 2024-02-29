@@ -174,9 +174,9 @@ def sequence_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
             i_weight = gamma ** (args.iters_lev0 - i - 1)
             i4cor_loss = (four_preds[i] - flow_4cor).abs()
             i4cor_loss_norm =  torch.exp(args.ue_alpha * i4cor_loss)
-            ue_loss += args.lam * i_weight * (i4cor_loss_norm).mean()
+            ue_loss += args.lam_ue * i_weight * (i4cor_loss_norm).mean()
         ce_loss += ue_loss
-        metrics['ue'] = ue_loss.item()
+        metrics['ue_loss'] = ue_loss.item()
 
     return ce_loss, metrics
 

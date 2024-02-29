@@ -41,7 +41,7 @@ def main(args):
         if args.two_stages:
             model.netG_fine.train()
     logging.info(f"Parameter Count: {count_parameters(model.netG)}")
-    if args.use_ue:
+    if args.use_ue and args.D_net != "ue_branch":
         model.netD.train()
         logging.info(f"Parameter Count: {count_parameters(model.netD)}")
 
@@ -122,8 +122,8 @@ def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_
                 "lr": metrics["lr"],
                 "G_loss": metrics["G_loss"] if args.train_ue_method == 'train_end_to_end' else 0,
                 "GAN_loss": metrics["GAN_loss"] if args.train_ue_method == 'train_end_to_end' and args.use_ue else 0,
-                "D_loss": metrics["D_loss"] if args.use_ue else 0,
-                "ue_loss": metrics["ue_loss"] if args.use_ue and args.D_net == 'ue_branch' else 0
+                "D_loss": metrics["D_loss"] if args.use_ue and args.D_net != "ue_branch" else 0,
+                "ue_loss": metrics["ue_loss"] if args.use_ue and args.D_net == "ue_branch" else 0
             },)
         total_steps += 1
         # Validate

@@ -182,7 +182,7 @@ class STHN():
                 self.netD = NLayerDiscriminator(6, norm="instance") # satellite=3 thermal=3 warped_thermal=3. norm should be instance?
             elif args.D_net == 'patchGAN_deep':
                 self.netD = NLayerDiscriminator(6, n_layers=4, norm="instance")
-            elif args.D_net == 'ue_branch':
+            elif args.D_net == "ue_branch":
                 pass
             else:
                 raise NotImplementedError()
@@ -196,7 +196,7 @@ class STHN():
                     self.optimizer_G, self.scheduler_G = fetch_optimizer(args,list(self.netG_fine.parameters()))
             else:
                 self.optimizer_G, self.scheduler_G = fetch_optimizer(args, list(self.netG.parameters()))
-            if args.use_ue:
+            if args.use_ue and args.D_net != "ue_branch":
                 self.optimizer_D, self.scheduler_D = fetch_optimizer(args, list(self.netD.parameters()))
             self.G_loss_lambda = args.G_loss_lambda
             
@@ -259,7 +259,7 @@ class STHN():
                 # self.four_preds_list[-1] = self.four_pred # DEBUG
                 # self.four_preds_list[-1] = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
                 # time1 = time.time()
-                self.image_1_crop, delta, self.flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.args.detach)
+                self.image_1_crop, delta, self.flow_bbox = self.get_cropped_st_images(self.image_1_ori, self.four_pred, self.args.fine_padding, self.args.detach, self.args.augment_two_stages)
                 # time2 = time.time()
                 # logging.debug("Time for crop: " + str(time2 - time1) + " seconds")
                 # time1 = time.time()
@@ -286,7 +286,7 @@ class STHN():
                 raise NotImplementedError()
             self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
 
-    def get_cropped_st_images(self, image_1_ori, four_pred, fine_padding, detach=True):
+    def get_cropped_st_images(self, image_1_ori, four_pred, fine_padding, detach=True, augment_two_stages=0):
         # From four_pred to bbox coordinates
         four_point = four_pred + self.four_point_org_single
         x = four_point[:, 0]
@@ -302,6 +302,11 @@ class STHN():
         right = torch.max(x.view(x.shape[0], -1), dim=1)[0] # B
         top = torch.min(y.view(y.shape[0], -1), dim=1)[0]   # B
         bottom = torch.max(y.view(y.shape[0], -1), dim=1)[0] # B
+        if augment_two_stages!=0:
+            left += (torch.rand(left.shape).to(left.device) * 2 - 1) * augment_two_stages
+            right += (torch.rand(right.shape).to(right.device) * 2 - 1) * augment_two_stages
+            top += (torch.rand(top.shape).to(top.device) * 2 - 1) * augment_two_stages
+            bottom += (torch.rand(bottom.shape).to(bottom.device) * 2 - 1) * augment_two_stages
         w = torch.max(torch.stack([right-left, bottom-top], dim=1), dim=1)[0] # B
         c = torch.stack([(left + right)/2, (bottom + top)/2], dim=1) # B, 2
         w_padded = w + 2 * fine_padding # same as ori scale
@@ -378,7 +383,7 @@ class STHN():
         pred_fake = self.netD(fake_AB.detach())
         if self.args.GAN_mode in ['vanilla', 'lsgan']:
             self.loss_D_fake = self.criterionGAN(pred_fake, False)
-        elif self.args.GAN_mode == 'macegan':
+        elif self.args.GAN_mode == 'macegan' and args.D_net != "ue_branch":
             mace_ = (self.flow_4cor - self.four_pred)**2
             mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
             self.mace_vec_fake = torch.exp(self.args.ue_alpha * torch.mean(torch.mean(mace_, dim=1), dim=1)).detach() # exp(-0.1x)
@@ -410,17 +415,21 @@ class STHN():
         if self.args.use_ue:
             # First, G(A) should fake the discriminator
             fake_AB = torch.cat((self.image_1, self.image_2), 1)
-            pred_fake = self.netD(fake_AB)
+            if self.args.D_net != "ue_branch":
+                pred_fake = self.netD(fake_AB)
             if self.args.GAN_mode in ['vanilla', 'lsgan']:
                 self.loss_G_GAN = self.criterionGAN(pred_fake, True)
-            elif self.args.GAN_mode == 'macegan':
+            elif self.args.GAN_mode == 'macegan' and self.args.D_net != "ue_branch":
                 self.loss_G_GAN = self.criterionGAN(pred_fake, self.mace_vec_fake) # Try not real
-            elif self.args.GAN_mode == 'vanilla_rej':
+            elif self.args.GAN_mode == 'vanilla_rej' or self.args.D_net == "ue_branch":
                 self.loss_G_GAN = 0
             else:
                 raise NotImplementedError()
             self.loss_G = self.loss_G + self.loss_G_GAN
-            self.metrics["GAN_loss"] = self.loss_G_GAN.cpu().item()
+            try:
+                self.metrics["GAN_loss"] = self.loss_G_GAN.cpu().item()
+            except AttributeError:
+                self.metrics["GAN_loss"] = 0
         self.loss_G.backward()
 
     def set_requires_grad(self, nets, requires_grad=False):
@@ -461,7 +470,7 @@ class STHN():
     def update_learning_rate(self):
         """Update learning rates for all the networks; called at the end of every epoch"""
         self.scheduler_G.step()
-        if self.args.use_ue:
+        if self.args.use_ue and self.args.D_net != "ue_branch":
             self.scheduler_D.step()
 
 def mywarp(x, flow_pred, four_point_org_single):
