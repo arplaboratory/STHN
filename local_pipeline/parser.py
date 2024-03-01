@@ -60,6 +60,7 @@ def parse_arguments():
     parser.add_argument("--rej_threshold", type=float, default=128.0)
     parser.add_argument('--eval_model_fine', type=str, default=None, help="restore checkpoint")
     parser.add_argument('--augment_two_stages', type=float, default=0)
+    parser.add_argument('--augment_type', default="bbox", choices=["bbox", "center"])
     
     args = parser.parse_args()
     args.save_dir = "local_he"

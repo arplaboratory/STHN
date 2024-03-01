@@ -306,12 +306,19 @@ class STHN():
         top = torch.min(y.view(y.shape[0], -1), dim=1)[0]   # B
         bottom = torch.max(y.view(y.shape[0], -1), dim=1)[0] # B
         if augment_two_stages!=0:
-            left += (torch.rand(left.shape).to(left.device) * 2 - 1) * augment_two_stages
-            right += (torch.rand(right.shape).to(right.device) * 2 - 1) * augment_two_stages
-            top += (torch.rand(top.shape).to(top.device) * 2 - 1) * augment_two_stages
-            bottom += (torch.rand(bottom.shape).to(bottom.device) * 2 - 1) * augment_two_stages
-        w = torch.max(torch.stack([right-left, bottom-top], dim=1), dim=1)[0] # B
-        c = torch.stack([(left + right)/2, (bottom + top)/2], dim=1) # B, 2
+            if self.args.augment_type == "bbox":
+                left += (torch.rand(left.shape).to(left.device) * 2 - 1) * augment_two_stages
+                right += (torch.rand(right.shape).to(right.device) * 2 - 1) * augment_two_stages
+                top += (torch.rand(top.shape).to(top.device) * 2 - 1) * augment_two_stages
+                bottom += (torch.rand(bottom.shape).to(bottom.device) * 2 - 1) * augment_two_stages
+            w = torch.max(torch.stack([right-left, bottom-top], dim=1), dim=1)[0] # B
+            c = torch.stack([(left + right)/2, (bottom + top)/2], dim=1) # B, 2
+            if self.args.augment_type == "center":
+                w += torch.rand(w.shape).to(w.device) * augment_two_stages # only expand?
+                c += (torch.rand(c.shape).to(c.device) * 2 - 1) * augment_two_stages
+        else:
+            w = torch.max(torch.stack([right-left, bottom-top], dim=1), dim=1)[0] # B
+            c = torch.stack([(left + right)/2, (bottom + top)/2], dim=1) # B, 2
         w_padded = w + 2 * fine_padding # same as ori scale
         crop_top_left = c + torch.stack([-w_padded / 2, -w_padded / 2], dim=1) # B, 2 = x, y
         x_start = crop_top_left[:, 0] # B
