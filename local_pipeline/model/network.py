@@ -166,9 +166,9 @@ class STHN():
         self.four_point_org_single[:, :, 1, 1] = torch.Tensor([self.args.resize_width - 1, self.args.resize_width - 1]).to(self.device)
         self.four_point_org_large_single = torch.zeros((1, 2, 2, 2)).to(self.device)
         self.four_point_org_large_single[:, :, 0, 0] = torch.Tensor([0, 0]).to(self.device)
-        self.four_point_org_large_single[:, :, 0, 1] = torch.Tensor([self.args.database_size, 0]).to(self.device)
-        self.four_point_org_large_single[:, :, 1, 0] = torch.Tensor([0, self.args.database_size]).to(self.device)
-        self.four_point_org_large_single[:, :, 1, 1] = torch.Tensor([self.args.database_size, self.args.database_size]).to(self.device) # Only to calculate flow so no -1
+        self.four_point_org_large_single[:, :, 0, 1] = torch.Tensor([self.args.database_size - 1, 0]).to(self.device)
+        self.four_point_org_large_single[:, :, 1, 0] = torch.Tensor([0, self.args.database_size - 1]).to(self.device)
+        self.four_point_org_large_single[:, :, 1, 1] = torch.Tensor([self.args.database_size - 1, self.args.database_size - 1]).to(self.device) # Only to calculate flow so no -1
         self.netG = IHN(args, True)
         if args.two_stages:
             corr_level = args.corr_level
@@ -324,13 +324,7 @@ class STHN():
         x_start = crop_top_left[:, 0] # B
         y_start = crop_top_left[:, 1] # B
         # Do not use bbox_generator because it will repeat to reduce 1 for end index
-        bbox_s = torch.tensor([[[0, 0], [0, 0], [0, 0], [0, 0]]], device=x_start.device, dtype=x_start.dtype).repeat(1 if x_start.dim() == 0 else len(crop_top_left), 1, 1)
-        bbox_s[:, :, 0] += x_start.view(-1, 1)
-        bbox_s[:, :, 1] += y_start.view(-1, 1)
-        bbox_s[:, 1, 0] += w_padded
-        bbox_s[:, 2, 0] += w_padded
-        bbox_s[:, 2, 1] += w_padded
-        bbox_s[:, 3, 1] += w_padded
+        bbox_s = bbox.bbox_generator(x_start, y_start, w_padded, w_padded)
         delta = (w_padded / self.args.resize_width).unsqueeze(1).unsqueeze(1).unsqueeze(1)
         image_1_crop = tgm.crop_and_resize(image_1_ori, bbox_s, (self.args.resize_width, self.args.resize_width)) # It will be padded when it is out of boundary
         # swap bbox_s
