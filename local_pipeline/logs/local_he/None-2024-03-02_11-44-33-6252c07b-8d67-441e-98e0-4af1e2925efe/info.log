@@ -1,0 +1,18 @@
+2024-03-02 11:44:33   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 47, in <module>
+    validate_process(args)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 29, in validate_process
+    val_loader = datasets.fetch_dataloader(args, split='val')
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/datasets_4cor_img.py", line 364, in fetch_dataloader
+    train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split, exclude_val_region=exclude_val_region)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/datasets_4cor_img.py", line 173, in __init__
+    self.database_folder_h5_path = join(
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/posixpath.py", line 90, in join
+    genericpath._check_arg_types('join', a, *p)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/genericpath.py", line 152, in _check_arg_types
+    raise TypeError(f'{funcname}() argument must be str, bytes, or '
+TypeError: join() argument must be str, bytes, or os.PathLike object, not 'NoneType'
+

@@ -1,0 +1,15 @@
+2024-03-02 14:34:22   Creating converter from 3 to 5
+2024-03-02 14:34:23   val set: < MYDATA, satellite_0_thermalmapping_135 - #database: 13011; #queries: 13011 >
+2024-03-02 14:34:23   Check the reproducibility by UTM:
+2024-03-02 14:34:23   the first 5th query UTMs: tensor([[[2906., 5831.]]], dtype=torch.float64)
+2024-03-02 14:34:23   the first 5th database UTMs: tensor([[[2906., 5866.]]], dtype=torch.float64)
+2024-03-02 14:34:56   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 153, in <module>
+    validate_process(args)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 137, in validate_process
+    input()
+KeyboardInterrupt
+

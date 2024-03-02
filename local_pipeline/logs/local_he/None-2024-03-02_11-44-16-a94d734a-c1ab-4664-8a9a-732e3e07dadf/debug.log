@@ -1,0 +1,21 @@
+2024-03-02 11:44:16   Popen(['git', 'rev-parse', '--show-toplevel'], cwd=/home/ningzhang/Documents/project/STGL-local-matching, stdin=None, shell=False, universal_newlines=False)
+2024-03-02 11:44:16   Popen(['git', 'rev-parse', '--show-toplevel'], cwd=/home/ningzhang/Documents/project/STGL-local-matching, stdin=None, shell=False, universal_newlines=False)
+2024-03-02 11:44:16   Starting new HTTPS connection (1): api.wandb.ai:443
+2024-03-02 11:44:17   https://api.wandb.ai:443 "POST /graphql HTTP/1.1" 200 None
+2024-03-02 11:44:17   https://api.wandb.ai:443 "POST /graphql HTTP/1.1" 200 None
+2024-03-02 11:44:17   Popen(['git', 'cat-file', '--batch-check'], cwd=/home/ningzhang/Documents/project/STGL-local-matching, stdin=<valid stream>, shell=False, universal_newlines=False)
+2024-03-02 11:44:18   Starting new HTTPS connection (1): o151352.ingest.sentry.io:443
+2024-03-02 11:44:18   https://o151352.ingest.sentry.io:443 "POST /api/4504800232407040/store/ HTTP/1.1" 200 41
+2024-03-02 11:44:18   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 45, in <module>
+    wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/wandb/sdk/wandb_init.py", line 1195, in init
+    raise e
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/wandb/sdk/wandb_init.py", line 1176, in init
+    run = wi.init()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/wandb/sdk/wandb_init.py", line 785, in init
+    raise error
+wandb.errors.CommError: It appears that you do not have permission to access the requested resource. Please reach out to the project owner to grant you access. If you have the correct permissions, verify that there are no issues with your networking setup.(Error 404: Not Found)
+
+2024-03-02 11:44:20   https://o151352.ingest.sentry.io:443 "POST /api/4504800232407040/envelope/ HTTP/1.1" 200 2

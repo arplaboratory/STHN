@@ -1,0 +1,6 @@
+2024-03-02 13:53:19   Creating converter from 3 to 5
+2024-03-02 13:53:20   val set: < MYDATA, satellite_0_thermalmapping_135 - #database: 13011; #queries: 13011 >
+2024-03-02 13:53:21   Check the reproducibility by UTM:
+2024-03-02 13:53:21   the first 5th query UTMs: tensor([[[2906., 5831.]]], dtype=torch.float64)
+2024-03-02 13:53:21   the first 5th database UTMs: tensor([[[2906., 5866.]]], dtype=torch.float64)
+2024-03-02 13:53:21   Loaded backend tkagg version 8.6.

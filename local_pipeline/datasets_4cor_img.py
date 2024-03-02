@@ -85,8 +85,10 @@ class homo_dataset(data.Dataset):
         height, width = img1.size
         t = np.float32(np.array(query_utm - database_utm))
         t[0][0], t[0][1] = t[0][1], t[0][0] # Swap!
-        
+
+
         img1, img2, img2_ori = self.query_transform(img1), self.database_transform(img2), self.database_transform_ori(img2)
+
         alpha = self.args.database_size / self.args.resize_width
         t = t / alpha # align with the resized image
         
@@ -208,11 +210,11 @@ class MYDATA(homo_dataset):
         self.database_utms = np.array(
             [(path.split("@")[1], path.split("@")[2])
              for path in self.database_paths]
-        ).astype(np.float)
+        ).astype(float)
         self.queries_utms = np.array(
             [(path.split("@")[1], path.split("@")[2])
              for path in self.queries_paths]
-        ).astype(np.float)
+        ).astype(float)
 
         # Find soft_positives_per_query, which are within val_positive_dist_threshold (deafult 25 meters)
         knn = NearestNeighbors(n_jobs=-1)

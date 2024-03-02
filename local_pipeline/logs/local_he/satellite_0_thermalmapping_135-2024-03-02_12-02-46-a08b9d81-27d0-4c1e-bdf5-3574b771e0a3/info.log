@@ -1,0 +1,31 @@
+2024-03-02 12:02:46   val set: < MYDATA, satellite_0_thermalmapping_135 - #database: 13011; #queries: 13011 >
+2024-03-02 12:02:51   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 51, in <module>
+    validate_process(args)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 30, in validate_process
+    for i_batch, data_blob in enumerate(tqdm(val_loader)):
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/tqdm/std.py", line 1181, in __iter__
+    for obj in iterable:
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 631, in __next__
+    data = self._next_data()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1329, in _next_data
+    idx, data = self._get_data()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1295, in _get_data
+    success, data = self._try_get_data()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1133, in _try_get_data
+    data = self._data_queue.get(timeout=timeout)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/multiprocessing/queues.py", line 122, in get
+    return _ForkingPickler.loads(res)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/multiprocessing/reductions.py", line 495, in rebuild_storage_fd
+    fd = df.detach()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/multiprocessing/resource_sharer.py", line 58, in detach
+    return reduction.recv_handle(conn)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/multiprocessing/reduction.py", line 189, in recv_handle
+    return recvfds(s, 1)[0]
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/multiprocessing/reduction.py", line 169, in recvfds
+    if len(cmsg_data) % a.itemsize != 0:
+KeyboardInterrupt
+

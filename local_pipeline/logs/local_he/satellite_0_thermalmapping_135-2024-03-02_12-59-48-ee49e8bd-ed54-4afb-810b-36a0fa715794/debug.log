@@ -1,0 +1,35 @@
+2024-03-02 12:59:48   Creating converter from 3 to 5
+2024-03-02 12:59:49   val set: < MYDATA, satellite_0_thermalmapping_135 - #database: 13011; #queries: 13011 >
+2024-03-02 12:59:50   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 52, in <module>
+    validate_process(args)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 30, in validate_process
+    for i_batch, data_blob in enumerate(tqdm(val_loader)):
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/tqdm/std.py", line 1181, in __iter__
+    for obj in iterable:
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 631, in __next__
+    data = self._next_data()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1346, in _next_data
+    return self._process_data(data)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1372, in _process_data
+    data.reraise()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/_utils.py", line 722, in reraise
+    raise exception
+AttributeError: Caught AttributeError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/_utils/worker.py", line 308, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 51, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 51, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/datasets_4cor_img.py", line 329, in __getitem__
+    return super(MYDATA, self).__getitem__(img, pos_img, query_utm, database_utm)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/datasets_4cor_img.py", line 89, in __getitem__
+    print(f"before img1.min {img1.min()}, img1.max {img1.max()}")
+AttributeError: 'Image' object has no attribute 'min'
+
+

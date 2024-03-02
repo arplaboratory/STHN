@@ -1,0 +1,19 @@
+2024-03-02 11:55:36   val set: < MYDATA, satellite_0_thermalmapping_135 - #database: 13011; #queries: 13011 >
+2024-03-02 11:55:38   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 51, in <module>
+    validate_process(args)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 33, in validate_process
+    plt.plot(image1.squeeze().cpu().numpy(), image2.squeeze().cpu().numpy())
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/matplotlib/pyplot.py", line 3575, in plot
+    return gca().plot(
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/matplotlib/axes/_axes.py", line 1721, in plot
+    lines = [*self._get_lines(self, *args, data=data, **kwargs)]
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/matplotlib/axes/_base.py", line 303, in __call__
+    yield from self._plot_args(
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/matplotlib/axes/_base.py", line 502, in _plot_args
+    raise ValueError(f"x and y can be no greater than 2D, but have "
+ValueError: x and y can be no greater than 2D, but have shapes (3, 256, 256) and (3, 256, 256)
+

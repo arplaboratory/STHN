@@ -1,0 +1,19 @@
+2024-03-02 13:20:22   val set: < MYDATA, satellite_0_thermalmapping_135 - #database: 13011; #queries: 13011 >
+2024-03-02 13:20:40   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 54, in <module>
+    validate_process(args)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 36, in validate_process
+    plt.show()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/matplotlib/pyplot.py", line 527, in show
+    return _get_backend_mod().show(*args, **kwargs)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/matplotlib/backend_bases.py", line 3448, in show
+    cls.mainloop()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/matplotlib/backends/_backend_tk.py", line 523, in start_main_loop
+    first_manager.window.mainloop()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/tkinter/__init__.py", line 1458, in mainloop
+    self.tk.mainloop(n)
+KeyboardInterrupt
+

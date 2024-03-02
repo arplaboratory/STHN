@@ -1,2 +1,6 @@
 datasets/
 *.zip
+.ipynb_checkpoints/
+.idea/
+local_pipeline/__pycache__/
+local_pipeline/wandb/

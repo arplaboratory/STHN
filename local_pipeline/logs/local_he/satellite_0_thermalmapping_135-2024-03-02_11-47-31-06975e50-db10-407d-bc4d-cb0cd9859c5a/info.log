@@ -1,0 +1,19 @@
+2024-03-02 11:47:31   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 47, in <module>
+    validate_process(args)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 29, in validate_process
+    val_loader = datasets.fetch_dataloader(args, split='val')
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/datasets_4cor_img.py", line 364, in fetch_dataloader
+    train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split, exclude_val_region=exclude_val_region)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/datasets_4cor_img.py", line 211, in __init__
+    ).astype(np.float)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/numpy/__init__.py", line 324, in __getattr__
+    raise AttributeError(__former_attrs__[attr])
+AttributeError: module 'numpy' has no attribute 'float'.
+`np.float` was a deprecated alias for the builtin `float`. To avoid this error in existing code, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+The aliases was originally deprecated in NumPy 1.20; for more details and guidance see the original release note at:
+    https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+

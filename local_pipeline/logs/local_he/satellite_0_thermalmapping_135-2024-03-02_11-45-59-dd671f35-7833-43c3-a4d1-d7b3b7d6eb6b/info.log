@@ -1,0 +1,21 @@
+2024-03-02 11:45:59   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 47, in <module>
+    validate_process(args)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 29, in validate_process
+    val_loader = datasets.fetch_dataloader(args, split='val')
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/datasets_4cor_img.py", line 364, in fetch_dataloader
+    train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split, exclude_val_region=exclude_val_region)
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/datasets_4cor_img.py", line 179, in __init__
+    database_folder_h5_df = h5py.File(self.database_folder_h5_path, "r", swmr=True)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/h5py/_hl/files.py", line 562, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/h5py/_hl/files.py", line 235, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'datasets/satellite_0_thermalmapping_135/val_database.h5', errno = 2, error message = 'No such file or directory', flags = 40, o_flags = 0)
+

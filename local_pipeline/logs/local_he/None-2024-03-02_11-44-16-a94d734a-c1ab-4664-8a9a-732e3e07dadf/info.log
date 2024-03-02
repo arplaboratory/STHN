@@ -1,0 +1,12 @@
+2024-03-02 11:44:18   
+Traceback (most recent call last):
+  File "/home/ningzhang/Documents/project/STGL-local-matching/local_pipeline/evaluatesift.py", line 45, in <module>
+    wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/wandb/sdk/wandb_init.py", line 1195, in init
+    raise e
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/wandb/sdk/wandb_init.py", line 1176, in init
+    run = wi.init()
+  File "/home/ningzhang/anaconda3/envs/ning_gl/lib/python3.10/site-packages/wandb/sdk/wandb_init.py", line 785, in init
+    raise error
+wandb.errors.CommError: It appears that you do not have permission to access the requested resource. Please reach out to the project owner to grant you access. If you have the correct permissions, verify that there are no issues with your networking setup.(Error 404: Not Found)
+
