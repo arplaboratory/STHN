@@ -4,3 +4,4 @@ datasets/
 .idea/
 local_pipeline/__pycache__/
 local_pipeline/wandb/
+local_pipeline/logs/
