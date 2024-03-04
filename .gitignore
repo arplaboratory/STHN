@@ -1,4 +1,4 @@
-datasets/
+datasets/satellite_0_thermalmapping_135/
 *.zip
 .ipynb_checkpoints/
 .idea/

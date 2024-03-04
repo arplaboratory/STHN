@@ -60,10 +60,12 @@ def parse_arguments():
     parser.add_argument("--rej_threshold", type=float, default=128.0)
     parser.add_argument('--eval_model_fine', type=str, default=None, help="restore checkpoint")
     parser.add_argument('--augment_two_stages', type=float, default=0)
-    parser.add_argument("--points_detector", type=str, default='brisk', choices=['sift', 'orb', 'brisk'],
+    parser.add_argument("--points_detector", type=str, default='orb', choices=['sift', 'orb', 'brisk'],
                         help="key points detector")
     parser.add_argument("--solver", type=str, default='magsac++', choices=['ransac', 'magsac++'],
                         help="solver to be used in cv2.find_homography")
+    parser.add_argument("--match_threshold", type=float, default=0.8,
+                        help="threshold used to remove mismatch points")
     
     args = parser.parse_args()
     args.save_dir = "local_he"
