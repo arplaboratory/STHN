@@ -22,7 +22,7 @@ import commons
 import logging
 import wandb
 
-def test(args):
+def test(args, wandb_log):
     if not args.identity:
         model = STHN(args)
         if not args.train_ue_method == "train_only_ue_raw_input":
@@ -72,7 +72,7 @@ def test(args):
         val_dataset = datasets.fetch_dataloader(args, split='test')
     else:
         val_dataset = datasets.fetch_dataloader(args, split='val')
-    evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args, wandb_log=False)
+    evaluate_SNet(model, val_dataset, batch_size=args.batch_size, args=args, wandb_log=wandb_log)
     
 def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False):
 
@@ -210,6 +210,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         print(f'CE Metric: {final_ce}')
         if wandb_log:
             wandb.log({"test_mace": final_mace})
+            wandb.log({"test_ce": final_ce})
     if args.use_ue:
         mace_conf_list = np.array(mace_conf_list)
         # plot mace conf
@@ -250,5 +251,8 @@ if __name__ == '__main__':
         )
         commons.setup_logging(args.save_dir, console='info')
     setup_seed(0)
-    
-    test(args)
+    logging.debug(args)
+    wandb_log = True
+    if wandb_log:
+        wandb.init(project="STGL-IHN-eval", entity="xjh19971", config=vars(args))
+    test(args, wandb_log)
