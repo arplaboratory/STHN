@@ -111,6 +111,7 @@ def mysift(img1, img2, conf):
             pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
             # four vertices after transformation
             dst = cv2.perspectiveTransform(pts, M)  # shape (4, 1, 2)
+            dst = pts - dst
             # print(dst)
 
             four_pred = np.zeros((conf.batch_size, 2, 2, 2))
@@ -137,7 +138,7 @@ def mysift(img1, img2, conf):
             #                    matchesMask=matchesMask,  # draw only inliers
             #                    flags=2)
             # img3 = cv2.drawMatches(img1, kp1, img2, kp2, good, None, **draw_params)
-            #
+            
             # plt.figure(figsize=(5, 5))
             # plt.imshow(cv2.cvtColor(img3, cv2.COLOR_BGR2RGB))
             # plt.show()
@@ -164,104 +165,101 @@ def validate_process(args):
     mace_conf_error_list = []
     fail_count = 0
     success_count = 0
-    val_loader = datasets.fetch_dataloader(args, split='val')
-    with tqdm(total=len(val_loader)) as pbar:
-        for i_batch, data_blob in enumerate(val_loader):
-    # for i_batch, data_blob in enumerate(tqdm(val_loader)):
-            img1, img2, flow_gt, H, query_utm, database_utm, image1_ori = [x for x in data_blob]
+    val_loader = datasets.fetch_dataloader(args, split='test')
+    for i_batch, data_blob in enumerate(val_loader):
+        # for i_batch, data_blob in enumerate(tqdm(val_loader)):
+        img1, img2, flow_gt, H, query_utm, database_utm, image1_ori = [x for x in data_blob]
 
-            if i_batch == 0:
-                logging.info("Check the reproducibility by UTM:")
-                logging.info(f"the first 5th query UTMs: {query_utm[:5]}")
-                logging.info(f"the first 5th database UTMs: {database_utm[:5]}")
+        if i_batch == 0:
+            logging.info("Check the reproducibility by UTM:")
+            logging.info(f"the first 5th query UTMs: {query_utm[:5]}")
+            logging.info(f"the first 5th database UTMs: {database_utm[:5]}")
 
-            if i_batch%1000 == 0:
-                save_img(torchvision.utils.make_grid((img1)),
-                         args.save_dir + "/b1_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.png')
-                save_img(torchvision.utils.make_grid((img2)),
-                         args.save_dir + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.png')
+        if i_batch%1000 == 0:
+            save_img(torchvision.utils.make_grid((img1)),
+                        args.save_dir + "/b1_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.png')
+            save_img(torchvision.utils.make_grid((img2)),
+                        args.save_dir + "/b2_epoch_" + str(i_batch).zfill(5) + "_finaleval_" + '.png')
 
+        if not args.identity:
+            # model.set_input(img1, img2, flow_gt, image1_ori)
+            flow_4cor = torch.zeros((flow_gt.shape[0], 2, 2, 2))
+            flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
+            flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
+            flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
+            flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
+
+            flow_ = (flow_4cor)**2
+            flow_ = ((flow_[:,0,:,:] + flow_[:,1,:,:])**0.5)
+            flow_vec = torch.mean(torch.mean(flow_, dim=1), dim=1)
+
+
+        img1 = cv2.cvtColor(np.array(inv_base_transforms(img1.squeeze().detach().cpu())), cv2.COLOR_RGB2GRAY)
+        img2 = cv2.cvtColor(np.array(inv_base_transforms(img2.squeeze().detach().cpu())), cv2.COLOR_RGB2GRAY)
+        image1_ori = cv2.cvtColor(np.array(inv_base_transforms(image1_ori.squeeze().detach().cpu())), cv2.COLOR_RGB2GRAY)
+
+        # img1 = cv2.imread('../datasets/1.png', cv2.COLOR_BGR2GRAY)
+        # img2 = cv2.imread('../datasets/2.png', cv2.COLOR_BGR2GRAY)
+
+        time_start = time.time()
+
+        if args.train_ue_method != 'train_only_ue_raw_input':
             if not args.identity:
-                # model.set_input(img1, img2, flow_gt, image1_ori)
-                flow_4cor = torch.zeros((flow_gt.shape[0], 2, 2, 2))
-                flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
-                flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
-                flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
-                flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
+                flag, four_pred = mysift(img1, img2, conf=args)
+                time_end = time.time()
+                timeall.append(time_end - time_start)
+                # print(time_end-time_start)
 
-                flow_ = (flow_4cor)**2
-                flow_ = ((flow_[:,0,:,:] + flow_[:,1,:,:])**0.5)
-                flow_vec = torch.mean(torch.mean(flow_, dim=1), dim=1)
-
-
-            img1 = cv2.cvtColor(np.array(inv_base_transforms(img1.squeeze().detach().cpu())), cv2.COLOR_RGB2GRAY)
-            img2 = cv2.cvtColor(np.array(inv_base_transforms(img2.squeeze().detach().cpu())), cv2.COLOR_RGB2GRAY)
-            image1_ori = cv2.cvtColor(np.array(inv_base_transforms(image1_ori.squeeze().detach().cpu())), cv2.COLOR_RGB2GRAY)
-
-            # img1 = cv2.imread('../datasets/1.png', cv2.COLOR_BGR2GRAY)
-            # img2 = cv2.imread('../datasets/2.png', cv2.COLOR_BGR2GRAY)
-
-
-
-            time_start = time.time()
-
-            if args.train_ue_method != 'train_only_ue_raw_input':
-                if not args.identity:
-                    flag, four_pred = mysift(img1, img2, conf=args)
-                    time_end = time.time()
-                    timeall.append(time_end - time_start)
-                    # print(time_end-time_start)
-
-                    if not flag:
-                        fail_count += 1  # the matching is not successful, continue to the next image.
-                        pbar.set_postfix_str(f"unmatched: {fail_count}, matched: {success_count}")
-                        pbar.update(1)
-                        continue
-                    else:
-                        success_count += 1
-                        pbar.set_postfix_str(f"unmatched: {fail_count}, matched: {success_count}")
-                        pbar.update(1)
-
-                    mace_ = (flow_4cor - torch.from_numpy(four_pred)) ** 2
-                    mace_ = ((mace_[:, 0, :, :] + mace_[:, 1, :, :]) ** 0.5)
-                    mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
-
-                    total_mace = torch.cat([total_mace, mace_vec], dim=0)
-                    final_mace = torch.mean(total_mace).item()
-                    total_flow = torch.cat([total_flow, flow_vec], dim=0)
-                    final_flow = torch.mean(total_flow).item()
-
-                    # CE
-                    four_point_org_single = torch.zeros((1, 2, 2, 2))
-                    four_point_org_single[:, :, 0, 0] = torch.Tensor([0, 0])
-                    four_point_org_single[:, :, 0, 1] = torch.Tensor([args.resize_width - 1, 0])
-                    four_point_org_single[:, :, 1, 0] = torch.Tensor([0, args.resize_width - 1])
-                    four_point_org_single[:, :, 1, 1] = torch.Tensor([args.resize_width - 1, args.resize_width - 1])
-                    four_point_1 = torch.from_numpy(four_pred) + four_point_org_single
-                    four_point_org = four_point_org_single.repeat(four_point_1.shape[0], 1, 1, 1).flatten(2).permute(0, 2,
-                                                                                                                     1).contiguous()
-                    four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous()
-                    four_point_gt = flow_4cor + four_point_org_single
-                    four_point_gt = four_point_gt.flatten(2).permute(0, 2, 1).contiguous()
-
-                    H = tgm.get_perspective_transform(four_point_org, four_point_1.float())
-                    center_T = torch.tensor([args.resize_width / 2 - 0.5, args.resize_width / 2 - 0.5, 1]).unsqueeze(
-                        1).unsqueeze(0).repeat(H.shape[0], 1, 1)
-                    w = torch.bmm(H, center_T).squeeze(2)
-                    center_pred_offset = w[:, :2] / w[:, 2].unsqueeze(1) - center_T[:, :2].squeeze(2)
-                    alpha = args.database_size / args.resize_width
-                    center_gt_offset = (query_utm - database_utm).squeeze(1) / alpha
-                    temp = center_gt_offset[:, 0].clone()
-                    center_gt_offset[:, 0] = center_gt_offset[:, 1]
-                    center_gt_offset[:, 1] = temp  # Swap!
-                    ce_ = (center_pred_offset - center_gt_offset) ** 2
-                    ce_ = ((ce_[:, 0] + ce_[:, 1]) ** 0.5)
-                    ce_vec = ce_
-                    total_ce = torch.cat([total_ce, ce_vec], dim=0)
-                    final_ce = torch.mean(total_ce).item()
-
+                if not flag:
+                    fail_count += 1  # the matching is not successful, continue to the next image.
+                    # pbar.set_postfix_str(f"unmatched: {fail_count}, matched: {success_count}")
+                    # pbar.update(1)
+                    continue
                 else:
-                    four_pred = torch.zeros((flow_gt.shape[0], 2, 2, 2))
+                    success_count += 1
+                    # pbar.set_postfix_str(f"unmatched: {fail_count}, matched: {success_count}")
+                    # pbar.update(1)
+
+                mace_ = (flow_4cor - torch.from_numpy(four_pred)) ** 2
+                mace_ = ((mace_[:, 0, :, :] + mace_[:, 1, :, :]) ** 0.5)
+                mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
+                # print(mace_vec)
+                total_mace = torch.cat([total_mace, mace_vec], dim=0)
+                final_mace = torch.mean(total_mace).item()
+                total_flow = torch.cat([total_flow, flow_vec], dim=0)
+                final_flow = torch.mean(total_flow).item()
+
+                # CE
+                four_point_org_single = torch.zeros((1, 2, 2, 2))
+                four_point_org_single[:, :, 0, 0] = torch.Tensor([0, 0])
+                four_point_org_single[:, :, 0, 1] = torch.Tensor([args.resize_width - 1, 0])
+                four_point_org_single[:, :, 1, 0] = torch.Tensor([0, args.resize_width - 1])
+                four_point_org_single[:, :, 1, 1] = torch.Tensor([args.resize_width - 1, args.resize_width - 1])
+                four_point_1 = torch.from_numpy(four_pred) + four_point_org_single
+                four_point_org = four_point_org_single.repeat(four_point_1.shape[0], 1, 1, 1).flatten(2).permute(0, 2,
+                                                                                                                    1).contiguous()
+                four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous()
+                four_point_gt = flow_4cor + four_point_org_single
+                four_point_gt = four_point_gt.flatten(2).permute(0, 2, 1).contiguous()
+
+                H = tgm.get_perspective_transform(four_point_org, four_point_1.float())
+                center_T = torch.tensor([args.resize_width / 2 - 0.5, args.resize_width / 2 - 0.5, 1]).unsqueeze(
+                    1).unsqueeze(0).repeat(H.shape[0], 1, 1)
+                w = torch.bmm(H, center_T).squeeze(2)
+                center_pred_offset = w[:, :2] / w[:, 2].unsqueeze(1) - center_T[:, :2].squeeze(2)
+                alpha = args.database_size / args.resize_width
+                center_gt_offset = (query_utm - database_utm).squeeze(1) / alpha
+                temp = center_gt_offset[:, 0].clone()
+                center_gt_offset[:, 0] = center_gt_offset[:, 1]
+                center_gt_offset[:, 1] = temp  # Swap!
+                ce_ = (center_pred_offset - center_gt_offset) ** 2
+                ce_ = ((ce_[:, 0] + ce_[:, 1]) ** 0.5)
+                ce_vec = ce_
+                total_ce = torch.cat([total_ce, ce_vec], dim=0)
+                final_ce = torch.mean(total_ce).item()
+
+            else:
+                four_pred = torch.zeros((flow_gt.shape[0], 2, 2, 2))
 
 
             # if not args.identity:
