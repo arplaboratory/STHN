@@ -181,6 +181,26 @@ def sequence_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
     return ce_loss, metrics
 
 
+def single_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
+    """ Loss function defined over sequence of flow predictions """
+
+    print(four_preds[0].shape)
+    flow_4cor = torch.zeros((four_preds[0].shape[0], 2, 2, 2)).to(four_preds[0].device)
+    flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
+    flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
+    flow_4cor[:, :, 1, 0] = flow_gt[:, :, -1, 0]
+    flow_4cor[:, :, 1, 1] = flow_gt[:, :, -1, -1]
+
+    ce_loss = (four_preds[0] - flow_4cor).abs().mean()
+
+    mace = torch.sum((four_preds[0] - flow_4cor) ** 2, dim=1).sqrt()
+    metrics['1px'] = (mace < 1).float().mean().item()
+    metrics['3px'] = (mace < 3).float().mean().item()
+    metrics['mace'] = mace.mean().item()
+
+    return ce_loss, metrics
+
+
 def fetch_optimizer(args, model_para):
     """ Create the optimizer and learning rate scheduler """
     optimizer = optim.AdamW(model_para, lr=args.lr, weight_decay=args.wdecay, eps=args.epsilon)

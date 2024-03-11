@@ -6,7 +6,7 @@ import kornia.geometry.bbox as bbox
 from update import GMA
 from extractor import BasicEncoderQuarter
 from corr import CorrBlock
-from utils import coords_grid, sequence_loss, fetch_optimizer, warp
+from utils import coords_grid, sequence_loss, single_loss, fetch_optimizer, warp
 import os
 import sys
 from model.pix2pix_networks.networks import GANLoss, NLayerDiscriminator
@@ -16,6 +16,7 @@ import torchvision
 import random
 import time
 import logging
+from model.baseline import DHN
 
 autocast = torch.cuda.amp.autocast
 class IHN(nn.Module):
@@ -153,6 +154,11 @@ class IHN(nn.Module):
         else:
             return four_point_predictions, four_point_disp
 
+arch_list = {"IHN": IHN,
+             "DHN": DHN,
+            #  "MHN": MHN,
+            #  "UDHN": UDHN,
+             }
 
 class STHN():
     def __init__(self, args, for_training=False):
@@ -169,7 +175,7 @@ class STHN():
         self.four_point_org_large_single[:, :, 0, 1] = torch.Tensor([self.args.database_size - 1, 0]).to(self.device)
         self.four_point_org_large_single[:, :, 1, 0] = torch.Tensor([0, self.args.database_size - 1]).to(self.device)
         self.four_point_org_large_single[:, :, 1, 1] = torch.Tensor([self.args.database_size - 1, self.args.database_size - 1]).to(self.device) # Only to calculate flow so no -1
-        self.netG = IHN(args, True)
+        self.netG = arch_list[args.arch](args, True)
         if args.two_stages:
             corr_level = args.corr_level
             args.corr_level = 2
@@ -187,7 +193,7 @@ class STHN():
             else:
                 raise NotImplementedError()
             self.criterionGAN = GANLoss(args.GAN_mode, bce_weight=args.bce_weight if args.GAN_mode=="vanilla_rej" else 1.0).to(args.device)
-        self.criterionAUX = sequence_loss
+        self.criterionAUX = sequence_loss if self.args.arch == "IHN" else single_loss
         if for_training:
             if args.two_stages:
                 if args.restore_ckpt is None or args.finetune:
@@ -272,7 +278,7 @@ class STHN():
                 # self.four_pred_fine = torch.zeros_like(self.four_pred).to(self.four_pred.device) # DEBUG
                 # self.four_preds_list_fine[-1] = self.four_pred_fine # DEBUG
                 self.four_preds_list, self.four_pred = self.combine_coarse_fine(self.four_preds_list, self.four_pred, self.four_preds_list_fine, self.four_pred_fine, delta, self.flow_bbox)
-            self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single)
+            self.fake_warped_image_2 = mywarp(self.image_2, self.four_pred, self.four_point_org_single) # Comment for performance evaluation
         elif self.args.GAN_mode == "vanilla_rej":
             pass
         else:
