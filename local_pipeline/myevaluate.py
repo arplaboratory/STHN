@@ -109,13 +109,13 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
             flow_ = ((flow_[:,0,:,:] + flow_[:,1,:,:])**0.5)
             flow_vec = torch.mean(torch.mean(flow_, dim=1), dim=1)
 
-        time_start = time.time()
         if args.train_ue_method != 'train_only_ue_raw_input':
             if not args.identity:
+                # time_start = time.time()
                 model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std, sample_method=args.sample_method)
+                # time_end = time.time()
                 four_pred = model.four_pred
-                time_end = time.time()
-                timeall.append(time_end-time_start)
+                # timeall.append(time_end-time_start)
                 # print(time_end-time_start)
             else:
                 four_pred = torch.zeros((flow_gt.shape[0], 2, 2, 2))
@@ -172,13 +172,9 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
                     four_point_org_single_ori[:, :, 1, 0] = torch.Tensor([0, args.database_size - 1])
                     four_point_org_single_ori[:, :, 1, 1] = torch.Tensor([args.database_size - 1, args.database_size - 1])
                     four_point_bbox = model.flow_bbox.cpu().detach() + four_point_org_single_ori
+                    alpha = args.database_size / args.resize_width
                     four_point_bbox = four_point_bbox.flatten(2).permute(0, 2, 1).contiguous() / alpha
                     save_overlap_bbox_img(img1, model.fake_warped_image_2, save_dir + f'/train_overlap_bbox_{i_batch}.png', four_point_gt, four_point_1, crop_bbox=four_point_bbox)
-                
-            if i_batch%10000 == 0:
-                save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
-                                torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0), 
-                                args.save_dir + f'/eval_overlap_{i_batch}_{mace_vec.mean().item()}.png')
                 
         if not args.identity:
             if args.use_ue:

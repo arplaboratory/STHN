@@ -93,7 +93,7 @@ def save_overlap_bbox_img(img1, img2, path, four_point_gt, four_point_pred, crop
     img2 = np.array(img2_tensor.permute(1, 2, 0)).astype(np.uint8)
     plt.imshow(img2)
     plt.imshow(img1, alpha=0.25)
-    plt.savefig(path, bbox_inches='tight')
+    plt.savefig(path, bbox_inches='tight', pad_inches=0)
     plt.close()
     
 def setup_seed(seed):
