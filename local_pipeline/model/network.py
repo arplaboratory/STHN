@@ -503,7 +503,7 @@ def mywarp(x, flow_pred, four_point_org_single):
     four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
     try:
         H = tgm.get_perspective_transform(four_point_org, four_point_1)
-    except:
+    except Exception:
         logging.debug("No solution")
         H = torch.eye(3).to(four_point_org.device).repeat(four_point_1.shape[0],1,1)
     warped_image = tgm.warp_perspective(x, H, (x.shape[2], x.shape[3]))
