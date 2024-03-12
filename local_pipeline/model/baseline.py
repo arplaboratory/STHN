@@ -71,6 +71,9 @@ class conv3x3(nn.Module):
 class LocalTrans(nn.Module):
     def __init__(self, args, first_stage):
         super().__init__()
+        self.device = torch.device('cuda:' + str(args.gpuid[0]))
+        self.args = args
+        self.first_stage = first_stage
         self.conv1 = nn.Sequential(conv3x3(3, 32), conv3x3(32, 32), nn.MaxPool2d(2, 2))
         self.conv2 = nn.Sequential(conv3x3(32, 64), conv3x3(64, 64), nn.MaxPool2d(2, 2))
         self.conv3 = nn.Sequential(conv3x3(64, 64), conv3x3(64, 64), nn.MaxPool2d(2, 2))
