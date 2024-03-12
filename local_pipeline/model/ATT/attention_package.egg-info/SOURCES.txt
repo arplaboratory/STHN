@@ -1,0 +1,7 @@
+setup.py
+attention_package.egg-info/PKG-INFO
+attention_package.egg-info/SOURCES.txt
+attention_package.egg-info/dependency_links.txt
+attention_package.egg-info/top_level.txt
+src/attention_cuda.cpp
+src/attention_kernel.cu
