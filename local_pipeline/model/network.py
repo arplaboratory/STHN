@@ -16,7 +16,7 @@ import torchvision
 import random
 import time
 import logging
-from model.baseline import DHN
+from model.baseline import DHN, LocalTrans
 
 autocast = torch.cuda.amp.autocast
 class IHN(nn.Module):
@@ -156,7 +156,7 @@ class IHN(nn.Module):
 
 arch_list = {"IHN": IHN,
              "DHN": DHN,
-            #  "MHN": MHN,
+             "LocalTrans": LocalTrans,
             #  "UDHN": UDHN,
              }
 
@@ -502,6 +502,10 @@ def mywarp(x, flow_pred, four_point_org_single):
     
     four_point_org = four_point_org_single.repeat(flow_pred.shape[0],1,1,1).flatten(2).permute(0, 2, 1).contiguous() 
     four_point_1 = four_point_1.flatten(2).permute(0, 2, 1).contiguous() 
-    H = tgm.get_perspective_transform(four_point_org, four_point_1)
+    try:
+        H = tgm.get_perspective_transform(four_point_org, four_point_1)
+    except:
+        logging.debug("No solution")
+        H = torch.eye(3).to(four_point_org.device).repeat(four_point_1.shape[0],1,1)
     warped_image = tgm.warp_perspective(x, H, (x.shape[2], x.shape[3]))
     return warped_image
