@@ -157,7 +157,6 @@ class IHN(nn.Module):
 arch_list = {"IHN": IHN,
              "DHN": DHN,
              "LocalTrans": LocalTrans,
-            #  "UDHN": UDHN,
              }
 
 class STHN():
