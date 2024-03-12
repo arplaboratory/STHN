@@ -184,7 +184,6 @@ def sequence_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
 def single_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
     """ Loss function defined over sequence of flow predictions """
 
-    print(four_preds[0].shape)
     flow_4cor = torch.zeros((four_preds[0].shape[0], 2, 2, 2)).to(four_preds[0].device)
     flow_4cor[:, :, 0, 0] = flow_gt[:, :, 0, 0]
     flow_4cor[:, :, 0, 1] = flow_gt[:, :, 0, -1]
