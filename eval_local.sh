@@ -69,8 +69,8 @@ conda activate STGL
 # # sparse 256 ext larger
 # python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-18_18-44-07-cfb3bb2c-e987-4c17-bdc0-731bc776dcdd/RHWF.pth --val_positive_dist_threshold 256 --lev0 --database_size 1536 --corr_level 4 --test 
 
-sparse 512 ext larger
-python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-18_18-44-07-97a33213-80a2-4f50-9d85-9ad04d7df728/RHWF.pth --val_positive_dist_threshold 512 --lev0 --database_size 1536 --corr_level 4 --test 
+# # sparse 512 ext larger
+# python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-18_18-44-07-97a33213-80a2-4f50-9d85-9ad04d7df728/RHWF.pth --val_positive_dist_threshold 512 --lev0 --database_size 1536 --corr_level 4 --test 
 
 # # dense ext larger 2
 # python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-18_23-56-44-363c4b6f-8c14-4fc5-bd0a-e7ff8b5e12e8/RHWF.pth --lev0 --database_size 1536 --corr_level 4 --two_stages --test
@@ -102,8 +102,17 @@ python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping
 # # sparse 256 ext larger 2 - 1
 # python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-20_21-35-02-265573e5-6138-4813-a94b-dc7237ae500c/RHWF.pth --val_positive_dist_threshold 256 --lev0 --database_size 1536 --corr_level 4 --two_stages --test
 
-# sparse 512 ext larger 2 - 1 
-python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-20_21-35-02-6859fa15-4e14-44dc-95cb-d9ed28da6ae7/RHWF.pth --val_positive_dist_threshold 512 --lev0 --database_size 1536 --corr_level 4 --two_stages --test
+# # sparse 512 ext larger 2 - 1 
+# python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-20_21-35-02-6859fa15-4e14-44dc-95cb-d9ed28da6ae7/RHWF.pth --val_positive_dist_threshold 512 --lev0 --database_size 1536 --corr_level 4 --two_stages --test
 
 # # sparse 512 ext larger 2 - 1 - p
 # python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-22_00-14-15-31e473fa-74e8-4439-8176-d4ca78046663/RHWF.pth --val_positive_dist_threshold 512 --lev0 --database_size 1536 --corr_level 4 --two_stages --fine_padding 128 --test
+
+# # sparse 512 ext larger
+# python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-27_22-54-08-1cabfe69-7d0a-4190-aee8-e88953378f51/RHWF.pth --val_positive_dist_threshold 512 --lev0 --database_size 1536 --corr_level 4 --two_stages --test --vis_all --batch_size 1 --fine_padding 32
+
+# # sparse 512 ext larger 2 - 1 - p
+# python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-03-04_04-12-07-99176381-f32b-4207-b82d-2850d1f999c0/RHWF.pth --val_positive_dist_threshold 512 --lev0 --database_size 1536 --corr_level 4 --two_stages --fine_padding 32 --test --vis_all --batch_size 1
+
+# # sparse 512 ext larger
+# python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-03-04_04-12-07-99176381-f32b-4207-b82d-2850d1f999c0/RHWF.pth --val_positive_dist_threshold 512 --lev0 --database_size 1536 --corr_level 4 --two_stages --test --fine_padding 32
