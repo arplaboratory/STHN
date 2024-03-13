@@ -82,25 +82,15 @@ def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_
     count = 0
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
-        # time1 = time.time()
         image1, image2, flow, _, query_utm, database_utm, image1_ori  = [x for x in data_blob]
-        # time2 = time.time()
-        # logging.debug("DATA LOADING: {}".format(time2-time1))
-        # image2_w = warp(image2, flow)
-        # time1 = time.time()
         model.set_input(image1, image2, flow, image1_ori)
-        # time2 = time.time()
-        # logging.debug("DATA SENDING TO GPU: {}".format(time2-time1))
         if i_batch==0:
             save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1.png')
             save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2.png')
             save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
                              torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                              args.save_dir + '/train_overlap_gt.png')
-        # time1 = time.time()
         metrics = model.optimize_parameters()
-        # time2 = time.time()
-        # logging.debug("OPTIMIZATION: {}".format(time2-time1))
         if i_batch==0 and args.train_ue_method != 'train_only_ue_raw_input':
             save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
                             torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0),

@@ -180,8 +180,8 @@ class homo_dataset(data.Dataset):
                 for p in range(4):
                     for xy in range(2):
                         t1 = random.randint(-self.args.permute_max, self.args.permute_max) # on 256x256
-                        four_point_org_permute[0, p, xy] += t1
-                        four_point_1_permute[0, p, xy] += t1 * beta / alpha
+                        four_point_org_permute[0, p, xy] += t1 # original for 256
+                        four_point_1_permute[0, p, xy] += t1 * beta / alpha # original for 256 then to 512 in 1536 scale then to 256 in 1536 scale
             else:
                 raise NotImplementedError()
             H = tgm.get_perspective_transform(four_point_org, four_point_org_permute)

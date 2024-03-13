@@ -392,7 +392,7 @@ class STHN():
         pred_fake = self.netD(fake_AB.detach())
         if self.args.GAN_mode in ['vanilla', 'lsgan']:
             self.loss_D_fake = self.criterionGAN(pred_fake, False)
-        elif self.args.GAN_mode == 'macegan' and args.D_net != "ue_branch":
+        elif self.args.GAN_mode == 'macegan' and self.args.D_net != "ue_branch":
             mace_ = (self.flow_4cor - self.four_pred)**2
             mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
             self.mace_vec_fake = torch.exp(self.args.ue_alpha * torch.mean(torch.mean(mace_, dim=1), dim=1)).detach() # exp(-0.1x)
