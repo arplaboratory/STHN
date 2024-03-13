@@ -42,6 +42,8 @@ class homo_dataset(data.Dataset):
         self.image_list_img2 = []
         self.dataset=[]
         self.permute = permute
+        if self.permute:
+            self.rng = np.random.default_rng(seed=0)
         base_transform = transforms.Compose(
             [
                 transforms.Resize([self.args.resize_width, self.args.resize_width]),
@@ -137,8 +139,7 @@ class homo_dataset(data.Dataset):
             four_point_1_permute = four_point_1.clone()
             beta = 512/self.args.resize_width
             if self.args.rotate_max!=0:
-                # rotation = torch.rand(1) * 2 * self.args.rotate_max # on 256x256
-                rotation = torch.tensor(torch.pi/4)
+                rotation = torch.tensor(self.rng.random() - 0.5) * 2 * self.args.rotate_max # on 256x256
                 center_x = torch.tensor((self.args.resize_width - 1)/2)
                 four_point_org_permute[0, 0, 0] = (four_point_org[0, 0, 0] - center_x) * torch.cos(rotation) - (four_point_org[0, 0, 1] - center_x) * torch.sin(rotation) + center_x
                 four_point_org_permute[0, 0, 1] = (four_point_org[0, 0, 0] - center_x) * torch.sin(rotation) + (four_point_org[0, 0, 1] - center_x) * torch.cos(rotation) + center_x
@@ -157,7 +158,7 @@ class homo_dataset(data.Dataset):
                 four_point_1_permute[0, 3, 0] = (four_point_1[0, 3, 0] - center_x) * torch.cos(rotation) - (four_point_1[0, 3, 1] - center_x) * torch.sin(rotation) + center_x
                 four_point_1_permute[0, 3, 1] = (four_point_1[0, 3, 0] - center_x) * torch.sin(rotation) + (four_point_1[0, 3, 1] - center_x) * torch.cos(rotation) + center_x
             elif self.args.resize_max!=0:
-                scale_factor = 1 + (random.random() - 0.5) * 2 * self.args.resize_max # on 256x256
+                scale_factor = 1 + (self.rng.random() - 0.5) * 2 * self.args.resize_max # on 256x256
                 assert scale_factor > 0
                 offset = self.args.resize_width * (1 - scale_factor) / 2
                 four_point_org_permute[0, 0, 0] += offset
@@ -179,7 +180,7 @@ class homo_dataset(data.Dataset):
             elif self.args.permute_max!=0:
                 for p in range(4):
                     for xy in range(2):
-                        t1 = random.randint(-self.args.permute_max, self.args.permute_max) # on 256x256
+                        t1 = self.rng.integers(-self.args.permute_max, self.args.permute_max) # on 256x256
                         four_point_org_permute[0, p, xy] += t1 # original for 256
                         four_point_1_permute[0, p, xy] += t1 * beta / alpha # original for 256 then to 512 in 1536 scale then to 256 in 1536 scale
             else:
