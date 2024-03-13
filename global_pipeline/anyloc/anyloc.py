@@ -117,7 +117,7 @@ def main(largs: LocalArgs):
     desc_facet: Literal["query", "key", "value", "token"] = "value"
     num_c: int = largs.num_c
     # Domain for use case (deployment environment)
-    domain: largs.domain
+    domain: str = largs.domain
     # Maximum image dimension
     max_img_size: int = largs.max_img_size
     # Ensure inputs are fine
