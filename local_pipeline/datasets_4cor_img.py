@@ -42,7 +42,7 @@ class homo_dataset(data.Dataset):
         self.image_list_img2 = []
         self.dataset=[]
         self.permute = permute
-        if self.permute:
+        if self.permute and self.args.eval_model is not None: # EVAL
             self.rng = np.random.default_rng(seed=0)
         base_transform = transforms.Compose(
             [
@@ -180,7 +180,10 @@ class homo_dataset(data.Dataset):
             elif self.args.permute_max!=0:
                 for p in range(4):
                     for xy in range(2):
-                        t1 = self.rng.integers(-self.args.permute_max, self.args.permute_max) # on 256x256
+                        if self.args.eval_model is not None: # EVAL
+                            t1 = self.rng.integers(-self.args.permute_max, self.args.permute_max) # on 256x256
+                        else:
+                            t1 = random.randint(-self.args.permute_max, self.args.permute_max)
                         four_point_org_permute[0, p, xy] += t1 # original for 256
                         four_point_1_permute[0, p, xy] += t1 * beta / alpha # original for 256 then to 512 in 1536 scale then to 256 in 1536 scale
             else:
