@@ -90,7 +90,7 @@ cache_dir = "./cache"
 ext_specifier = f"dinov2_vitg14/"\
     f"l{desc_layer}_{desc_facet}_c{num_c}"
 c_centers_file = os.path.join(cache_dir, "vocabulary", 
-    ext_specifier, "aerial", "c_centers.pt")
+    ext_specifier, "thermal", "c_centers.pt")
 assert os.path.isfile(c_centers_file), "Vocabulary not cached!"
 c_centers = torch.load(c_centers_file)
 assert c_centers.shape[0] == num_c, "Wrong number of clusters!"
