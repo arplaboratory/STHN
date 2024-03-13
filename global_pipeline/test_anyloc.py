@@ -15,7 +15,7 @@ from PIL import Image
 import shutil
 import datasets_ws
 import h5py
-
+import einops as ein
 
 def test_anyloc(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=False, vlad=None):
     """Compute features of the given dataset and compute the recalls."""
@@ -292,166 +292,96 @@ def test_anyloc(args, eval_ds, model, test_method="hard_resize", pca=None, visua
             
     return recalls, recalls_str
 
-def test_translation_pix2pix(args, eval_ds, model, visual_current=False, visual_image_num=10, epoch_num=None):
-    """Compute PSNR of the given dataset and compute the recalls."""
-    
-    model.netG = model.netG.eval()
-    psnr_sum = 0
-    psnr_count = 0
-    save_dir = None
-    if args.visual_all:
-        if os.path.isdir("visual_all"):
-            shutil.rmtree("visual_all")
-        os.mkdir("visual_all")
-        save_dir = "visual_all"
-    if visual_current:
-        if not os.path.isdir(os.path.join(args.save_dir, "visual_current")):
-            os.mkdir(os.path.join(args.save_dir, "visual_current"))
-        save_dir = os.path.join(args.save_dir, "visual_current")
+def fit_anyloc(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=False, vlad=None):
+    """Compute features of the given dataset and compute the recalls."""
+
+    assert test_method in [
+        "hard_resize",
+        "single_query",
+        "central_crop",
+        "five_crops",
+        "nearest_crop",
+        "maj_voting",
+    ], f"test_method can't be {test_method}"
+
+    if args.efficient_ram_testing:
+        return test_efficient_ram_usage(args, eval_ds, model, test_method)
+
+    model = model
     with torch.no_grad():
+        logging.debug("Extracting database features for evaluation/testing")
         # For database use "hard_resize", although it usually has no effect because database images have same resolution
         eval_ds.test_method = "hard_resize"
-
-        eval_ds.is_inference = True
-        eval_ds.compute_pairs(args)
-        eval_ds.is_inference = False
-
-        eval_dataloader = DataLoader(
-            dataset=eval_ds,
+        database_subset_ds = Subset(eval_ds, list(range(eval_ds.database_num)))
+        database_dataloader = DataLoader(
+            dataset=database_subset_ds,
             num_workers=args.num_workers,
-            batch_size=1,
+            batch_size=args.infer_batch_size,
             pin_memory=(args.device == "cuda"),
-            shuffle=False
         )
 
-        logging.debug("Calculating PSNR")
-        for query, database, query_name, database_name in tqdm(eval_dataloader, ncols=100):
-            # Compute features of all images (images contains queries, positives and negatives)
-            model.set_input(database, query)
-            model.forward()
-            output = model.fake_B
-            output = torch.clamp(output, min=-1, max=1)
-            query_images = query.to(args.device) * 0.5 + 0.5
-            output_images = output * 0.5 + 0.5
-            database_images = database.to(args.device) * 0.5 + 0.5
-            if args.visual_all or (visual_current == True and psnr_count < visual_image_num):
-                vis_image_1 = transforms.ToPILImage()(output_images[0].cpu())
-                vis_image_2 = transforms.ToPILImage()(query_images[0].cpu())
-                vis_image_3 = transforms.ToPILImage()(database_images[0].cpu())
-                dst = Image.new('RGB', (vis_image_1.width, vis_image_1.height + vis_image_2.height + vis_image_3.height))
-                dst.paste(vis_image_1, (0, 0))
-                dst.paste(vis_image_2, (0, vis_image_1.height))
-                dst.paste(vis_image_3, (0, vis_image_1.height + vis_image_2.height))
-                if args.visual_all:
-                    vis_image_1.save(f"{save_dir}/{psnr_count}_gen.jpg")
-                    vis_image_2.save(f"{save_dir}/{psnr_count}_gt.jpg")
-                    vis_image_3.save(f"{save_dir}/{psnr_count}_st.jpg")
-                elif visual_current:
-                    dst.save(f"{save_dir}/{epoch_num}_{query_name}.jpg")
-            elif visual_current == True and psnr_count >= visual_image_num:
-                # early stop
-                break
-            psnr_sum += calculate_psnr(query_images, output_images)
-            psnr_count += 1
+        if test_method == "nearest_crop" or test_method == "maj_voting":
+            all_features = np.empty(
+                (5 * eval_ds.queries_num + eval_ds.database_num, args.features_dim),
+                dtype="float32",
+            )
+        else:
+            all_features = np.empty(
+                (len(eval_ds), 1296*1536), dtype="float32")
 
-    psnr_sum /= psnr_count
+        for inputs, indices in tqdm(database_dataloader, ncols=100):
+            ret = model(inputs.to(args.device))
+            features = ret.view(-1)
+            features = features.cpu().numpy()
+            if pca != None:
+                features = pca.transform(features)
+            all_features[indices.numpy(), :] = features
 
-    psnr_str = f"PSNR: {psnr_sum:.1f}"
-            
-    return [psnr_sum], psnr_str
-
-def test_translation_pix2pix_generate_h5(args, eval_ds, model, exclude_test_region=None):
-    """Compute PSNR of the given dataset and compute the recalls."""
-    
-    model.netG = model.netG.eval()
-    
-    save_path = os.path.join(args.save_dir, "extended_queries.h5")
-
-    with torch.no_grad():
-        # For database use "hard_resize", although it usually has no effect because database images have same resolution
-        eval_ds.test_method = "hard_resize"
-
-        eval_ds.is_inference = True
-        eval_ds.compute_pairs(args)
-        eval_ds.is_inference = False
-        
-        eval_dataloader = DataLoader(
-            dataset=eval_ds,
-            num_workers=args.num_workers,
-            batch_size=16,
-            pin_memory=(args.device == "cuda"),
-            shuffle=False
+        logging.debug("Extracting queries features for evaluation/testing")
+        queries_infer_batch_size = (
+            1 if test_method == "single_query" else args.infer_batch_size
         )
-        with h5py.File(save_path, "a") as hf:
-            start = False
-            img_names = []
-            for query, database, query_path, database_path in tqdm(eval_dataloader, ncols=100):
-                # Compute features of all images (images contains queries, positives and negatives)
-                model.set_input(database, query)
-                model.forward()
-                output = model.fake_B
-                output = torch.clamp(output, min=-1, max=1)
-                output_images = output * 0.5 + 0.5
-                for i in range(len(database_path)):
-                    generated_query = transforms.Grayscale(num_output_channels=3)(transforms.Resize(args.resize)(transforms.ToPILImage()(output_images[i].cpu())))
-                    cood_y = int(database_path[i].split("@")[1])
-                    cood_x = int(database_path[i].split("@")[2])
-                    if exclude_test_region is not None:
-                        if cood_y >= exclude_test_region[0] and cood_y <= exclude_test_region[2] and cood_x >= exclude_test_region[1] and cood_x <= exclude_test_region[3]:
-                            logging.debug("Exclude generating image in test region")
-                            continue
-                    name = f"@{cood_y}@{cood_x}"
-                    img_names.append(name)
-                    img_np = np.array(generated_query)
-                    img_np = np.expand_dims(img_np, axis=0)
-                    size_np = np.expand_dims(
-                        np.array([img_np.shape[1], img_np.shape[2]]), axis=0)
-                    if not start:
-                        hf.create_dataset(
-                            "image_data",
-                            data=img_np,
-                            chunks=(1, 512, 512, 3),
-                            maxshape=(None, 512, 512, 3),
-                            compression="lzf",
-                        )  # write the data to hdf5 file
-                        hf.create_dataset(
-                            "image_size",
-                            data=size_np,
-                            chunks=True,
-                            maxshape=(None, 2),
-                            compression="lzf",
-                        )
-                        start = True
-                    else:
-                        hf["image_data"].resize(
-                            hf["image_data"].shape[0] + img_np.shape[0], axis=0
-                        )
-                        hf["image_data"][-img_np.shape[0]:] = img_np
-                        hf["image_size"].resize(
-                            hf["image_size"].shape[0] + size_np.shape[0], axis=0
-                        )
-                        hf["image_size"][-size_np.shape[0]:] = size_np
-            t = h5py.string_dtype(encoding="utf-8")
-            hf.create_dataset("image_name", data=img_names,
-                            dtype=t, compression="lzf")
-            print("hdf5 file size: %d bytes" % os.path.getsize(save_path))
+        eval_ds.test_method = test_method
+        queries_subset_ds = Subset(
+            eval_ds,
+            list(
+                range(eval_ds.database_num,
+                      eval_ds.database_num + eval_ds.queries_num)
+            ),
+        )
+        queries_dataloader = DataLoader(
+            dataset=queries_subset_ds,
+            num_workers=args.num_workers,
+            batch_size=queries_infer_batch_size,
+            pin_memory=(args.device == "cuda"),
+        )
+        for inputs, indices in tqdm(queries_dataloader, ncols=100):
+            if (
+                test_method == "five_crops"
+                or test_method == "nearest_crop"
+                or test_method == "maj_voting"
+            ):
+                # shape = 5*bs x 3 x 480 x 480
+                inputs = torch.cat(tuple(inputs))
+            ret = model(inputs.to(args.device))
+            features = ret.view(-1)
+            if test_method == "five_crops":  # Compute mean along the 5 crops
+                features = torch.stack(torch.split(features, 5)).mean(1)
+            features = features.cpu().numpy()
+            if pca != None:
+                features = pca.transform(features)
 
-
-def top_n_voting(topn, predictions, distances, maj_weight):
-    if topn == "top1":
-        n = 1
-        selected = 0
-    elif topn == "top5":
-        n = 5
-        selected = slice(0, 5)
-    elif topn == "top10":
-        n = 10
-        selected = slice(0, 10)
-    # find predictions that repeat in the first, first five,
-    # or fist ten columns for each crop
-    vals, counts = np.unique(predictions[:, selected], return_counts=True)
-    # for each prediction that repeats more than once,
-    # subtract from its score
-    for val, count in zip(vals[counts > 1], counts[counts > 1]):
-        mask = predictions[:, selected] == val
-        distances[:, selected][mask] -= maj_weight * count / n
+            if (
+                test_method == "nearest_crop" or test_method == "maj_voting"
+            ):  # store the features of all 5 crops
+                start_idx = (
+                    eval_ds.database_num +
+                    (indices[0] - eval_ds.database_num) * 5
+                )
+                end_idx = start_idx + indices.shape[0] * 5
+                indices = np.arange(start_idx, end_idx)
+                all_features[indices, :] = features
+            else:
+                all_features[indices.numpy(), :] = features
+    all_features=np.reshape(all_features, (len(eval_ds), 1296, 1536))
+    vlad.fit(ein.rearrange(all_features, "n k d -> (n k) d"))
