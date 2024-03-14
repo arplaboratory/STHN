@@ -2,9 +2,7 @@ import argparse
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', default='RHWF', help="name your experiment")
-    parser.add_argument('--stage', help="determines which dataset to use for training")
-    parser.add_argument('--validation', type=str, nargs='+')
+    parser.add_argument('--name', default='STHN', help="name your experiment")
     parser.add_argument('--restore_ckpt', help="restore checkpoint")
     parser.add_argument('--gpuid', type=int, nargs='+', default=[0])
     parser.add_argument('--lev0', default=True, action='store_true', help='warp no')
@@ -60,7 +58,7 @@ def parse_arguments():
     parser.add_argument("--rej_threshold", type=float, default=128.0)
     parser.add_argument('--eval_model_fine', type=str, default=None, help="restore checkpoint")
     parser.add_argument('--augment_two_stages', type=float, default=0)
-    parser.add_argument('--augment_type', default="bbox", choices=["bbox", "center"])
+    parser.add_argument('--augment_type', default="center", choices=["bbox", "center"])
     parser.add_argument('--arch', type=str, default="IHN", choices=["IHN", "DHN", "LocalTrans"])
     parser.add_argument('--rotate_max', type=float, default=0)
     parser.add_argument('--resize_max', type=float, default=0)
