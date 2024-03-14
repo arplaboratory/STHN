@@ -37,7 +37,6 @@ class homo_dataset(data.Dataset):
 
         self.args = args
         self.is_test = False
-        self.init_seed = True
         self.image_list_img1 = []
         self.image_list_img2 = []
         self.dataset=[]
@@ -126,15 +125,9 @@ class homo_dataset(data.Dataset):
         return four_point_org_permute, four_point_1_permute
 
     def __getitem__(self, query_PIL_image, database_PIL_image, query_utm, database_utm):
-        if not self.init_seed:
+        if hasattr(self, "rng") and self.rng is None:
             worker_info = torch.utils.data.get_worker_info()
-            if worker_info is not None:
-                torch.manual_seed(worker_info.id)
-                np.random.seed(worker_info.id)
-                random.seed(worker_info.id)
-                if hasattr(self, "rng"):
-                    self.rng = np.random.default_rng(seed=worker_info.id)
-                self.init_seed = True
+            self.rng = np.random.default_rng(seed=worker_info.id)
 
         img1 = query_PIL_image
         img2 = database_PIL_image # img1 warp to img2
