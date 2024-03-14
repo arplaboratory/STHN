@@ -62,7 +62,7 @@ def parse_arguments():
     parser.add_argument('--arch', type=str, default="IHN", choices=["IHN", "DHN", "LocalTrans"])
     parser.add_argument('--rotate_max', type=float, default=0)
     parser.add_argument('--resize_max', type=float, default=0)
-    parser.add_argument('--permute_max', type=float, default=32)
+    parser.add_argument('--permute_max', type=float, default=0)
     args = parser.parse_args()
     args.save_dir = "local_he"
 
