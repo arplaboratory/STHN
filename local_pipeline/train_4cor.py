@@ -57,7 +57,7 @@ def main(args):
         
     train_loader = datasets.fetch_dataloader(args, split="train")
     if os.path.exists(os.path.join(args.datasets_folder, args.dataset_name, "extended_queries.h5")):
-        extended_loader = datasets.fetch_dataloader(args, split="extended", exclude_val_region=args.exclude_val_region)
+        extended_loader = datasets.fetch_dataloader(args, split="extended")
     else:
         extended_loader = None
 

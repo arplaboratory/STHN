@@ -311,13 +311,11 @@ class GMA(nn.Module):
             if self.args.weight:
                 self.cnn_weight = CNN_weight_64(128)
             else:
-                if args.corr_level == 2 and args.corr_radius == 4:
+                if args.corr_level == 2:
                     init_dim = 164
-                elif args.corr_level == 4 and args.corr_radius == 4:
+                elif args.corr_level == 4:
                     init_dim = 326
-                elif args.corr_level == 2 and args.corr_radius == 6:
-                    init_dim = 340
-                elif args.corr_level == 6 and args.corr_radius == 4:
+                elif args.corr_level == 6:
                     init_dim = 488
                 else:
                     raise NotImplementedError()

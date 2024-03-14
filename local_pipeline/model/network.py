@@ -31,9 +31,6 @@ class IHN(nn.Module):
         if self.args.lev0:
             sz = self.args.resize_width // 4
             self.update_block_4 = GMA(self.args, sz, first_stage)
-        # if self.args.lev1:
-        #     sz = 128
-        #     self.update_block_2 = GMA(self.args, sz)
         
     def get_flow_now_4(self, four_point):
         four_point = four_point / 4
@@ -257,9 +254,9 @@ class STHN():
         if not use_raw_input:
             # time1 = time.time()
             if self.args.use_ue and self.args.D_net == "ue_branch":
-                self.four_preds_list, self.four_pred, self.four_ue = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
+                self.four_preds_list, self.four_pred, self.four_ue = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level)
             else:
-                self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level, corr_radius=self.args.corr_radius)
+                self.four_preds_list, self.four_pred = self.netG(image1=self.image_1, image2=self.image_2, iters_lev0=self.args.iters_lev0, corr_level=self.args.corr_level)
             # time2 = time.time()
             # logging.debug("Time for 1st forward pass: " + str(time2 - time1) + " seconds")
             if self.args.two_stages:
