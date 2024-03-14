@@ -75,9 +75,12 @@ ext_specifier = f"dinov2_vitg14/"\
     f"l{desc_layer}_{desc_facet}_c{num_c}"
 c_centers_file = os.path.join(cache_dir, "vocabulary", 
     ext_specifier, "thermal", "c_centers.pt")
-# Main VLAD object
-vlad = utilities.VLAD(num_c, desc_dim=None, cache_dir=None)
-test_anyloc.fit_anyloc(args, train_ds, model, test_method = args.test_method, pca = pca, visualize=args.visual_all, vlad=vlad)
+if not os.path.isfile(c_centers_file):
+    # Main VLAD object
+    vlad = utilities.VLAD(num_c, desc_dim=None,
+    cache_dir=os.path.dirname(c_centers_file))
+    args.infer_batch_size = 4
+    test_anyloc.fit_anyloc(args, train_ds, model, test_method = args.test_method, pca = pca, visualize=args.visual_all, vlad=vlad)
 
 ######################################### MODEL #########################################
 desc_layer = 31
@@ -100,6 +103,7 @@ cache_dir=os.path.dirname(c_centers_file))
 vlad.fit(None)  # Load the vocabulary
 
 ######################################### TEST on TEST SET #########################################
+args.infer_batch_size = 1
 recalls, recalls_str = test_anyloc.test_anyloc(args, test_ds, model, test_method = args.test_method, pca = pca, visualize=args.visual_all, vlad=vlad)
 logging.info(f"Recalls on {test_ds}: {recalls_str}")
 
