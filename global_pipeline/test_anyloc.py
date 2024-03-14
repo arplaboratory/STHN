@@ -331,7 +331,7 @@ def fit_anyloc(args, eval_ds, model, test_method="hard_resize", pca=None, visual
 
         for inputs, indices in tqdm(database_dataloader, ncols=100):
             ret = model(inputs.to(args.device))
-            features = ret.view(-1)
+            features = ret.view(-1, 1296*1536)
             features = features.cpu().numpy()
             if pca != None:
                 features = pca.transform(features)
@@ -364,7 +364,7 @@ def fit_anyloc(args, eval_ds, model, test_method="hard_resize", pca=None, visual
                 # shape = 5*bs x 3 x 480 x 480
                 inputs = torch.cat(tuple(inputs))
             ret = model(inputs.to(args.device))
-            features = ret.view(-1)
+            features = ret.view(-1, 1296*1536)
             if test_method == "five_crops":  # Compute mean along the 5 crops
                 features = torch.stack(torch.split(features, 5)).mean(1)
             features = features.cpu().numpy()
