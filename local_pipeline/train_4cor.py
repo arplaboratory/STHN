@@ -173,6 +173,6 @@ if __name__ == "__main__":
     commons.setup_logging(args.save_dir, console='info')
     setup_seed(0)
 
-    wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
+    wandb.init(project="STHN", entity="xjh19971", config=vars(args))
         
     main(args)

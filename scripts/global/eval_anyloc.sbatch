@@ -8,6 +8,6 @@
 #SBATCH --job-name=eval_thermal
 
 eval "$(conda shell.bash hook)"
-conda activate STGL
+conda activate STHN
 
 python3 global_pipeline/eval_anyloc.py --dataset_name=satellite_0_thermalmapping_135 --datasets_folder ./datasets --infer_batch_size 1 --prior_location_threshold=512 --resize 504 504

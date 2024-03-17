@@ -9,6 +9,6 @@
 #SBATCH --output=train_local.out
 
 eval "$(conda shell.bash hook)"
-conda activate STGL
+conda activate STHN
 
 python3 ./local_pipeline/train_4cor.py --dataset_name satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train --val_positive_dist_threshold 512 --database_size 1536 --num_steps 300000 --two_stages --corr_level 4 --restore_ckpt logs/local_he/satellite_0_thermalmapping_135_nocontrast_dense_exclusion_larger_ori_train-2024-02-18_18-44-07-97a33213-80a2-4f50-9d85-9ad04d7df728/RHWF.pth --finetune --detach --augment_two_stages 64 --augment_type center

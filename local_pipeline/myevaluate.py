@@ -250,5 +250,5 @@ if __name__ == '__main__':
     logging.debug(args)
     wandb_log = True
     if wandb_log:
-        wandb.init(project="STGL-IHN-eval", entity="xjh19971", config=vars(args))
+        wandb.init(project="STHN-eval", entity="xjh19971", config=vars(args))
     test(args, wandb_log)
