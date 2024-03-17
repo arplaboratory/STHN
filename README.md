@@ -105,8 +105,14 @@ To evaluate one-stage and two-stage methods, use one of the following scripts:
 
 Find the test results in ``./test/local_he/$model_folder_name/``.
 
+## Image-matching Baselines
+For training and evaluate the image-matching baselines (anyloc and STGL), please refer to ``scripts/global/``.
+
 ## Acknowledgement
 Our implementation refers to the following repositories and appreciate their excellent work.
 
-https://github.com/imdumpl78/IHN
+https://github.com/imdumpl78/IHN  
+https://github.com/AnyLoc/AnyLoc  
+https://github.com/gmberton/deep-visual-geo-localization-benchmark  
+https://github.com/fungtion/DANN 
 https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
