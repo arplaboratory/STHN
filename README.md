@@ -71,7 +71,7 @@ You can find the training scripts and evaluation scripts in ``scripts`` folder. 
 
 ### Coarse-level Alignment Training
 
-To train the coarse-level alignment module, use one of the scripts in ``./scripts/local`` for $W_S=512$ and ``./scripts/local_larger`` for $W_S=1536$ with different $D_C, for example:
+To train the coarse-level alignment module, use one of the scripts in ``./scripts/local`` for $W_S=512$ and ``./scripts/local_larger`` for $W_S=1536$ with different $D_C$, for example:
 
 ```
 ./scripts/local_larger/train_local_sparse_512_extended_long.sbatch
@@ -82,7 +82,7 @@ The ``$dataset_name-$datetime-$uuid`` is your **coarse_model_folder_name**.
 
 
 
-### Refinement Training (only for $W_S=1536)
+### Refinement Training (only for $W_S=1536$)
 
 Before training, change the ``restore_ckpt`` argument using **coarse_model_folder_name** to load your trained coarse-level alignment module.
 
@@ -92,7 +92,7 @@ To train the refinement module, use one of the scripts in ``./scripts/local_larg
 ./scripts/local/train_local_sparse_512_extended_long_load_f_aug64_c.sbatch
 ```
 
-After training SGM, find your model folder in ``./logs/local_he/$dataset_name-$datetime-$uuid``  
+After training, find your model folder in ``./logs/local_he/$dataset_name-$datetime-$uuid``  
 The ``$dataset_name-$datetime-$uuid`` is your **refine_model_folder_name**.
 
 ## Evaluation
@@ -106,7 +106,7 @@ To evaluate one-stage and two-stage methods, use one of the following scripts:
 Find the test results in ``./test/local_he/$model_folder_name/``.
 
 ## Image-matching Baselines
-For training and evaluate the image-matching baselines (anyloc and STGL), please refer to ``scripts/global/``.
+For training and evaluating the image-matching baselines (anyloc and STGL), please refer to ``scripts/global/`` for training and evaluation.
 
 ## Acknowledgement
 Our implementation refers to the following repositories and appreciate their excellent work.
@@ -114,5 +114,5 @@ Our implementation refers to the following repositories and appreciate their exc
 https://github.com/imdumpl78/IHN  
 https://github.com/AnyLoc/AnyLoc  
 https://github.com/gmberton/deep-visual-geo-localization-benchmark  
-https://github.com/fungtion/DANN 
+https://github.com/fungtion/DANN  
 https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
