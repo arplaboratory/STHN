@@ -37,11 +37,21 @@ class homo_dataset(data.Dataset):
 
         self.args = args
         self.is_test = False
-        self.init_seed = True
         self.image_list_img1 = []
         self.image_list_img2 = []
         self.dataset=[]
         self.permute = permute
+        if self.permute: # EVAL
+            if self.args.eval_model is not None:
+                self.rng = None
+            else:
+                self.permute_type = ["no"]
+                if self.args.permute_max > 0:
+                    self.permute_type.append("permute")
+                if self.args.rotate_max > 0:
+                    self.permute_type.append("rotate")
+                if self.args.resize_max > 0:
+                    self.permute_type.append("resize")
         base_transform = transforms.Compose(
             [
                 transforms.Resize([self.args.resize_width, self.args.resize_width]),
@@ -70,14 +80,54 @@ class homo_dataset(data.Dataset):
         self.database_transform = base_transform
         self.database_transform_ori = base_transform_ori
         
+    def rotate_transform(self, rotation, four_point_org, four_point_1, four_point_org_permute, four_point_1_permute):
+        center_x_org = torch.tensor((self.args.resize_width - 1)/2)
+        center_x_1 = (four_point_1[0, 0, :] + four_point_1[0, 3, :])/2
+        four_point_org_permute[0, 0, 0] = (four_point_org[0, 0, 0] - center_x_org) * torch.cos(rotation) - (four_point_org[0, 0, 1] - center_x_org) * torch.sin(rotation) + center_x_org
+        four_point_org_permute[0, 0, 1] = (four_point_org[0, 0, 0] - center_x_org) * torch.sin(rotation) + (four_point_org[0, 0, 1] - center_x_org) * torch.cos(rotation) + center_x_org
+        four_point_org_permute[0, 1, 0] = (four_point_org[0, 1, 0] - center_x_org) * torch.cos(rotation) - (four_point_org[0, 1, 1] - center_x_org) * torch.sin(rotation) + center_x_org
+        four_point_org_permute[0, 1, 1] = (four_point_org[0, 1, 0] - center_x_org) * torch.sin(rotation) + (four_point_org[0, 1, 1] - center_x_org) * torch.cos(rotation) + center_x_org
+        four_point_org_permute[0, 2, 0] = (four_point_org[0, 2, 0] - center_x_org) * torch.cos(rotation) - (four_point_org[0, 2, 1] - center_x_org) * torch.sin(rotation) + center_x_org
+        four_point_org_permute[0, 2, 1] = (four_point_org[0, 2, 0] - center_x_org) * torch.sin(rotation) + (four_point_org[0, 2, 1] - center_x_org) * torch.cos(rotation) + center_x_org
+        four_point_org_permute[0, 3, 0] = (four_point_org[0, 3, 0] - center_x_org) * torch.cos(rotation) - (four_point_org[0, 3, 1] - center_x_org) * torch.sin(rotation) + center_x_org
+        four_point_org_permute[0, 3, 1] = (four_point_org[0, 3, 0] - center_x_org) * torch.sin(rotation) + (four_point_org[0, 3, 1] - center_x_org) * torch.cos(rotation) + center_x_org
+        four_point_1_permute[0, 0, 0] = (four_point_1[0, 0, 0] - center_x_1[0]) * torch.cos(rotation) - (four_point_1[0, 0, 1] - center_x_1[1]) * torch.sin(rotation) + center_x_1[0]
+        four_point_1_permute[0, 0, 1] = (four_point_1[0, 0, 0] - center_x_1[0]) * torch.sin(rotation) + (four_point_1[0, 0, 1] - center_x_1[1]) * torch.cos(rotation) + center_x_1[1]
+        four_point_1_permute[0, 1, 0] = (four_point_1[0, 1, 0] - center_x_1[0]) * torch.cos(rotation) - (four_point_1[0, 1, 1] - center_x_1[1]) * torch.sin(rotation) + center_x_1[0]
+        four_point_1_permute[0, 1, 1] = (four_point_1[0, 1, 0] - center_x_1[0]) * torch.sin(rotation) + (four_point_1[0, 1, 1] - center_x_1[1]) * torch.cos(rotation) + center_x_1[1]
+        four_point_1_permute[0, 2, 0] = (four_point_1[0, 2, 0] - center_x_1[0]) * torch.cos(rotation) - (four_point_1[0, 2, 1] - center_x_1[1]) * torch.sin(rotation) + center_x_1[0]
+        four_point_1_permute[0, 2, 1] = (four_point_1[0, 2, 0] - center_x_1[0]) * torch.sin(rotation) + (four_point_1[0, 2, 1] - center_x_1[1]) * torch.cos(rotation) + center_x_1[1]
+        four_point_1_permute[0, 3, 0] = (four_point_1[0, 3, 0] - center_x_1[0]) * torch.cos(rotation) - (four_point_1[0, 3, 1] - center_x_1[1]) * torch.sin(rotation) + center_x_1[0]
+        four_point_1_permute[0, 3, 1] = (four_point_1[0, 3, 0] - center_x_1[0]) * torch.sin(rotation) + (four_point_1[0, 3, 1] - center_x_1[1]) * torch.cos(rotation) + center_x_1[1]
+        # print("ori:", four_point_org[0, 0, 0], four_point_org[0, 0, 1], four_point_1[0, 0, 0], four_point_1[0, 0, 1])
+        # print("now:", four_point_org_permute[0, 0, 0], four_point_org_permute[0, 0, 1], four_point_1_permute[0, 0, 0], four_point_1_permute[0, 0, 1])
+        # print("center:", center_x_1, four_point_1[0, 0, :], four_point_1[0, 3, :])
+        return four_point_org_permute, four_point_1_permute
+
+    def resize_transform(self, scale_factor, beta, alpha, four_point_org_permute, four_point_1_permute):
+        offset = self.args.resize_width * (1 - scale_factor) / 2
+        four_point_org_permute[0, 0, 0] += offset
+        four_point_org_permute[0, 0, 1] += offset
+        four_point_org_permute[0, 1, 0] -= offset
+        four_point_org_permute[0, 1, 1] += offset
+        four_point_org_permute[0, 2, 0] += offset
+        four_point_org_permute[0, 2, 1] -= offset
+        four_point_org_permute[0, 3, 0] -= offset
+        four_point_org_permute[0, 3, 1] -= offset
+        four_point_1_permute[0, 0, 0] += offset * beta / alpha
+        four_point_1_permute[0, 0, 1] += offset * beta / alpha
+        four_point_1_permute[0, 1, 0] -= offset * beta / alpha
+        four_point_1_permute[0, 1, 1] += offset * beta / alpha
+        four_point_1_permute[0, 2, 0] += offset * beta / alpha
+        four_point_1_permute[0, 2, 1] -= offset * beta / alpha
+        four_point_1_permute[0, 3, 0] -= offset * beta / alpha
+        four_point_1_permute[0, 3, 1] -= offset * beta / alpha
+        return four_point_org_permute, four_point_1_permute
+
     def __getitem__(self, query_PIL_image, database_PIL_image, query_utm, database_utm):
-        if not self.init_seed:
+        if hasattr(self, "rng") and self.rng is None:
             worker_info = torch.utils.data.get_worker_info()
-            if worker_info is not None:
-                torch.manual_seed(worker_info.id)
-                np.random.seed(worker_info.id)
-                random.seed(worker_info.id)
-                self.init_seed = True
+            self.rng = np.random.default_rng(seed=worker_info.id)
 
         img1 = query_PIL_image
         img2 = database_PIL_image # img1 warp to img2
@@ -86,168 +136,115 @@ class homo_dataset(data.Dataset):
         t = np.float32(np.array(query_utm - database_utm))
         t[0][0], t[0][1] = t[0][1], t[0][0] # Swap!
         
-        if self.permute:
-            raise NotImplementedError()
-            y = random.randint(marginal, height - marginal - patch_size)
-            x = random.randint(marginal, width - marginal - patch_size)
-            
-            top_left_point = (x, y)
-            bottom_right_point = (patch_size + x, patch_size + y)
-
-            perturbed_four_points_cord = []
-
-            top_left_point_cord = (x, y)
-            bottom_left_point_cord = (x, patch_size + y - 1)
-            bottom_right_point_cord = (patch_size + x - 1, patch_size + y - 1)
-            top_right_point_cord = (x + patch_size - 1, y)
-            four_points_cord = [top_left_point_cord, bottom_left_point_cord, bottom_right_point_cord, top_right_point_cord]
-
-            try:
-                perturbed_four_points_cord = []
-                for i in range(4):
-                    t1 = random.randint(-marginal, marginal)
-                    t2 = random.randint(-marginal, marginal)
-
-                    perturbed_four_points_cord.append((four_points_cord[i][0] + t1,
-                                                    four_points_cord[i][1] + t2))
-                    
-                y_grid, x_grid = np.mgrid[0:img1.shape[0], 0:img1.shape[1]]
-                point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
-                org = np.float32(four_points_cord) - t
-                dst = np.float32(perturbed_four_points_cord) 
-                H = cv2.getPerspectiveTransform(org, dst)
-                H_inverse = np.linalg.inv(H)
-            except:
-                raise KeyError()
-                # perturbed_four_points_cord = []
-                # for i in range(4):
-                #     t1 = 32//(i+1)
-                #     t2 = -32//(i+1)
-
-                #     perturbed_four_points_cord.append((four_points_cord[i][0] + t1,
-                #                                       four_points_cord[i][1] + t2))
-
-                # y_grid, x_grid = np.mgrid[0:img1.shape[0], 0:img1.shape[1]]
-                # point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
-
-                # org = np.float32(four_points_cord)
-                # dst = np.float32(perturbed_four_points_cord)
-                # H = cv2.getPerspectiveTransform(org, dst)
-                # H_inverse = np.linalg.inv(H)
-
-            warped_image = cv2.warpPerspective(img2, H_inverse, (img1.shape[1], img1.shape[0]))
-            # img1_pil = Image.fromarray(img1)
-            # warped_pil = Image.fromarray(warped_image)
-            # img1_pil.save(f"{database_utm}data.png")
-            # warped_pil.save(f"{query_utm}query.png")
-            img_patch_ori = img1[top_left_point[1]:bottom_right_point[1], top_left_point[0]:bottom_right_point[0], :]
-            img_patch_pert = warped_image[top_left_point[1]:bottom_right_point[1], top_left_point[0]:bottom_right_point[0],:]
-
-            point_transformed_branch1 = cv2.perspectiveTransform(np.array([point], dtype=np.float64), H).squeeze()
-
-            diff_branch1 = point_transformed_branch1 - np.array(point, dtype=np.float64)
-            diff_x_branch1 = diff_branch1[:, 0]
-            diff_y_branch1 = diff_branch1[:, 1]
-
-            diff_x_branch1 = diff_x_branch1.reshape((img1.shape[0], img1.shape[1]))
-            diff_y_branch1 = diff_y_branch1.reshape((img1.shape[0], img1.shape[1]))
-
-            pf_patch_x_branch1 = diff_x_branch1[top_left_point[1]:bottom_right_point[1],
-                                top_left_point[0]:bottom_right_point[0]]
-
-            pf_patch_y_branch1 = diff_y_branch1[top_left_point[1]:bottom_right_point[1],
-                                top_left_point[0]:bottom_right_point[0]]
-
-            pf_patch = np.zeros((patch_size, patch_size, 2))
-            pf_patch[:, :, 0] = pf_patch_x_branch1
-            pf_patch[:, :, 1] = pf_patch_y_branch1
-
-            img_patch_ori = img_patch_ori[:, :, ::-1].copy()
-            img_patch_pert = img_patch_pert[:, :, ::-1].copy()
-            img1 = torch.from_numpy((img_patch_ori)).float().permute(2, 0, 1)
-            img2 = torch.from_numpy((img_patch_pert)).float().permute(2, 0, 1)
-            flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
-
-            ### homo BUT NOT USED !!!!!!!!!!!!!
-            four_point_org = torch.zeros((2, 2, 2))
-            four_point_org[:, 0, 0] = torch.Tensor([0, 0])
-            four_point_org[:, 0, 1] = torch.Tensor([patch_size - 1, 0])
-            four_point_org[:, 1, 0] = torch.Tensor([0, patch_size - 1])
-            four_point_org[:, 1, 1] = torch.Tensor([patch_size - 1, patch_size - 1])
-
-            four_point = torch.zeros((2, 2, 2))
-            four_point[:, 0, 0] = flow[:, 0, 0] + torch.Tensor([0, 0])
-            four_point[:, 0, 1] = flow[:, 0, -1] + torch.Tensor([patch_size - 1, 0])
-            four_point[:, 1, 0] = flow[:, -1, 0] + torch.Tensor([0, patch_size - 1])
-            four_point[:, 1, 1] = flow[:, -1, -1] + torch.Tensor([patch_size - 1, patch_size - 1])
-            four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
-            four_point = four_point.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
-            H = tgm.get_perspective_transform(four_point_org, four_point)
-            H = H.squeeze()
+        img1, img2, img2_ori = self.query_transform(img1), self.database_transform(img2), self.database_transform_ori(img2)
+        alpha = self.args.database_size / self.args.resize_width
+        t = t / alpha # align with the resized image
+        
+        t_tensor = torch.Tensor(t).squeeze(0)
+        y_grid, x_grid = np.mgrid[0:img1.shape[1], 0:img1.shape[2]]
+        point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
+        four_point_org = torch.zeros((2, 2, 2))
+        top_left = torch.Tensor([0, 0])
+        top_right = torch.Tensor([self.args.resize_width - 1, 0])
+        bottom_left = torch.Tensor([0, self.args.resize_width - 1])
+        bottom_right = torch.Tensor([self.args.resize_width - 1, self.args.resize_width - 1])
+        four_point_org[:, 0, 0] = top_left
+        four_point_org[:, 0, 1] = top_right
+        four_point_org[:, 1, 0] = bottom_left
+        four_point_org[:, 1, 1] = bottom_right
+        four_point_1 = torch.zeros((2, 2, 2))
+        if self.args.database_size == 512:
+            four_point_1[:, 0, 0] = t_tensor + top_left
+            four_point_1[:, 0, 1] = t_tensor + top_right
+            four_point_1[:, 1, 0] = t_tensor + bottom_left
+            four_point_1[:, 1, 1] = t_tensor + bottom_right
+        elif self.args.database_size == 1024:
+            top_left_resize = torch.Tensor([self.args.resize_width/4, self.args.resize_width/4])
+            top_right_resize = torch.Tensor([self.args.resize_width - self.args.resize_width/4 - 1, self.args.resize_width/4])
+            bottom_left_resize = torch.Tensor([self.args.resize_width/4, self.args.resize_width - self.args.resize_width/4 - 1])
+            bottom_right_resize = torch.Tensor([self.args.resize_width - self.args.resize_width/4 - 1, self.args.resize_width - self.args.resize_width/4 - 1])
+            four_point_1[:, 0, 0] = t_tensor + top_left_resize
+            four_point_1[:, 0, 1] = t_tensor + top_right_resize
+            four_point_1[:, 1, 0] = t_tensor + bottom_left_resize
+            four_point_1[:, 1, 1] = t_tensor + bottom_right_resize
+        elif self.args.database_size == 1536:
+            top_left_resize2 = torch.Tensor([self.args.resize_width/3, self.args.resize_width/3])
+            top_right_resize2 = torch.Tensor([self.args.resize_width - self.args.resize_width/3 - 1, self.args.resize_width/3])
+            bottom_left_resize2 = torch.Tensor([self.args.resize_width/3, self.args.resize_width - self.args.resize_width/3 - 1])
+            bottom_right_resize2 = torch.Tensor([self.args.resize_width - self.args.resize_width/3 - 1, self.args.resize_width - self.args.resize_width/3 - 1])
+            four_point_1[:, 0, 0] = t_tensor + top_left_resize2
+            four_point_1[:, 0, 1] = t_tensor + top_right_resize2
+            four_point_1[:, 1, 0] = t_tensor + bottom_left_resize2
+            four_point_1[:, 1, 1] = t_tensor + bottom_right_resize2
         else:
-            img1, img2, img2_ori = self.query_transform(img1), self.database_transform(img2), self.database_transform_ori(img2)
-            alpha = self.args.database_size / self.args.resize_width
-            t = t / alpha # align with the resized image
-            
-            t_tensor = torch.Tensor(t).squeeze(0)
-            y_grid, x_grid = np.mgrid[0:img1.shape[1], 0:img1.shape[2]]
-            point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
-            four_point_org = torch.zeros((2, 2, 2))
-            top_left = torch.Tensor([0, 0])
-            top_right = torch.Tensor([self.args.resize_width - 1, 0])
-            bottom_left = torch.Tensor([0, self.args.resize_width - 1])
-            bottom_right = torch.Tensor([self.args.resize_width - 1, self.args.resize_width - 1])
-            four_point_org[:, 0, 0] = top_left
-            four_point_org[:, 0, 1] = top_right
-            four_point_org[:, 1, 0] = bottom_left
-            four_point_org[:, 1, 1] = bottom_right
-            four_point_1 = torch.zeros((2, 2, 2))
-            if self.args.database_size == 512:
-                four_point_1[:, 0, 0] = t_tensor + top_left
-                four_point_1[:, 0, 1] = t_tensor + top_right
-                four_point_1[:, 1, 0] = t_tensor + bottom_left
-                four_point_1[:, 1, 1] = t_tensor + bottom_right
-            elif self.args.database_size == 1024:
-                top_left_resize = torch.Tensor([self.args.resize_width/4, self.args.resize_width/4])
-                top_right_resize = torch.Tensor([self.args.resize_width - self.args.resize_width/4 - 1, self.args.resize_width/4])
-                bottom_left_resize = torch.Tensor([self.args.resize_width/4, self.args.resize_width - self.args.resize_width/4 - 1])
-                bottom_right_resize = torch.Tensor([self.args.resize_width - self.args.resize_width/4 - 1, self.args.resize_width - self.args.resize_width/4 - 1])
-                four_point_1[:, 0, 0] = t_tensor + top_left_resize
-                four_point_1[:, 0, 1] = t_tensor + top_right_resize
-                four_point_1[:, 1, 0] = t_tensor + bottom_left_resize
-                four_point_1[:, 1, 1] = t_tensor + bottom_right_resize
-            elif self.args.database_size == 1536:
-                top_left_resize2 = torch.Tensor([self.args.resize_width/3, self.args.resize_width/3])
-                top_right_resize2 = torch.Tensor([self.args.resize_width - self.args.resize_width/3 - 1, self.args.resize_width/3])
-                bottom_left_resize2 = torch.Tensor([self.args.resize_width/3, self.args.resize_width - self.args.resize_width/3 - 1])
-                bottom_right_resize2 = torch.Tensor([self.args.resize_width - self.args.resize_width/3 - 1, self.args.resize_width - self.args.resize_width/3 - 1])
-                four_point_1[:, 0, 0] = t_tensor + top_left_resize2
-                four_point_1[:, 0, 1] = t_tensor + top_right_resize2
-                four_point_1[:, 1, 0] = t_tensor + bottom_left_resize2
-                four_point_1[:, 1, 1] = t_tensor + bottom_right_resize2
+            raise NotImplementedError()
+        four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
+        four_point_1 = four_point_1.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
+        
+        if self.permute:
+            #permute
+            four_point_org_permute = four_point_org.clone()
+            four_point_1_permute = four_point_1.clone()
+            beta = 512/self.args.resize_width
+            if self.args.eval_model is None: # EVAL
+                permute_type_single = random.choice(self.permute_type)
+                if permute_type_single == "rotate":
+                    rotation = torch.tensor(random.random() - 0.5) * 2 * self.args.rotate_max # on 256x256
+                    four_point_org_permute, four_point_1_permute = self.rotate_transform(rotation, four_point_org, four_point_1, four_point_org_permute, four_point_1_permute)
+                elif permute_type_single == "resize":
+                    scale_factor = 1 + (random.random() - 0.5) * 2 * self.args.resize_max # on 256x256
+                    assert scale_factor > 0
+                    four_point_org_permute, four_point_1_permute = self.resize_transform(scale_factor, beta, alpha, four_point_org_permute, four_point_1_permute)
+                elif permute_type_single == "permute":
+                    for p in range(4):
+                        for xy in range(2):
+                            t1 = random.randint(-self.args.permute_max, self.args.permute_max)
+                            four_point_org_permute[0, p, xy] += t1 # original for 256
+                            four_point_1_permute[0, p, xy] += t1 * beta / alpha # original for 256 then to 512 in 1536 scale then to 256 in 1536 scale
+                elif permute_type_single == "no":
+                    pass
+                else:
+                    raise NotImplementedError()
             else:
-                raise NotImplementedError()
-            four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
-            four_point_1 = four_point_1.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
-            H = tgm.get_perspective_transform(four_point_org, four_point_1)
-            H = H.squeeze()
-            
-            point_transformed_branch1 = cv2.perspectiveTransform(np.array([point], dtype=np.float64), H.numpy()).squeeze()
-            diff_branch1 = point_transformed_branch1 - np.array(point, dtype=np.float64)
-            diff_x_branch1 = diff_branch1[:, 0]
-            diff_y_branch1 = diff_branch1[:, 1]
+                if self.args.rotate_max!=0:
+                    rotation = torch.tensor(self.rng.random() - 0.5) * 2 * self.args.rotate_max # on 256x256
+                    four_point_org_permute, four_point_1_permute = self.rotate_transform(rotation, four_point_org, four_point_1, four_point_org_permute, four_point_1_permute)
+                elif self.args.resize_max!=0:
+                    scale_factor = 1 + (self.rng.random() - 0.5) * 2 * self.args.resize_max # on 256x256
+                    assert scale_factor > 0
+                    four_point_org_permute, four_point_1_permute = self.resize_transform(scale_factor, beta, alpha, four_point_org_permute, four_point_1_permute)
+                elif self.args.permute_max!=0:
+                    for p in range(4):
+                        for xy in range(2):
+                            t1 = self.rng.integers(-self.args.permute_max, self.args.permute_max) # on 256x256
+                            four_point_org_permute[0, p, xy] += t1 # original for 256
+                            four_point_1_permute[0, p, xy] += t1 * beta / alpha # original for 256 then to 512 in 1536 scale then to 256 in 1536 scale
+                else:
+                    raise NotImplementedError()
+            H = tgm.get_perspective_transform(four_point_org, four_point_org_permute)
+            H_inverse = torch.inverse(H)
+            img1 = tgm.warp_perspective(img1.unsqueeze(0), H_inverse, (self.args.resize_width, self.args.resize_width)).squeeze(0)
+            four_point_1 = four_point_1_permute
 
-            diff_x_branch1 = diff_x_branch1.reshape((img1.shape[1], img1.shape[2]))
-            diff_y_branch1 = diff_y_branch1.reshape((img1.shape[1], img1.shape[2]))
-            pf_patch = np.zeros((self.args.resize_width, self.args.resize_width, 2))
-            pf_patch[:, :, 0] = diff_x_branch1
-            pf_patch[:, :, 1] = diff_y_branch1
-            flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
-            H = H.squeeze()
+        H = tgm.get_perspective_transform(four_point_org, four_point_1)
+        H = H.squeeze()
+        
+        point_transformed_branch1 = cv2.perspectiveTransform(np.array([point], dtype=np.float64), H.numpy()).squeeze()
+        diff_branch1 = point_transformed_branch1 - np.array(point, dtype=np.float64)
+        diff_x_branch1 = diff_branch1[:, 0]
+        diff_y_branch1 = diff_branch1[:, 1]
+
+        diff_x_branch1 = diff_x_branch1.reshape((img1.shape[1], img1.shape[2]))
+        diff_y_branch1 = diff_y_branch1.reshape((img1.shape[1], img1.shape[2]))
+        pf_patch = np.zeros((self.args.resize_width, self.args.resize_width, 2))
+        pf_patch[:, :, 0] = diff_x_branch1
+        pf_patch[:, :, 1] = diff_y_branch1
+        flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
+        H = H.squeeze()
         return img2, img1, flow, H, query_utm, database_utm, img2_ori
 
 class MYDATA(homo_dataset):
-    def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train", exclude_val_region=False):
+    def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train"):
         super(MYDATA, self).__init__(args, permute= (args.permute == "img"))
         self.args = args
         self.dataset_name = dataset_name
@@ -349,24 +346,6 @@ class MYDATA(homo_dataset):
         self.queries_paths = np.delete(self.queries_paths, queries_without_any_soft_positive)
         self.queries_utms = np.delete(self.queries_utms, queries_without_any_soft_positive, axis=0)
 
-        # Remove queries in val region for extended dataset if necessary
-        if exclude_val_region and self.split=="extended":
-            queries_in_val_region = np.where(
-                (self.queries_utms[:, 0] > TB_val_region[0])
-                & (self.queries_utms[:, 0] < TB_val_region[2])
-                & (self.queries_utms[:, 1] > TB_val_region[1])
-                & (self.queries_utms[:, 1] < TB_val_region[3])
-            )[0]
-            if len(queries_in_val_region) != 0:
-                logging.info(
-                    f"There are {len(queries_in_val_region)} queries in the validation region "
-                    + "within the extended set. They won't be considered because it will affect validation."
-                )
-            # Remove queries in val region
-            self.soft_positives_per_query = np.delete(self.soft_positives_per_query, queries_in_val_region)
-            self.queries_paths = np.delete(self.queries_paths, queries_in_val_region)
-            self.queries_utms = np.delete(self.queries_utms, queries_in_val_region, axis=0)
-
         # Recompute images_paths and queries_num because some queries might have been removed
         self.images_paths = list(self.database_paths) + \
             list(self.queries_paths)
@@ -443,11 +422,12 @@ class MYDATA(homo_dataset):
 
         return img
 
-def fetch_dataloader(args, split='train', exclude_val_region=False):
-    train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split, exclude_val_region=exclude_val_region)
+def fetch_dataloader(args, split='train'):
+    train_dataset = MYDATA(args, args.datasets_folder, args.dataset_name, split)
     if split == 'train' or split == 'extended':
         train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                        pin_memory=True, shuffle=True, num_workers=args.num_workers, drop_last=True)
+                                        pin_memory=True, shuffle=True, num_workers=args.num_workers,
+                                        drop_last=True, worker_init_fn=seed_worker)
     elif split == 'val' or split == 'test':
         g = torch.Generator()
         g.manual_seed(0)

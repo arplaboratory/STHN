@@ -214,9 +214,15 @@ if args.DA:
 if args.aggregation in ["netvlad", "crn"]:  # If using NetVLAD layer, initialize it
     if not args.resume:
         train_ds.is_inference = True
-        model.aggregation.initialize_netvlad_layer(
+        if args.fc_output_dim is not None:
+            features_dim = args.fc_output_dim
+            args.features_dim = 1024
+        model.aggregation[0].initialize_netvlad_layer(
             args, train_ds, model.backbone)
-    args.features_dim *= args.netvlad_clusters
+    if args.fc_output_dim is None:
+        args.features_dim *= args.netvlad_clusters
+    else:
+        args.features_dim = features_dim
 
 model = torch.nn.DataParallel(model)
 

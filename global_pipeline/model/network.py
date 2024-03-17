@@ -54,12 +54,14 @@ class GeoLocalizationNet(nn.Module):
         
         if args.fc_output_dim != None:
             # Concatenate fully connected layer to the aggregation layer
+            if args.aggregation in ["netvlad", "crn"]:
+                args.features_dim = 65536
             self.aggregation = nn.Sequential(self.aggregation,
                                              nn.Linear(args.features_dim, args.fc_output_dim),
                                              L2Norm())
             args.features_dim = args.fc_output_dim
         
-        if args.aggregation in ["netvlad", "crn"] and args.conv_output_dim != None:
+        if args.aggregation in ["netvlad", "crn"] and hasattr(args, "conv_output_dim") and args.conv_output_dim != None:
             # Concatenate conv layer to the aggregation layer
             actual_conv_output_dim = int(args.conv_output_dim / args.netvlad_clusters)
             logging.debug(f"Last conv layer dim: {actual_conv_output_dim}")

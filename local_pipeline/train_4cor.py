@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import json
 import sys
 import argparse
@@ -10,7 +9,7 @@ import torchvision
 from torch.cuda.amp import GradScaler
 from tqdm import tqdm
 
-from model.network import STHEGAN
+from model.network import STHN
 from utils import count_parameters, save_img, save_overlap_img, setup_seed, warp
 import commons
 from os.path import join
@@ -24,7 +23,7 @@ import logging
 from myevaluate import evaluate_SNet
 
 def main(args):
-    model = STHEGAN(args, for_training=True)
+    model = STHN(args, for_training=True)
     model.setup()
     if args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
         model.netG.eval()
@@ -35,11 +34,14 @@ def main(args):
             for param in model.netG_fine.parameters():
                 param.requires_grad = False
     else:
-        model.netG.train()
+        if args.restore_ckpt is None or args.finetune:
+            model.netG.train()
+        else:
+            model.netG.eval()
         if args.two_stages:
             model.netG_fine.train()
     logging.info(f"Parameter Count: {count_parameters(model.netG)}")
-    if args.use_ue:
+    if args.use_ue and args.D_net != "ue_branch":
         model.netD.train()
         logging.info(f"Parameter Count: {count_parameters(model.netD)}")
 
@@ -55,7 +57,7 @@ def main(args):
         
     train_loader = datasets.fetch_dataloader(args, split="train")
     if os.path.exists(os.path.join(args.datasets_folder, args.dataset_name, "extended_queries.h5")):
-        extended_loader = datasets.fetch_dataloader(args, split="extended", exclude_val_region=args.exclude_val_region)
+        extended_loader = datasets.fetch_dataloader(args, split="extended")
     else:
         extended_loader = None
 
@@ -70,7 +72,7 @@ def main(args):
     test_dataset = datasets.fetch_dataloader(args, split='test')
     model_med = torch.load(args.save_dir + f'/{args.name}.pth')
     model.netG.load_state_dict(model_med['netG'])
-    if args.use_ue:
+    if args.use_ue and args.D_net != "ue_branch":
         model.netD.load_state_dict(model_med['netD'])
     if args.two_stages:
         model.netG_fine.load_state_dict(model_med['netG_fine'])
@@ -80,47 +82,29 @@ def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_
     count = 0
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
-        # time1 = time.time()
         image1, image2, flow, _, query_utm, database_utm, image1_ori  = [x for x in data_blob]
-        # time2 = time.time()
-        # logging.debug("DATA LOADING: {}".format(time2-time1))
-        # image2_w = warp(image2, flow)
-        # time1 = time.time()
         model.set_input(image1, image2, flow, image1_ori)
-        # time2 = time.time()
-        # logging.debug("DATA SENDING TO GPU: {}".format(time2-time1))
         if i_batch==0:
             save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1.png')
-            save_img(torchvision.utils.make_grid(image1_ori, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1_ori.png')
             save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2.png')
-            save_img(torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2w.png')
             save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
                              torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
                              args.save_dir + '/train_overlap_gt.png')
-        if args.vis_all:
-            save_dir = os.path.join(args.save_dir, 'vis')
-            if not os.path.exists(save_dir):
-                os.mkdir(save_dir)
-            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_{i_batch}.png')
-            save_img(torchvision.utils.make_grid(image1_ori, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img1_ori_{i_batch}.png')
-            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2_{i_batch}.png')
-            save_img(torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), save_dir + f'/train_img2w_{i_batch}.png')
-            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
-                             torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0),
-                             save_dir + f'/train_overlap_gt_{i_batch}.png')
-        # time1 = time.time()
         metrics = model.optimize_parameters()
-        # time2 = time.time()
-        # logging.debug("OPTIMIZATION: {}".format(time2-time1))
-        if i_batch==0 and args.two_stages:
+        if i_batch==0 and args.train_ue_method != 'train_only_ue_raw_input':
+            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
+                            torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0),
+                            args.save_dir + f'/train_overlap_pred.png')
             if args.two_stages:
                 save_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1_crop.png')
-                save_img(torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2_crop.png')
                 save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
-                            torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
-                            args.save_dir + '/train_overlap_crop.png')
+                                torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
+                                args.save_dir + '/train_overlap_crop.png')
         model.update_learning_rate()
-        metrics["lr"] = model.scheduler_G.get_lr()
+        if args.train_ue_method != 'train_only_ue_raw_input':
+            metrics["lr"] = model.scheduler_G.get_lr()
+        else:
+            metrics["lr"] = model.scheduler_D.get_lr()
         toc = time.time()
         metrics['time'] = toc - tic
         wandb.log({
@@ -128,7 +112,8 @@ def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_
                 "lr": metrics["lr"],
                 "G_loss": metrics["G_loss"] if args.train_ue_method == 'train_end_to_end' else 0,
                 "GAN_loss": metrics["GAN_loss"] if args.train_ue_method == 'train_end_to_end' and args.use_ue else 0,
-                "D_loss": metrics["D_loss"] if args.use_ue else 0
+                "D_loss": metrics["D_loss"] if args.use_ue and args.D_net != "ue_branch" else 0,
+                "ue_loss": metrics["ue_loss"] if args.use_ue and args.D_net == "ue_branch" else 0
             },)
         total_steps += 1
         # Validate
@@ -139,7 +124,7 @@ def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_
             PATH = args.save_dir + f'/{total_steps+1}_{args.name}.pth'
             checkpoint = {
                 "netG": model.netG.state_dict(),
-                "netD": model.netD.state_dict() if args.use_ue else None,
+                "netD": model.netD.state_dict() if args.use_ue and args.D_net != "ue_branch" else None,
                 "netG_fine": model.netG_fine.state_dict() if args.two_stages else None,
             }
             torch.save(checkpoint, PATH)
@@ -188,6 +173,6 @@ if __name__ == "__main__":
     commons.setup_logging(args.save_dir, console='info')
     setup_seed(0)
 
-    wandb.init(project="STGL-IHN", entity="xjh19971", config=vars(args))
+    wandb.init(project="STHN", entity="xjh19971", config=vars(args))
         
     main(args)

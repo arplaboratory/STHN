@@ -10,7 +10,7 @@ class GANLoss(nn.Module):
     that has the same size as the input.
     """
 
-    def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0):
+    def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0, bce_weight=1.0):
         """ Initialize the GANLoss class.
         Parameters:
             gan_mode (str) - - the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
@@ -29,8 +29,8 @@ class GANLoss(nn.Module):
             self.loss = nn.BCEWithLogitsLoss()
         elif gan_mode == 'macegan':
             self.loss = nn.L1Loss()
-        elif gan_mode == 'macegancross':
-            self.loss = nn.BCELoss()
+        elif gan_mode == 'vanilla_rej':
+            self.loss = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(bce_weight).view(1, 1, 1))
         elif gan_mode in ['wgangp']:
             self.loss = None
         else:
@@ -51,6 +51,18 @@ class GANLoss(nn.Module):
             target_tensor = self.fake_label
         return target_tensor.expand_as(prediction)
 
+    def get_target_tensor_rej(self, prediction, target_is_real):
+        """Create label tensors with the same size as the input.
+        Parameters:
+            prediction (tensor) - - tpyically the prediction from a discriminator
+            target_is_real (bool) - - if the ground truth label is for real images or fake images
+        Returns:
+            A label tensor filled with ground truth label, and with the size of the input
+        """
+
+        target_tensor = target_is_real.view(-1, 1, 1, 1)
+        return target_tensor.expand_as(prediction)
+    
     def get_target_tensor_sqerror(self, prediction, sqerror):
         """Create label tensors with the same size as the input.
         Parameters:
@@ -74,14 +86,19 @@ class GANLoss(nn.Module):
         if self.gan_mode in ['lsgan', 'vanilla']:
             target_tensor = self.get_target_tensor(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
-        elif self.gan_mode == 'macegan' or self.gan_mode == 'macegancross':
+        elif self.gan_mode == 'macegan' and args.D_net != "ue_branch":
             target_tensor = self.get_target_tensor_sqerror(prediction, target_is_real)
+            loss = self.loss(prediction, target_tensor)
+        elif self.gan_mode == 'vanilla_rej':
+            target_tensor = self.get_target_tensor_rej(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
         elif self.gan_mode == 'wgangp':
             if target_is_real:
                 loss = -prediction.mean()
             else:
                 loss = prediction.mean()
+        else:
+            raise NotImplementedError()
         return loss
 
 class NLayerDiscriminator(nn.Module):

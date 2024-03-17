@@ -206,8 +206,9 @@ class CNN_128(nn.Module):
 
 
 class CNN_64(nn.Module):
-    def __init__(self, input_dim=256, hidden_dim=256, init_dim=164):
+    def __init__(self, input_dim=256, hidden_dim=256, init_dim=164, ue_branch=False):
         super(CNN_64, self).__init__()
+        self.ue_branch = ue_branch
 
         outputdim = input_dim
         self.layer1 = nn.Sequential(nn.Conv2d(init_dim, outputdim, 3, padding=1, stride=1),
@@ -238,7 +239,10 @@ class CNN_64(nn.Module):
         outputdim_final = outputdim
         self.layer10 = nn.Sequential(nn.Conv2d(outputdim_final, outputdim_final, 3,  padding=1, stride=1), nn.GroupNorm(num_groups=(outputdim_final) // 8, num_channels=outputdim_final),
                                      nn.ReLU(), nn.Conv2d(outputdim_final, 2, 1))
-
+        
+        if self.ue_branch:
+            self.layer10_ue = nn.Sequential(nn.Conv2d(outputdim_final, outputdim_final, 3,  padding=1, stride=1), nn.GroupNorm(num_groups=(outputdim_final) // 8, num_channels=outputdim_final),
+                                        nn.ReLU(), nn.Conv2d(outputdim_final, 1, 1))
 
     def forward(self, x):
         x = self.layer1(x)
@@ -246,9 +250,11 @@ class CNN_64(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
         x = self.layer5(x)
-        x = self.layer10(x)
-
-        return x
+        x1 = self.layer10(x)
+        if self.ue_branch:
+            x2 = self.layer10_ue(x)
+            x1 = torch.cat([x1, x2], dim=1)
+        return x1
 
 class CNN(nn.Module):
     def __init__(self, input_dim=256):
@@ -291,7 +297,7 @@ class CNN(nn.Module):
         return x
 
 class GMA(nn.Module):
-    def __init__(self, args, sz):
+    def __init__(self, args, sz, first_stage):
         super().__init__()
         self.args = args
 
@@ -305,17 +311,15 @@ class GMA(nn.Module):
             if self.args.weight:
                 self.cnn_weight = CNN_weight_64(128)
             else:
-                if args.corr_level == 2 and args.corr_radius == 4:
+                if args.corr_level == 2:
                     init_dim = 164
-                elif args.corr_level == 4 and args.corr_radius == 4:
+                elif args.corr_level == 4:
                     init_dim = 326
-                elif args.corr_level == 2 and args.corr_radius == 6:
-                    init_dim = 340
-                elif args.corr_level == 6 and args.corr_radius == 4:
+                elif args.corr_level == 6:
                     init_dim = 488
                 else:
                     raise NotImplementedError()
-                self.cnn = CNN_64(128, init_dim=init_dim)
+                self.cnn = CNN_64(128, init_dim=init_dim, ue_branch= (first_stage and args.D_net=="ue_branch" and args.use_ue))
         
         if sz==128:
             if self.args.weight:

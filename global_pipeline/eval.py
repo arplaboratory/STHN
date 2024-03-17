@@ -71,7 +71,8 @@ model = network.GeoLocalizationNet(args)
 model = model.to(args.device)
 
 if args.aggregation in ["netvlad", "crn"]:
-    args.features_dim *= args.netvlad_clusters
+    if args.fc_output_dim is None:
+        args.features_dim *= args.netvlad_clusters
 
 if args.off_the_shelf.startswith("radenovic") or args.off_the_shelf.startswith("naver"):
     if args.off_the_shelf.startswith("radenovic"):
