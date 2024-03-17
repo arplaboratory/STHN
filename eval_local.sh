@@ -1,7 +1,7 @@
 #!/bin/bash
 
 eval "$(conda shell.bash hook)"
-conda activate STGL
+conda activate STHN
 
 # # # dense ind
 # python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135 --identity --test
