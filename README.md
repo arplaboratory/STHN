@@ -103,7 +103,8 @@ To evaluate one-stage and two-stage methods, use one of the following scripts:
 ./scripts/local_larger_2/eval_local_sparse_512_extended.sbatch
 ```
 
-Find the test results in ``./test/local_he/$model_folder_name/``. **Please note that MACE and CE tests are conducted on resized images (256x256). To convert these metrics into meters, multiply them by a scaling factor, denoted as $\alpha$. Specifically, set $\alpha$ to 6 when $W_S=1536$ and 2 when $W_S=512$.**
+Find the test results in ``./test/local_he/$model_folder_name/``.  
+**Please note that MACE and CE tests are conducted on resized images (256x256). To convert these metrics into meters, multiply them by a scaling factor, denoted as $\alpha$. Specifically, set $\alpha$ to 6 when $W_S=1536$ and 2 when $W_S=512$.**
 
 ## Image-matching Baselines
 For training and evaluating the image-matching baselines (anyloc and STGL), please refer to ``scripts/global/`` for training and evaluation.
