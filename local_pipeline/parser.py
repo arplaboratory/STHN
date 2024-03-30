@@ -52,7 +52,7 @@ def parse_arguments():
     parser.add_argument("--rej_threshold", type=float, default=128.0)
     parser.add_argument('--eval_model_fine', type=str, default=None, help="restore checkpoint")
     parser.add_argument('--augment_two_stages', type=float, default=0)
-    parser.add_argument('--arch', type=str, default="IHN", choices=["IHN", "DHN", "LocalTrans"])
+    parser.add_argument('--arch', type=str, default="IHN", choices=["IHN"])
     parser.add_argument('--rotate_max', type=float, default=0)
     parser.add_argument('--resize_max', type=float, default=0)
     parser.add_argument('--permute_max', type=float, default=0)
