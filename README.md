@@ -65,7 +65,7 @@ Our repository requires a conda environment. Relevant packages are listed in ``e
 ```
 conda env create -f env.yml
 ```
-Then go to ``STHN/local_pipeline/ATT`` and run
+Then go to ``STHN/local_pipeline/ATT`` and run (with a GPU)
 ```
 python setup.py install
 ```
