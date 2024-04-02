@@ -109,7 +109,7 @@ Find the test results in ``./test/local_he/$model_folder_name/``.
 For training and evaluating the image-matching baselines (anyloc and STGL), please refer to ``scripts/global/`` for training and evaluation.
 
 ## Pretrained Models
-Download pretrained models for $W_S=1536$ and $D_C=512\si{m}$: [Download](https://drive.google.com/drive/folders/19Z0wqeDlJyzTZB1qc355G2WEww7I9rTB?usp=sharing)
+Download pretrained models for $W_S=1536$ and $D_C=512$ m: [Download](https://drive.google.com/drive/folders/19Z0wqeDlJyzTZB1qc355G2WEww7I9rTB?usp=sharing)
 
 ## Acknowledgement
 Our implementation refers to the following repositories and appreciate their excellent work.
