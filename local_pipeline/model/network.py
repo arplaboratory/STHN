@@ -16,7 +16,6 @@ import torchvision
 import random
 import time
 import logging
-from model.baseline import DHN, LocalTrans
 
 autocast = torch.cuda.amp.autocast
 class IHN(nn.Module):
@@ -152,8 +151,6 @@ class IHN(nn.Module):
             return four_point_predictions, four_point_disp
 
 arch_list = {"IHN": IHN,
-             "DHN": DHN,
-             "LocalTrans": LocalTrans,
              }
 
 class STHN():
