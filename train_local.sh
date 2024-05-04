@@ -37,5 +37,5 @@
 # sbatch scripts/local_larger_2/train_local_sparse_256_extended_long_load_f_aug64_c.sbatch
 # sbatch scripts/local_larger_2/train_local_sparse_512_extended_long_load_f_aug64_c.sbatch
 
-## 2 stage permute
+## 2 stage 
 # sbatch scripts/local_larger_permute/train_local_sparse_512_extended_long_load_f_aug64_c.sbatch
