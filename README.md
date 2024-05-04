@@ -65,6 +65,7 @@ Our repository requires a conda environment. Relevant packages are listed in ``e
 ```
 conda env create -f env.yml
 ```
+
 ## Training
 You can find the training scripts and evaluation scripts in ``scripts`` folder. The scripts is for slurm system to submit sbatch job. If you want to run bash command, change the suffix from ``sbatch`` to ``sh`` and run with bash.
 
