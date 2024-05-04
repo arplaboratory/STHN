@@ -9,6 +9,6 @@
 #SBATCH --output=eval_local.out
 
 eval "$(conda shell.bash hook)"
-conda activate STGL
+conda activate STHN
 
 python3 ./local_pipeline/myevaluate.py --dataset_name satellite_0_thermalmapping_135_larger_ori_train --eval_model logs/local_he/$MODEL/UAGL.pth --val_positive_dist_threshold 512 --lev0 --database_size 1536 --corr_level 4 --test --augment img --perspective_max $PER --rotate_max $ROT --resize_max $RES
