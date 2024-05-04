@@ -34,7 +34,7 @@ def parse_arguments():
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
     parser.add_argument("--train_ue_method", type=str, choices=['train_end_to_end', 'train_only_ue', 'train_only_ue_raw_input', 'finetune'], default='train_end_to_end', help="train uncertainty estimator")
     parser.add_argument("--ue_alpha", type=float, default=-0.1, help="Alpha for ue")
-    parser.add_argument("--permute", type=str, default="none", choices=["none", "img", "ue"])
+    parser.add_argument("--augment", type=str, default="none", choices=["none", "img", "ue"])
     parser.add_argument("--noise_std", type=float, default=10.0)
     parser.add_argument("--sample_method", type=str, choices=['target', 'raw', 'target_raw'], default='raw', help="sample noise")
     parser.add_argument("--database_size", type=int, default=512, choices=[512, 1024, 1536], help="database_size")
@@ -55,7 +55,7 @@ def parse_arguments():
     parser.add_argument('--arch', type=str, default="IHN", choices=["IHN", "DHN", "LocalTrans"])
     parser.add_argument('--rotate_max', type=float, default=0)
     parser.add_argument('--resize_max', type=float, default=0)
-    parser.add_argument('--permute_max', type=float, default=0)
+    parser.add_argument('--perspective_max', type=float, default=0)
     args = parser.parse_args()
     args.save_dir = "local_he"
     args.augment_type = "center"

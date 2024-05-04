@@ -33,25 +33,25 @@ inv_base_transforms = transforms.Compose(
 )
 
 class homo_dataset(data.Dataset):
-    def __init__(self, args, permute=False):
+    def __init__(self, args, augment=False):
 
         self.args = args
         self.is_test = False
         self.image_list_img1 = []
         self.image_list_img2 = []
         self.dataset=[]
-        self.permute = permute
-        if self.permute: # EVAL
+        self.augment = augment
+        if self.augment: # EVAL
             if self.args.eval_model is not None:
                 self.rng = None
             else:
-                self.permute_type = ["no"]
-                if self.args.permute_max > 0:
-                    self.permute_type.append("permute")
+                self.augment_type = ["no"]
+                if self.args.perspective_max > 0:
+                    self.augment_type.append("perspective")
                 if self.args.rotate_max > 0:
-                    self.permute_type.append("rotate")
+                    self.augment_type.append("rotate")
                 if self.args.resize_max > 0:
-                    self.permute_type.append("resize")
+                    self.augment_type.append("resize")
         base_transform = transforms.Compose(
             [
                 transforms.Resize([self.args.resize_width, self.args.resize_width]),
@@ -181,8 +181,8 @@ class homo_dataset(data.Dataset):
         four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
         four_point_1 = four_point_1.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
         
-        if self.permute:
-            #permute
+        if self.augnent:
+            #augnent
             four_point_org_permute = four_point_org.clone()
             four_point_1_permute = four_point_1.clone()
             beta = 512/self.args.resize_width
@@ -195,10 +195,10 @@ class homo_dataset(data.Dataset):
                     scale_factor = 1 + (random.random() - 0.5) * 2 * self.args.resize_max # on 256x256
                     assert scale_factor > 0
                     four_point_org_permute, four_point_1_permute = self.resize_transform(scale_factor, beta, alpha, four_point_org_permute, four_point_1_permute)
-                elif permute_type_single == "permute":
+                elif permute_type_single == "perspective":
                     for p in range(4):
                         for xy in range(2):
-                            t1 = random.randint(-self.args.permute_max, self.args.permute_max)
+                            t1 = random.randint(-self.args.perspective_max, self.args.perspective_max)
                             four_point_org_permute[0, p, xy] += t1 # original for 256
                             four_point_1_permute[0, p, xy] += t1 * beta / alpha # original for 256 then to 512 in 1536 scale then to 256 in 1536 scale
                 elif permute_type_single == "no":
@@ -213,10 +213,10 @@ class homo_dataset(data.Dataset):
                     scale_factor = 1 + (self.rng.random() - 0.5) * 2 * self.args.resize_max # on 256x256
                     assert scale_factor > 0
                     four_point_org_permute, four_point_1_permute = self.resize_transform(scale_factor, beta, alpha, four_point_org_permute, four_point_1_permute)
-                elif self.args.permute_max!=0:
+                elif self.args.perspective_max!=0:
                     for p in range(4):
                         for xy in range(2):
-                            t1 = self.rng.integers(-self.args.permute_max, self.args.permute_max) # on 256x256
+                            t1 = self.rng.integers(-self.args.perspective_max, self.args.perspective_max) # on 256x256
                             four_point_org_permute[0, p, xy] += t1 # original for 256
                             four_point_1_permute[0, p, xy] += t1 * beta / alpha # original for 256 then to 512 in 1536 scale then to 256 in 1536 scale
                 else:
@@ -245,7 +245,7 @@ class homo_dataset(data.Dataset):
 
 class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train"):
-        super(MYDATA, self).__init__(args, permute= (args.permute == "img"))
+        super(MYDATA, self).__init__(args, augment= (args.augment == "img"))
         self.args = args
         self.dataset_name = dataset_name
         self.split = split
