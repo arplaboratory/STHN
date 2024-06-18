@@ -127,14 +127,20 @@ Download pretrained models for $W_S=1536$ and $D_C=512$ m: [Download](https://dr
 </details>
 <details>
   <summary>Architecture Details</summary>
-  
+  The iterative updater is a multi-layer CNN with group normalization:  
+  https://github.com/arplaboratory/STHN/blob/eed553fb45756ce5ea35418db77383732c444c42/local_pipeline/update.py#L299  
+  The TGM is using the Pix2Pix paradigm:
+  https://github.com/arplaboratory/STHN/blob/eed553fb45756ce5ea35418db77383732c444c42/global_pipeline/model/network.py#L273
   
 </details>
 
 <details>
   <summary>Direct Linear Transformation Details</summary>
-  In practice, we use kornia's implementation [kornia](https://kornia.readthedocs.io/en/stable/geometry.transform.html#kornia.geometry.transform.get_perspective_transform).  
-  For more details, you can refer to [wiki](https://en.wikipedia.org/wiki/Direct_linear_transformation).
+  The Direct Linear Transformation (DLT) is used to solve the homography transformation matrix (3x3) given four corresponding point pairs.   
+  
+  In practice, we use kornia's implementation:  
+  https://kornia.readthedocs.io/en/stable/geometry.transform.html#kornia.geometry.transform.get_perspective_transform   
+  For more details of formulas, you can refer to: https://en.wikipedia.org/wiki/Direct_linear_transformation.
   
 </details>
 ## Acknowledgement
