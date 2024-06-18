@@ -3,7 +3,12 @@
 This is the official repository for STHN: Deep Homography Estimation for UAV Thermal Geo-localization with Satellite Imagery.
 
 ```
-bibtex TBD
+@article{xiao2024sthn,
+  title={STHN: Deep Homography Estimation for UAV Thermal Geo-localization with Satellite Imagery},
+  author={Xiao, Jiuhong and Zhang, Ning and Tortei, Daniel and Loianno, Giuseppe},
+  journal={arXiv preprint arXiv:2405.20470},
+  year={2024}
+}
 ```
 **Developer: Jiuhong Xiao<br />
 Affiliation: [NYU ARPL](https://wp.nyu.edu/arpl/)<br />
@@ -112,6 +117,26 @@ For training and evaluating the image-matching baselines (anyloc and STGL), plea
 ## Pretrained Models
 Download pretrained models for $W_S=1536$ and $D_C=512$ m: [Download](https://drive.google.com/drive/folders/19Z0wqeDlJyzTZB1qc355G2WEww7I9rTB?usp=sharing)
 
+## Additional Details
+<details>
+  <summary>Train/Val/Test split</summary>
+  Below is the visualization of the train-validation-test regions. The dataset includes thermal maps from six flights: three flights (conducted at 9 PM, 12 AM, and 2 AM) cover the upper region, and the other three flights (conducted at 10 PM, 1 AM, and 3 AM) cover the lower region. The lower region is further divided into training and validation subsets. The synthesized thermal images span a larger area (23,744m x 9,088m) but exclude the test region to assess generalization performance properly.
+  
+  ![image](https://github.com/arplaboratory/STHN/assets/29690116/8e833ba9-644e-4446-b951-7b17a5e4316b)
+  
+</details>
+<details>
+  <summary>Architecture Details</summary>
+  
+  
+</details>
+
+<details>
+  <summary>Direct Linear Transformation Details</summary>
+  In practice, we use kornia's implementation [kornia](https://kornia.readthedocs.io/en/stable/geometry.transform.html#kornia.geometry.transform.get_perspective_transform).  
+  For more details, you can refer to [wiki](https://en.wikipedia.org/wiki/Direct_linear_transformation).
+  
+</details>
 ## Acknowledgement
 Our implementation refers to the following repositories and appreciate their excellent work.
 
