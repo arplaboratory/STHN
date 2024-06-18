@@ -127,6 +127,8 @@ Download pretrained models for $W_S=1536$ and $D_C=512$ m: [Download](https://dr
 </details>
 <details>
   <summary>Architecture Details</summary>
+  The feature extractor consists of multiple residual blocks with multi-layer CNN and group normalization:  
+  https://github.com/arplaboratory/STHN/blob/0ad04d7fb19ba369d24184cda80941640c618631/local_pipeline/extractor.py#L177
   The iterative updater is a multi-layer CNN with group normalization:  
   https://github.com/arplaboratory/STHN/blob/eed553fb45756ce5ea35418db77383732c444c42/local_pipeline/update.py#L299  
   The TGM is using the Pix2Pix paradigm:
