@@ -145,6 +145,7 @@ Download pretrained models for $W_S=1536$ and $D_C=512$ m: [Download](https://dr
   For more details of formulas, you can refer to: https://en.wikipedia.org/wiki/Direct_linear_transformation.
   
 </details>
+
 ## Acknowledgement
 Our implementation refers to the following repositories and appreciate their excellent work.
 
