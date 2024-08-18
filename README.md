@@ -1,6 +1,9 @@
 # STHN: Deep Homography Estimation for UAV Thermal Geo-localization with Satellite Imagery
 
-This is the official repository for STHN: Deep Homography Estimation for UAV Thermal Geo-localization with Satellite Imagery.
+This is the official repository for [STHN: Deep Homography Estimation for UAV Thermal Geo-localization with Satellite Imagery](https://arxiv.org/abs/2405.20470).
+
+Related works:  
+Long-range UAV Thermal Geo-localization with Satellite Imagery [[paper]](https://arxiv.org/abs/2306.02994) [[Code]](https://github.com/arplaboratory/satellite-thermal-geo-localization)
 
 ```
 @article{xiao2024sthn,
