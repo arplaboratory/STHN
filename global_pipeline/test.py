@@ -189,6 +189,9 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=Fa
     if args.efficient_ram_testing:
         return test_efficient_ram_usage(args, eval_ds, model, test_method)
 
+    if args.output_pairs:
+        test_pairs = torch.zeros(len(eval_ds), dtype=torch.long)
+
     model = model.eval()
     with torch.no_grad():
         logging.debug("Extracting database features for evaluation/testing")
@@ -389,6 +392,8 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=Fa
                         x += p[1] * w
                     best_position = (y, x)
             actual_position = eval_ds.queries_utms[query_index]
+            if args.output_pairs:
+                test_pairs[query_index] = prediction[sort_idx[0]]
             error = np.linalg.norm((actual_position[0]-best_position[0], actual_position[1]-best_position[1]))
             if error >= args.val_positive_dist_threshold and visualize: # Wrong results
                 database_index = prediction[sort_idx[0]]
@@ -444,7 +449,8 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, visualize=Fa
             error_m.append(error)
             position_m.append(actual_position)
         process_results_simulation(error_m, args.save_dir)
-            
+        if args.output_pairs:
+            torch.save(test_pairs, f"cache/{eval_ds.split}_STGL_pairs.pth")
     return recalls, recalls_str
 
 def test_translation_pix2pix(args, eval_ds, model, visual_current=False, visual_image_num=10, epoch_num=None):
@@ -565,8 +571,8 @@ def test_translation_pix2pix_generate_h5(args, eval_ds, model, exclude_test_regi
                         hf.create_dataset(
                             "image_data",
                             data=img_np,
-                            chunks=(1, 512, 512, 3),
-                            maxshape=(None, 512, 512, 3),
+                            chunks=(1, args.resize[0], args.resize[1], 3),
+                            maxshape=(None, args.resize[0], args.resize[1], 3),
                             compression="lzf",
                         )  # write the data to hdf5 file
                         hf.create_dataset(

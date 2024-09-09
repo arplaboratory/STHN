@@ -166,7 +166,7 @@ if args.use_sparse_database!= -1:
 if args.prior_location_threshold!= -1:
     logging.info(f"Using prior location threshold {args.prior_location_threshold}. Note that the recall values are calculated in the nearby region")
 logging.info(f"Arguments: {args}")
-wandb.init(project="STGL", entity="xjh19971", config=vars(args))
+wandb.init(project="UAGL", entity="xjh19971", config=vars(args))
 logging.info(f"The outputs are being saved in {args.save_dir}")
 logging.info(
     f"Using {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs"

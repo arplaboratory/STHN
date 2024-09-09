@@ -173,13 +173,14 @@ def create_h5_file(args, set_name, split, sample_num):
                 np.array([img_np.shape[1], img_np.shape[2]]), axis=0)
             if not start:
                 if args.compress:
-                    hf.create_dataset(
-                        "image_data",
-                        data=img_np,
-                        chunks=(1, args.resize_width, args.resize_width, 3) if not args.maintain_size else (1, args.crop_width, args.crop_width, 3),
-                        maxshape=(None, args.resize_width, args.resize_width, 3) if not args.maintain_size else (None, args.crop_width, args.crop_width, 3),
-                        compression="lzf",
-                    )  # write the data to hdf5 file
+                    if not args.name_only:
+                        hf.create_dataset(
+                            "image_data",
+                            data=img_np,
+                            chunks=(1, args.resize_width, args.resize_width, 3) if not args.maintain_size else (1, args.crop_width, args.crop_width, 3),
+                            maxshape=(None, args.resize_width, args.resize_width, 3) if not args.maintain_size else (None, args.crop_width, args.crop_width, 3),
+                            compression="lzf",
+                        )  # write the data to hdf5 file
                     hf.create_dataset(
                         "image_size",
                         data=size_np,
@@ -188,21 +189,23 @@ def create_h5_file(args, set_name, split, sample_num):
                         compression="lzf",
                     )
                 else:
-                    hf.create_dataset(
-                        "image_data",
-                        data=img_np,
-                        chunks=(1, args.resize_width, args.resize_width, 3) if not args.maintain_size else (1, args.crop_width, args.crop_width, 3),
-                        maxshape=(None, args.resize_width, args.resize_width, 3) if not args.maintain_size else (None, args.crop_width, args.crop_width, 3),
-                    )  # write the data to hdf5 file
+                    if not args.name_only:
+                        hf.create_dataset(
+                            "image_data",
+                            data=img_np,
+                            chunks=(1, args.resize_width, args.resize_width, 3) if not args.maintain_size else (1, args.crop_width, args.crop_width, 3),
+                            maxshape=(None, args.resize_width, args.resize_width, 3) if not args.maintain_size else (None, args.crop_width, args.crop_width, 3),
+                        )  # write the data to hdf5 file
                     hf.create_dataset(
                         "image_size", data=size_np, chunks=True, maxshape=(None, 2)
                     )
                 start = True
             else:
-                hf["image_data"].resize(
-                    hf["image_data"].shape[0] + img_np.shape[0], axis=0
-                )
-                hf["image_data"][-img_np.shape[0]:] = img_np
+                if not args.name_only:
+                    hf["image_data"].resize(
+                        hf["image_data"].shape[0] + img_np.shape[0], axis=0
+                    )
+                    hf["image_data"][-img_np.shape[0]:] = img_np
                 hf["image_size"].resize(
                     hf["image_size"].shape[0] + size_np.shape[0], axis=0
                 )
@@ -253,6 +256,7 @@ if __name__ == "__main__":
     parser.add_argument("--sample_method", type=str, default="random", choices=["random", "grid", "stride"])
     parser.add_argument("--stride", type=int, default=35)
     parser.add_argument("--maintain_size", action="store_true")
+    parser.add_argument("--name_only", action="store_true")
     args = parser.parse_args()
 
     if os.path.isdir(os.path.join(datasets_folder, args.database_name + '_' + str(args.database_index) + '_' + args.queries_name + '_' + str(args.queries_index))):

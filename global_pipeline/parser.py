@@ -331,13 +331,6 @@ def parse_arguments():
         help="Resizing shape for images (HxW).",
     )
     parser.add_argument(
-        "--crop",
-        type=int,
-        default=[512, 512],
-        nargs=2,
-        help="Resizing shape for images (HxW).",
-    )
-    parser.add_argument(
         "--test_method",
         type=str,
         default="hard_resize",
@@ -404,6 +397,10 @@ def parse_arguments():
         type=str,
         default="default",
         help="Folder name of the current run (saved in ./logs/)",
+    )
+    parser.add_argument(
+        "--output_pairs",
+        action="store_true"
     )
     args = parser.parse_args()
 

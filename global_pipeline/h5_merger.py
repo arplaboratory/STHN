@@ -56,19 +56,21 @@ def merge_h5_file(args, name, split):
         for read_path_single in read_path:
             with h5py.File(read_path_single, "r") as hf_single:
                 t = h5py.string_dtype(encoding="utf-8")
-                for i in tqdm(range(len(hf_single["image_data"]))):
-                    img_np = np.expand_dims(hf_single["image_data"][i], axis=0)
+                for i in tqdm(range(len(hf_single["image_name"]))):
+                    if not args.name_only:
+                        img_np = np.expand_dims(hf_single["image_data"][i], axis=0)
                     img_size = np.expand_dims(hf_single["image_size"][i], axis=0)
                     img_name = np.expand_dims(hf_single["image_name"][i], axis=0)
                     if not start:
                         if args.compress:
-                            hf.create_dataset(
-                                "image_data",
-                                data=img_np,
-                                chunks=(1, args.resize_width, args.resize_width, 3),
-                                maxshape=(None, args.resize_width, args.resize_width, 3),
-                                compression="lzf",
-                            )
+                            if not args.name_only:
+                                hf.create_dataset(
+                                    "image_data",
+                                    data=img_np,
+                                    chunks=(1, args.resize_width, args.resize_width, 3),
+                                    maxshape=(None, args.resize_width, args.resize_width, 3),
+                                    compression="lzf",
+                                )
                             hf.create_dataset(
                                 "image_size",
                                 data=img_size,
@@ -85,12 +87,13 @@ def merge_h5_file(args, name, split):
                                 dtype=t
                             )
                         else:
-                            hf.create_dataset(
-                                "image_data",
-                                data=img_np,
-                                chunks=(1, args.resize_width, args.resize_width, 3),
-                                maxshape=(None, args.resize_width, args.resize_width, 3),
-                            )
+                            if not args.name_only:
+                                hf.create_dataset(
+                                    "image_data",
+                                    data=img_np,
+                                    chunks=(1, args.resize_width, args.resize_width, 3),
+                                    maxshape=(None, args.resize_width, args.resize_width, 3),
+                                )
                             hf.create_dataset(
                                 "image_size", 
                                 data=img_size, 
@@ -106,10 +109,11 @@ def merge_h5_file(args, name, split):
                             )
                         start = True
                     else:
-                        hf["image_data"].resize(
-                            hf["image_data"].shape[0] + img_np.shape[0], axis=0
-                        )
-                        hf["image_data"][-img_np.shape[0]:] = img_np
+                        if not args.name_only:
+                            hf["image_data"].resize(
+                                hf["image_data"].shape[0] + img_np.shape[0], axis=0
+                            )
+                            hf["image_data"][-img_np.shape[0]:] = img_np
                         hf["image_size"].resize(
                             hf["image_size"].shape[0] + img_size.shape[0], axis=0
                         )
@@ -154,6 +158,7 @@ if __name__ == "__main__":
     parser.add_argument("--region_num", type=int, default=2, choices=[1, 2, 3])
     parser.add_argument("--generate_data", type=str, default="both", choices=["database", "query", "both"])
     parser.add_argument("--resize_width", type=int, default=512)
+    parser.add_argument("--name_only", action="store_true")
     args = parser.parse_args()
 
     if args.database_name == 'satellite' and len(args.database_indexes) > 1:

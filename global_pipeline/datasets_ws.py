@@ -13,6 +13,7 @@ import torchvision.transforms as transforms
 from torch.utils.data.dataset import Subset
 from sklearn.neighbors import NearestNeighbors
 from torch.utils.data.dataloader import DataLoader
+import torchvision.transforms.functional as F
 import h5py
 import time
 import random
@@ -91,7 +92,13 @@ class BaseDataset(data.Dataset):
             self.queries_folder_h5_path = join(
                 datasets_folder, dataset_name, split + "_database.h5"
             ) 
+
+        self.database_folder_map_path = join(
+            datasets_folder, "20201117_west_of_rimah", "20201117_west_of_rimah_BingSatellite.tif"
+        )
+
         database_folder_h5_df = h5py.File(self.database_folder_h5_path, "r", swmr=True)
+        self.database_folder_map_df = F.to_tensor(Image.open(self.database_folder_map_path))
         queries_folder_h5_df = h5py.File(self.queries_folder_h5_path, "r", swmr=True)
 
         # Map name to index
@@ -273,6 +280,17 @@ class BaseDataset(data.Dataset):
 
         return img
 
+    def _find_img_in_map(self, index, database_queries_split=None):
+        image_name = "_".join(
+            self.database_paths[index].split("_")[1:])
+        img = self.database_folder_map_df
+        center_cood = (float(image_name.split("@")[1]), float(image_name.split("@")[2]))
+        area = (int(center_cood[1]) - self.args.resize[1]//2, int(center_cood[0]) - self.args.resize[0]//2,
+                int(center_cood[1]) + self.args.resize[1]//2, int(center_cood[0]) + self.args.resize[0]//2)
+        img = F.crop(img=img, top=area[1], left=area[0], height=area[3]-area[1], width=area[2]-area[0])
+        img = transforms.ToPILImage()(img)
+        return img
+
     def __len__(self):
         return len(self.images_paths)
 
@@ -373,7 +391,6 @@ class TripletsDataset(BaseDataset):
         identity_transform = transforms.Lambda(lambda x: x)
         self.resized_transform = transforms.Compose(
             [
-                transforms.CenterCrop(self.args.crop),
                 transforms.Resize(self.resize)
                 if self.resize is not None
                 else identity_transform,
@@ -898,7 +915,6 @@ class TranslationDataset(BaseDataset):
         self.resize = args.GAN_resize
         self.resized_transform = transforms.Compose(
             [
-                transforms.CenterCrop(self.args.crop),
                 transforms.Resize(self.resize)
                 if self.resize is not None
                 else identity_transform,
@@ -985,11 +1001,15 @@ class TranslationDataset(BaseDataset):
                 query = self.query_transform(
                     transforms.functional.equalize(self._find_img_in_h5(query_index, "queries")))
         else:
-            query = self.query_transform(
-                self._find_img_in_h5(query_index, "queries"))
+            if self.loading_queries:
+                query = self.query_transform(
+                    self._find_img_in_h5(query_index, "queries"))
+            else:
+                query = self.resized_transform(
+                    self._find_img_in_map(query_index, "queries"))
             
         positive = self.resized_transform(
-            self._find_img_in_h5(best_positive_index, "database")
+            self._find_img_in_map(best_positive_index, "database")
         )
         return query, positive, self.queries_paths[query_index], self.database_paths[best_positive_index]
 
