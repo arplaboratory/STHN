@@ -373,6 +373,7 @@ class TripletsDataset(BaseDataset):
         identity_transform = transforms.Lambda(lambda x: x)
         self.resized_transform = transforms.Compose(
             [
+                transforms.CenterCrop(self.args.crop),
                 transforms.Resize(self.resize)
                 if self.resize is not None
                 else identity_transform,
@@ -897,6 +898,7 @@ class TranslationDataset(BaseDataset):
         self.resize = args.GAN_resize
         self.resized_transform = transforms.Compose(
             [
+                transforms.CenterCrop(self.args.crop),
                 transforms.Resize(self.resize)
                 if self.resize is not None
                 else identity_transform,

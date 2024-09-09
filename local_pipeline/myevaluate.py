@@ -84,8 +84,12 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
     total_mace_conf_error = torch.empty(0)
     timeall=[]
     mace_conf_list = []
+    if args.generate_test_pairs:
+        test_pairs = torch.zeros(len(val_dataset.dataset), dtype=torch.long)
     for i_batch, data_blob in enumerate(tqdm(val_dataset)):
-        img1, img2, flow_gt,  H, query_utm, database_utm, image1_ori  = [x for x in data_blob]
+        img1, img2, flow_gt,  H, query_utm, database_utm, image1_ori, index, pos_index  = [x for x in data_blob]
+        if args.generate_test_pairs:
+            test_pairs[index] = pos_index
 
         if i_batch == 0:
             logging.info("Check the reproducibility by UTM:")

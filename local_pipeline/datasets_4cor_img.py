@@ -7,15 +7,18 @@ import kornia.geometry.transform as tgm
 
 import random
 from glob import glob
-import os.path as osp
+import os
 import cv2
 from os.path import join
 import h5py
 from sklearn.neighbors import NearestNeighbors
 import logging
-from PIL import Image
+from PIL import Image, ImageFile
 import torchvision.transforms as transforms
-
+import torchvision.transforms.functional as F
+from tqdm import tqdm
+import math
+Image.MAX_IMAGE_PIXELS = None
 marginal = 0
 # patch_size = 256
 
@@ -26,9 +29,17 @@ TB_val_region = [2650, 5650, 5100, 9500]
 
 inv_base_transforms = transforms.Compose(
     [ 
-        transforms.Normalize(mean = [ -m/s for m, s in zip(imagenet_mean, imagenet_std)],
-                             std = [ 1/s for s in imagenet_std]),
-        transforms.ToPILImage()
+        # transforms.Normalize(mean = [ -m/s for m, s in zip(imagenet_mean, imagenet_std)],
+        #                      std = [ 1/s for s in imagenet_std]),
+        transforms.ToPILImage(),
+    ]
+)
+
+base_transforms = transforms.Compose(
+    [ 
+        # transforms.ToTensor(),
+        transforms.Normalize(mean = imagenet_mean,
+                             std = imagenet_std),
     ]
 )
 
@@ -44,41 +55,24 @@ class homo_dataset(data.Dataset):
         if self.augment: # EVAL
             if self.args.eval_model is not None:
                 self.rng = None
-            else:
-                self.augment_type = ["no"]
-                if self.args.perspective_max > 0:
-                    self.augment_type.append("perspective")
-                if self.args.rotate_max > 0:
-                    self.augment_type.append("rotate")
-                if self.args.resize_max > 0:
-                    self.augment_type.append("resize")
-        base_transform = transforms.Compose(
+            self.augment_type = ["no"]
+            if self.args.perspective_max > 0:
+                self.augment_type.append("perspective")
+            if self.args.rotate_max > 0:
+                self.augment_type.append("rotate")
+            if self.args.resize_max > 0:
+                self.augment_type.append("resize")
+        self.base_transform = transforms.Compose(
             [
                 transforms.Resize([self.args.resize_width, self.args.resize_width]),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
-            ]
-        )
-        base_transform_ori = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
             ]
         )
         self.query_transform = transforms.Compose(
             [
                 transforms.Grayscale(num_output_channels=3),
-                base_transform
+                transforms.ToTensor()
             ]
         )
-        self.query_transform_ori = transforms.Compose(
-            [
-                transforms.Grayscale(num_output_channels=3),
-                base_transform_ori
-            ]
-        )
-        self.database_transform = base_transform
-        self.database_transform_ori = base_transform_ori
         
     def rotate_transform(self, rotation, four_point_org, four_point_1, four_point_org_augment, four_point_1_augment):
         center_x_org = torch.tensor((self.args.resize_width - 1)/2)
@@ -124,7 +118,7 @@ class homo_dataset(data.Dataset):
         four_point_1_augment[0, 3, 1] -= offset * beta / alpha
         return four_point_org_augment, four_point_1_augment
 
-    def __getitem__(self, query_PIL_image, database_PIL_image, query_utm, database_utm):
+    def __getitem__(self, query_PIL_image, database_PIL_image, query_utm, database_utm, index, pos_index, neg_img2=None):
         if hasattr(self, "rng") and self.rng is None:
             worker_info = torch.utils.data.get_worker_info()
             self.rng = np.random.default_rng(seed=worker_info.id)
@@ -136,12 +130,13 @@ class homo_dataset(data.Dataset):
         t = np.float32(np.array(query_utm - database_utm))
         t[0][0], t[0][1] = t[0][1], t[0][0] # Swap!
         
-        img1, img2, img2_ori = self.query_transform(img1), self.database_transform(img2), self.database_transform_ori(img2)
+        # img1, img2, img2_ori = self.query_transform(img1), self.database_transform(img2), self.database_transform_ori(img2)
+        img1 = self.query_transform(img1)
         alpha = self.args.database_size / self.args.resize_width
         t = t / alpha # align with the resized image
         
         t_tensor = torch.Tensor(t).squeeze(0)
-        y_grid, x_grid = np.mgrid[0:img1.shape[1], 0:img1.shape[2]]
+        y_grid, x_grid = np.mgrid[0:self.args.resize_width, 0:self.args.resize_width]
         point = np.vstack((x_grid.flatten(), y_grid.flatten())).transpose()
         four_point_org = torch.zeros((2, 2, 2))
         top_left = torch.Tensor([0, 0])
@@ -176,32 +171,51 @@ class homo_dataset(data.Dataset):
             four_point_1[:, 0, 1] = t_tensor + top_right_resize2
             four_point_1[:, 1, 0] = t_tensor + bottom_left_resize2
             four_point_1[:, 1, 1] = t_tensor + bottom_right_resize2
+        elif self.args.database_size == 2048:
+            top_left_resize3 = torch.Tensor([self.args.resize_width/8*3, self.args.resize_width/8*3])
+            top_right_resize3 = torch.Tensor([self.args.resize_width - self.args.resize_width/8*3 - 1, self.args.resize_width/8*3])
+            bottom_left_resize3 = torch.Tensor([self.args.resize_width/8*3, self.args.resize_width - self.args.resize_width/8*3 - 1])
+            bottom_right_resize3 = torch.Tensor([self.args.resize_width - self.args.resize_width/8*3 - 1, self.args.resize_width - self.args.resize_width/8*3 - 1])
+            four_point_1[:, 0, 0] = t_tensor + top_left_resize3
+            four_point_1[:, 0, 1] = t_tensor + top_right_resize3
+            four_point_1[:, 1, 0] = t_tensor + bottom_left_resize3
+            four_point_1[:, 1, 1] = t_tensor + bottom_right_resize3
+        elif self.args.database_size == 2560:
+            top_left_resize4 = torch.Tensor([self.args.resize_width/5*2, self.args.resize_width/5*2])
+            top_right_resize4 = torch.Tensor([self.args.resize_width - self.args.resize_width/5*2 - 1, self.args.resize_width/5*2])
+            bottom_left_resize4 = torch.Tensor([self.args.resize_width/5*2, self.args.resize_width - self.args.resize_width/5*2 - 1])
+            bottom_right_resize4 = torch.Tensor([self.args.resize_width - self.args.resize_width/5*2 - 1, self.args.resize_width - self.args.resize_width/5*2 - 1])
+            four_point_1[:, 0, 0] = t_tensor + top_left_resize4
+            four_point_1[:, 0, 1] = t_tensor + top_right_resize4
+            four_point_1[:, 1, 0] = t_tensor + bottom_left_resize4
+            four_point_1[:, 1, 1] = t_tensor + bottom_right_resize4
         else:
             raise NotImplementedError()
         four_point_org = four_point_org.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
         four_point_1 = four_point_1.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
         
-        if self.augnent:
-            #augnent
+        if self.augment:
+            #augment
+            #All point are in resized scales (256)
             four_point_org_augment = four_point_org.clone()
             four_point_1_augment = four_point_1.clone()
-            beta = 512/self.args.resize_width
-            if self.args.eval_model is None: # EVAL
-                permute_type_single = random.choice(self.permute_type)
-                if permute_type_single == "rotate":
+            beta = self.args.crop_width/self.args.resize_width
+            if self.args.eval_model is None or self.args.multi_aug_eval: # EVAL
+                augment_type_single = random.choice(self.augment_type)
+                if augment_type_single == "rotate":
                     rotation = torch.tensor(random.random() - 0.5) * 2 * self.args.rotate_max # on 256x256
                     four_point_org_augment, four_point_1_augment = self.rotate_transform(rotation, four_point_org, four_point_1, four_point_org_augment, four_point_1_augment)
-                elif permute_type_single == "resize":
+                elif augment_type_single == "resize":
                     scale_factor = 1 + (random.random() - 0.5) * 2 * self.args.resize_max # on 256x256
                     assert scale_factor > 0
                     four_point_org_augment, four_point_1_augment = self.resize_transform(scale_factor, beta, alpha, four_point_org_augment, four_point_1_augment)
-                elif permute_type_single == "perspective":
+                elif augment_type_single == "perspective":
                     for p in range(4):
                         for xy in range(2):
                             t1 = random.randint(-self.args.perspective_max, self.args.perspective_max)
                             four_point_org_augment[0, p, xy] += t1 # original for 256
                             four_point_1_augment[0, p, xy] += t1 * beta / alpha # original for 256 then to 512 in 1536 scale then to 256 in 1536 scale
-                elif permute_type_single == "no":
+                elif augment_type_single == "no":
                     pass
                 else:
                     raise NotImplementedError()
@@ -223,8 +237,25 @@ class homo_dataset(data.Dataset):
                     raise NotImplementedError()
             H = tgm.get_perspective_transform(four_point_org, four_point_org_augment)
             H_inverse = torch.inverse(H)
-            img1 = tgm.warp_perspective(img1.unsqueeze(0), H_inverse, (self.args.resize_width, self.args.resize_width)).squeeze(0)
+            img1_width = img1.shape[1]
+            four_point_raw = torch.zeros((2, 2, 2))
+            top_left_raw = torch.Tensor([0, 0])
+            top_right_raw = torch.Tensor([img1_width - 1, 0])
+            bottom_left_raw = torch.Tensor([0, img1_width - 1])
+            bottom_right_raw = torch.Tensor([img1_width - 1, img1_width - 1])
+            four_point_raw[:, 0, 0] = top_left_raw
+            four_point_raw[:, 0, 1] = top_right_raw
+            four_point_raw[:, 1, 0] = bottom_left_raw
+            four_point_raw[:, 1, 1] = bottom_right_raw
+            four_point_raw = four_point_raw.flatten(1).permute(1, 0).unsqueeze(0).contiguous() 
+            H_1 = tgm.get_perspective_transform(four_point_raw, four_point_org)
+            H_1_inverse = torch.inverse(H_1)
+            H_total = H_1_inverse @ H_inverse @ H_1
+            img1 = tgm.warp_perspective(img1.unsqueeze(0), H_total, (img1_width, img1_width)).squeeze(0)
             four_point_1 = four_point_1_augment
+
+        img1 = transforms.CenterCrop(self.args.crop_width)(img1)
+        img1 = self.base_transform(img1)
 
         H = tgm.get_perspective_transform(four_point_org, four_point_1)
         H = H.squeeze()
@@ -241,7 +272,7 @@ class homo_dataset(data.Dataset):
         pf_patch[:, :, 1] = diff_y_branch1
         flow = torch.from_numpy(pf_patch).permute(2, 0, 1).float()
         H = H.squeeze()
-        return img2, img1, flow, H, query_utm, database_utm, img2_ori
+        return img2, img1, flow, H, query_utm, database_utm, index, pos_index
 
 class MYDATA(homo_dataset):
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train"):
@@ -250,13 +281,21 @@ class MYDATA(homo_dataset):
         self.dataset_name = dataset_name
         self.split = split
         # Redirect datafolder path to h5
-        self.database_folder_h5_path = join(
+        # self.database_folder_h5_path = join(
+        #     datasets_folder, dataset_name, split + "_database.h5"
+        # )
+        self.database_folder_nameh5_path = join(
             datasets_folder, dataset_name, split + "_database.h5"
         )
+        self.database_folder_map_path = join(
+            datasets_folder, "maps/satellite/20201117_BingSatellite.png"
+        )
+        self.database_folder_map_df = F.to_tensor(Image.open(self.database_folder_map_path))
         self.queries_folder_h5_path = join(
             datasets_folder, dataset_name, split + "_queries.h5"
         )
-        database_folder_h5_df = h5py.File(self.database_folder_h5_path, "r", swmr=True)
+        # database_folder_h5_df = h5py.File(self.database_folder_h5_path, "r", swmr=True)
+        database_folder_nameh5_df = h5py.File(self.database_folder_nameh5_path, "r", swmr=True)
         queries_folder_h5_df = h5py.File(self.queries_folder_h5_path, "r", swmr=True)
 
         # Map name to index
@@ -264,7 +303,8 @@ class MYDATA(homo_dataset):
         self.queries_name_dict = {}
 
         # Duplicated elements are added
-        for index, database_image_name in enumerate(database_folder_h5_df["image_name"]):
+        # for index, database_image_name in enumerate(database_folder_h5_df["image_name"]):
+        for index, database_image_name in enumerate(database_folder_nameh5_df["image_name"]):
             database_image_name_decoded = database_image_name.decode("UTF-8")
             while database_image_name_decoded in self.database_name_dict:
                 northing = [str(float(database_image_name_decoded.split("@")[2])+0.00001)]
@@ -288,11 +328,11 @@ class MYDATA(homo_dataset):
         self.database_utms = np.array(
             [(path.split("@")[1], path.split("@")[2])
              for path in self.database_paths]
-        ).astype(np.float)
+        ).astype(float)
         self.queries_utms = np.array(
             [(path.split("@")[1], path.split("@")[2])
              for path in self.queries_paths]
-        ).astype(np.float)
+        ).astype(float)
 
         # Find soft_positives_per_query, which are within val_positive_dist_threshold (deafult 25 meters)
         knn = NearestNeighbors(n_jobs=-1)
@@ -326,9 +366,11 @@ class MYDATA(homo_dataset):
         self.queries_num = len(self.queries_paths)
 
         # Close h5 and initialize for h5 reading in __getitem__
-        self.database_folder_h5_df = None
+        # self.database_folder_h5_df = None
+        self.database_folder_nameh5_df = None
         self.queries_folder_h5_df = None
-        database_folder_h5_df.close()
+        # database_folder_h5_df.close()
+        database_folder_nameh5_df.close()
         queries_folder_h5_df.close()
         
         # Some queries might have no positive, we should remove those queries.
@@ -351,6 +393,21 @@ class MYDATA(homo_dataset):
             list(self.queries_paths)
         self.queries_num = len(self.queries_paths)
     
+        if args.load_test_pairs is not None:
+            # Override
+            load_test_pairs_file = args.load_test_pairs
+        else:
+            # Use default
+            load_test_pairs_file = f"cache/{self.split}_{args.val_positive_dist_threshold}_pairs.pth"
+        if not os.path.isfile(load_test_pairs_file):
+            logging.info("Using online test pairs or generating test pairs. It is possible that different batch size can generate different test pairs.")
+            print("Using online test pairs or generating test pairs. It is possible that different batch size can generate different test pairs.")
+            self.test_pairs = None
+        else:
+            logging.info("Loading cached test pairs to make sure that the test pairs will not change for different batch size.")
+            print("Loading cached test pairs to make sure that the test pairs will not change for different batch size.")
+            self.test_pairs = torch.load(load_test_pairs_file)
+
     def get_positive_indexes(self, query_index):
         positive_indexes = self.soft_positives_per_query[query_index]
         return positive_indexes
@@ -360,9 +417,11 @@ class MYDATA(homo_dataset):
     
     def __getitem__(self, index):
         # Init
-        if self.database_folder_h5_df is None:
-            self.database_folder_h5_df = h5py.File(
-                self.database_folder_h5_path, "r", swmr=True)
+        if self.queries_folder_h5_df is None:
+            # self.database_folder_h5_df = h5py.File(
+            #     self.database_folder_h5_path, "r", swmr=True)
+            self.database_folder_nameh5_df = h5py.File(
+                self.database_folder_nameh5_path, "r", swmr=True)
             self.queries_folder_h5_df = h5py.File(
                 self.queries_folder_h5_path, "r", swmr=True)
             
@@ -380,13 +439,17 @@ class MYDATA(homo_dataset):
             img = self._find_img_in_h5(index, database_queries_split="queries")
         
         # Positives
-        pos_index = random.choice(self.get_positive_indexes(index))
-        pos_img = self._find_img_in_h5(pos_index, database_queries_split="database")
+        if self.test_pairs is not None and not self.args.generate_test_pairs:
+            pos_index = self.test_pairs[index]
+        else:
+            pos_index = random.choice(self.get_positive_indexes(index))
+        # pos_img = self._find_img_in_h5(pos_index, database_queries_split="database")
+        pos_img = self._find_img_in_map(pos_index, database_queries_split="database")
         
         query_utm = torch.tensor(self.queries_utms[index]).unsqueeze(0)
         database_utm = torch.tensor(self.database_utms[pos_index]).unsqueeze(0)
     
-        return super(MYDATA, self).__getitem__(img, pos_img, query_utm, database_utm)
+        return super(MYDATA, self).__getitem__(img, pos_img, query_utm, database_utm, index, pos_index)
 
     def __repr__(self):
         return f"< {self.__class__.__name__}, {self.dataset_name} - #database: {self.database_num}; #queries: {self.queries_num} >"
@@ -420,6 +483,18 @@ class MYDATA(homo_dataset):
         else:
             raise KeyError("Dont find correct database_queries_split!")
 
+        return img
+    
+    def _find_img_in_map(self, index, database_queries_split=None):
+        if database_queries_split != 'database':
+            raise NotImplementedError()
+        image_name = "_".join(
+            self.database_paths[index].split("_")[1:])
+        img = self.database_folder_map_df
+        center_cood = (float(image_name.split("@")[1]), float(image_name.split("@")[2]))
+        area = (int(center_cood[1]) - self.args.database_size//2, int(center_cood[0]) - self.args.database_size//2,
+                int(center_cood[1]) + self.args.database_size//2, int(center_cood[0]) + self.args.database_size//2)
+        img = F.crop(img=img, top=area[1], left=area[0], height=area[3]-area[1], width=area[2]-area[0])
         return img
 
 def fetch_dataloader(args, split='train'):

@@ -141,7 +141,7 @@ def warp(x, flo):
     return output * mask
 
 
-def sequence_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
+def sequence_loss(four_preds, four_pred, flow_gt, gamma, args, metrics):
     """ Loss function defined over sequence of flow predictions """
 
     flow_4cor = torch.zeros((four_preds[0].shape[0], 2, 2, 2)).to(four_preds[0].device)
@@ -164,24 +164,15 @@ def sequence_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
             ce_loss += i_weight * (i4cor_loss).mean()
 
     mace = torch.sum((four_preds[-1] - flow_4cor) ** 2, dim=1).sqrt()
+    metrics['ce_loss'] = ce_loss.item()
     metrics['1px'] = (mace < 1).float().mean().item()
     metrics['3px'] = (mace < 3).float().mean().item()
     metrics['mace'] = mace.mean().item()
 
-    if four_ue is not None:
-        ue_loss = 0.0
-        for i in range(args.iters_lev0):
-            i_weight = gamma ** (args.iters_lev0 - i - 1)
-            i4cor_loss = (four_preds[i] - flow_4cor)**2
-            i4cor_loss_norm =  torch.exp(args.ue_alpha * (i4cor_loss[:, 0, :, :] + i4cor_loss[:, 1, :, :])**0.5)
-            ue_loss += i_weight * ((four_ue[i] - i4cor_loss_norm).abs()).mean()
-        ce_loss += ue_loss
-        metrics['ue_loss'] = ue_loss.item()
-
     return ce_loss, metrics
 
 
-def single_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
+def single_loss(four_preds, four_pred, flow_gt, gamma, args, metrics):
     """ Loss function defined over sequence of flow predictions """
 
     flow_4cor = torch.zeros((four_preds[0].shape[0], 2, 2, 2)).to(four_preds[0].device)
@@ -192,7 +183,8 @@ def single_loss(four_preds, flow_gt, gamma, args, metrics, four_ue=None):
 
     ce_loss = (four_preds[0] - flow_4cor).abs().mean()
 
-    mace = torch.sum((four_preds[0] - flow_4cor) ** 2, dim=1).sqrt()
+    mace = torch.sum((four_pred - flow_4cor) ** 2, dim=1).sqrt()
+    metrics['ce_loss'] = ce_loss.item()
     metrics['1px'] = (mace < 1).float().mean().item()
     metrics['3px'] = (mace < 3).float().mean().item()
     metrics['mace'] = mace.mean().item()

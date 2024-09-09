@@ -331,6 +331,13 @@ def parse_arguments():
         help="Resizing shape for images (HxW).",
     )
     parser.add_argument(
+        "--crop",
+        type=int,
+        default=[512, 512],
+        nargs=2,
+        help="Resizing shape for images (HxW).",
+    )
+    parser.add_argument(
         "--test_method",
         type=str,
         default="hard_resize",

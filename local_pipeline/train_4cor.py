@@ -24,37 +24,30 @@ from myevaluate import evaluate_SNet
 
 def main(args):
     model = STHN(args, for_training=True)
-    model.setup()
-    if args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
-        model.netG.eval()
-        for param in model.netG.parameters():
-            param.requires_grad = False
-        if args.two_stages:
-            model.netG_fine.eval()
-            for param in model.netG_fine.parameters():
-                param.requires_grad = False
-    else:
-        if args.restore_ckpt is None or args.finetune:
-            model.netG.train()
-        else:
-            model.netG.eval()
-        if args.two_stages:
-            model.netG_fine.train()
     logging.info(f"Parameter Count: {count_parameters(model.netG)}")
-    if args.use_ue and args.D_net != "ue_branch":
-        model.netD.train()
-        logging.info(f"Parameter Count: {count_parameters(model.netD)}")
 
     if args.restore_ckpt is not None:
+        model_med = torch.load(args.restore_ckpt, map_location='cuda:0')
+        for key in list(model_med['netG'].keys()):
+            model_med['netG'][key.replace('module.','')] = model_med['netG'][key]
+        for key in list(model_med['netG'].keys()):
+            if key.startswith('module'):
+                del model_med['netG'][key]
+        model.netG.load_state_dict(model_med['netG'], strict=True)
+        if args.two_stages and model_med['netG_fine'] is not None:
+            model_med = torch.load(args.restore_ckpt, map_location='cuda:0')
+            for key in list(model_med['netG_fine'].keys()):
+                model_med['netG_fine'][key.replace('module.','')] = model_med['netG_fine'][key]
+            for key in list(model_med['netG_fine'].keys()):
+                if key.startswith('module'):
+                    del model_med['netG_fine'][key]
+            model.netG_fine.load_state_dict(model_med['netG_fine'], strict=True)
+        
+    model.setup()
+    model.netG.train()
+    if args.two_stages:
+        model.netG_fine.train()
 
-        save_model = torch.load(args.restore_ckpt)
-        
-        model.netG.load_state_dict(save_model['netG'])
-        if save_model['netD'] is not None:
-            model.netD.load_state_dict(save_model['netD'])
-        if save_model['netG_fine'] is not None:
-            model.netG_fine.load_state_dict(save_model['netG_fine'])
-        
     train_loader = datasets.fetch_dataloader(args, split="train")
     if os.path.exists(os.path.join(args.datasets_folder, args.dataset_name, "extended_queries.h5")):
         extended_loader = datasets.fetch_dataloader(args, split="extended")
@@ -63,84 +56,84 @@ def main(args):
 
     total_steps = 0
     last_best_val_mace = None
-    last_best_val_mace_conf_error = None
     while total_steps <= args.num_steps:
-        total_steps, last_best_val_mace, last_best_val_mace_conf_error = train(model, train_loader, args, total_steps, last_best_val_mace, last_best_val_mace_conf_error)
+        total_steps, last_best_val_mace = train(model, train_loader, args, total_steps, last_best_val_mace)
         if extended_loader is not None:
-            total_steps, last_best_val_mace, last_best_val_mace_conf_error = train(model, extended_loader, args, total_steps, last_best_val_mace, last_best_val_mace_conf_error, train_step_limit=len(train_loader))
+            total_steps, last_best_val_mace = train(model, extended_loader, args, total_steps, last_best_val_mace, train_step_limit=len(train_loader))
 
     test_dataset = datasets.fetch_dataloader(args, split='test')
     model_med = torch.load(args.save_dir + f'/{args.name}.pth')
-    model.netG.load_state_dict(model_med['netG'])
-    if args.use_ue and args.D_net != "ue_branch":
-        model.netD.load_state_dict(model_med['netD'])
+    model.netG.load_state_dict(model_med['netG'], strict=False)
     if args.two_stages:
-        model.netG_fine.load_state_dict(model_med['netG_fine'])
+        model.netG_fine.load_state_dict(model_med['netG_fine'], strict=True)
     evaluate_SNet(model, test_dataset, batch_size=args.batch_size, args=args, wandb_log=True)
 
-def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_val_mace_conf_error, train_step_limit = None):
+def train(model, train_loader, args, total_steps, last_best_val_mace, train_step_limit = None):
     count = 0
     for i_batch, data_blob in enumerate(tqdm(train_loader)):
         tic = time.time()
-        image1, image2, flow, _, query_utm, database_utm, image1_ori  = [x for x in data_blob]
-        model.set_input(image1, image2, flow, image1_ori)
-        if i_batch==0:
-            save_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1.png')
-            save_img(torchvision.utils.make_grid(image2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2.png')
-            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
-                             torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
-                             args.save_dir + '/train_overlap_gt.png')
+        image1, image2, flow, _, query_utm, database_utm, _, _  = [x for x in data_blob]
+        model.set_input(image1, image2, flow)
         metrics = model.optimize_parameters()
-        if i_batch==0 and args.train_ue_method != 'train_only_ue_raw_input':
-            save_overlap_img(torchvision.utils.make_grid(image1, nrow=16, padding = 16, pad_value=0),
-                            torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0),
-                            args.save_dir + f'/train_overlap_pred.png')
-            if args.two_stages:
+        if i_batch==0 and args.vis_all:
+            save_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1.png')
+            save_img(torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2.png')
+            save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
+                            torchvision.utils.make_grid(model.real_warped_image_2, nrow=16, padding = 16, pad_value=0), 
+                            args.save_dir + '/train_overlap_gt.png')
+            if not args.two_stages:
+                save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
+                                torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0),
+                                args.save_dir + f'/train_overlap_pred.png')
+            else:
                 save_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img1_crop.png')
-                save_overlap_img(torchvision.utils.make_grid(model.image_1_crop, nrow=16, padding = 16, pad_value=0),
-                                torchvision.utils.make_grid(model.image_2, nrow=16, padding = 16, pad_value=0), 
-                                args.save_dir + '/train_overlap_crop.png')
+                save_img(torchvision.utils.make_grid(model.image_2_crop, nrow=16, padding = 16, pad_value=0), args.save_dir + '/train_img2_crop.png')
+                save_overlap_img(torchvision.utils.make_grid(model.image_1, nrow=16, padding = 16, pad_value=0),
+                                torchvision.utils.make_grid(model.fake_warped_image_2, nrow=16, padding = 16, pad_value=0),
+                                args.save_dir + f'/train_overlap_pred.png')
         model.update_learning_rate()
-        if args.train_ue_method != 'train_only_ue_raw_input':
-            metrics["lr"] = model.scheduler_G.get_lr()
-        else:
-            metrics["lr"] = model.scheduler_D.get_lr()
+        if torch.isnan(model.loss_G):
+            weights = model.optimizer_G.param_groups[0]['params']
+            weights_flat = [torch.flatten(weight) for weight in weights]
+            weights_1d = torch.cat(weights_flat)
+            assert not torch.isnan(weights_1d).any()
+            assert not torch.isinf(weights_1d).any()
+            print(f"{weights_1d.max()}, {weights_1d.min()}")
+
+            grad_flat = [torch.flatten(weight.grad) for weight in weights]
+            grad_1d = torch.cat(grad_flat)
+            assert not torch.isnan(grad_1d).any()
+            assert not torch.isinf(grad_1d).any()
+            print(f"{grad_1d.max()}, {grad_1d.min()}")
+            raise KeyError("Detect NaN for loss")
+        metrics["lr"] = model.scheduler_G.get_lr()
         toc = time.time()
         metrics['time'] = toc - tic
         wandb.log({
-                "mace": metrics["mace"] if args.train_ue_method == 'train_end_to_end' else 0,
-                "lr": metrics["lr"],
-                "G_loss": metrics["G_loss"] if args.train_ue_method == 'train_end_to_end' else 0,
-                "GAN_loss": metrics["GAN_loss"] if args.train_ue_method == 'train_end_to_end' and args.use_ue else 0,
-                "D_loss": metrics["D_loss"] if args.use_ue and args.D_net != "ue_branch" else 0,
-                "ue_loss": metrics["ue_loss"] if args.use_ue and args.D_net == "ue_branch" else 0
+                "mace": metrics["mace"],
+                "lr": metrics["lr"][0],
+                "G_loss": metrics["G_loss"],
+                "ce_loss": metrics["ce_loss"],
             },)
         total_steps += 1
         # Validate
         if total_steps % args.val_freq == args.val_freq - 1:
-            current_val_mace, current_val_mace_conf_error = validate(model, args, total_steps)
+            current_val_mace = validate(model, args, total_steps)
             # plot_train(logger, args)
             # plot_val(logger, args)
             PATH = args.save_dir + f'/{total_steps+1}_{args.name}.pth'
             checkpoint = {
                 "netG": model.netG.state_dict(),
-                "netD": model.netD.state_dict() if args.use_ue and args.D_net != "ue_branch" else None,
                 "netG_fine": model.netG_fine.state_dict() if args.two_stages else None,
             }
             torch.save(checkpoint, PATH)
-            if args.use_ue and args.train_ue_method in ['train_only_ue', 'train_only_ue_raw_input']:
-                if last_best_val_mace_conf_error is None or last_best_val_mace_conf_error > current_val_mace_conf_error:
-                    last_best_val_mace_conf_error = current_val_mace_conf_error
-                    PATH = args.save_dir + f'/{args.name}.pth'
-                    torch.save(checkpoint, PATH)
+            if last_best_val_mace is None or last_best_val_mace > current_val_mace:
+                logging.info(f"Saving best model, last_best_val_mace: {last_best_val_mace}, current_val_mace: {current_val_mace}")
+                last_best_val_mace = current_val_mace
+                PATH = args.save_dir + f'/{args.name}.pth'
+                torch.save(checkpoint, PATH)
             else:
-                if last_best_val_mace is None or last_best_val_mace > current_val_mace:
-                    logging.info(f"Saving best model, last_best_val_mace: {last_best_val_mace}, current_val_mace: {current_val_mace}")
-                    last_best_val_mace = current_val_mace
-                    PATH = args.save_dir + f'/{args.name}.pth'
-                    torch.save(checkpoint, PATH)
-                else:
-                    logging.info(f"No Saving, last_best_val_mace: {last_best_val_mace}, current_val_mace: {current_val_mace}")
+                logging.info(f"No Saving, last_best_val_mace: {last_best_val_mace}, current_val_mace: {current_val_mace}")
 
         if total_steps >= args.num_steps:
             break
@@ -149,7 +142,7 @@ def train(model, train_loader, args, total_steps, last_best_val_mace, last_best_
             break
         else:
             count += 1
-    return total_steps, last_best_val_mace, last_best_val_mace_conf_error
+    return total_steps, last_best_val_mace
 
 def validate(model, args, total_steps):
     results = {}
@@ -157,9 +150,8 @@ def validate(model, args, total_steps):
     results.update(validate_process(model, args, total_steps))
     wandb.log({
                 "val_mace": results['val_mace'],
-                "val_mace_conf_error": results['val_mace_conf_error']
             })
-    return results['val_mace'], results['val_mace_conf_error']
+    return results['val_mace']
 
 
 if __name__ == "__main__":
