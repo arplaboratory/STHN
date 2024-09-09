@@ -24,7 +24,7 @@ Maintainer: Jiuhong Xiao (jx1190@nyu.edu)<br />**
 ## Dataset
 We extend the Boson-nighttime dataset from [STGL](https://github.com/arplaboratory/satellite-thermal-geo-localization/tree/main) with additional unpaired satellite images and our generated thermal images using TGM.
 
-Dataset link (122 GB): [Download](https://drive.google.com/drive/folders/1edQ8ZMXZJHjXe3qDR4Y9m4FxRbGsTz0Q?usp=sharing)
+Dataset link (122 GB): [Download](https://huggingface.co/datasets/xjh19972/boson-nighttime/tree/main/satellite-thermal-dataset-v3)
 
 The ``datasets`` folder should be created in the root folder with the following structure. By default, the dataset uses $W_S=512$, while the ``larger`` suffix indicates $W_S=1536$.
 
