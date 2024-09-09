@@ -94,7 +94,7 @@ class BaseDataset(data.Dataset):
             ) 
 
         self.database_folder_map_path = join(
-            datasets_folder, "20201117_west_of_rimah", "20201117_west_of_rimah_BingSatellite.tif"
+            datasets_folder, "maps/satellite/20201117_BingSatellite.png"
         )
 
         database_folder_h5_df = h5py.File(self.database_folder_h5_path, "r", swmr=True)
@@ -130,11 +130,11 @@ class BaseDataset(data.Dataset):
         self.database_utms = np.array(
             [(path.split("@")[1], path.split("@")[2])
              for path in self.database_paths]
-        ).astype(np.float)
+        ).astype(float)
         self.queries_utms = np.array(
             [(path.split("@")[1], path.split("@")[2])
              for path in self.queries_paths]
-        ).astype(np.float)
+        ).astype(float)
 
         # Find soft_positives_per_query, which are within val_positive_dist_threshold (deafult 25 meters)
         knn = NearestNeighbors(n_jobs=-1)
@@ -205,7 +205,7 @@ class BaseDataset(data.Dataset):
                 img = self.query_transform(
                     self._find_img_in_h5(index))
         else:
-            img = self._find_img_in_h5(index)
+            img = self._find_img_in_map(index, extended=self.split == "extended")
             img = base_transform(img)
         # With database images self.test_method should always be "hard_resize"
         if self.test_method == "hard_resize":
@@ -280,16 +280,20 @@ class BaseDataset(data.Dataset):
 
         return img
 
-    def _find_img_in_map(self, index, database_queries_split=None):
+    def _find_img_in_map(self, index, database_query_split=None, extended=False):
         image_name = "_".join(
             self.database_paths[index].split("_")[1:])
-        img = self.database_folder_map_df
+        if extended:
+            img = self.extended_database_folder_map_df
+        else:
+            img = self.database_folder_map_df
         center_cood = (float(image_name.split("@")[1]), float(image_name.split("@")[2]))
         area = (int(center_cood[1]) - self.args.resize[1]//2, int(center_cood[0]) - self.args.resize[0]//2,
                 int(center_cood[1]) + self.args.resize[1]//2, int(center_cood[0]) + self.args.resize[0]//2)
         img = F.crop(img=img, top=area[1], left=area[0], height=area[3]-area[1], width=area[2]-area[0])
         img = transforms.ToPILImage()(img)
         return img
+
 
     def __len__(self):
         return len(self.images_paths)
@@ -432,9 +436,9 @@ class TripletsDataset(BaseDataset):
                 + "within the training set. They won't be considered as they're useless for training."
             )
         # Remove queries without positives
-        self.hard_positives_per_query = np.delete(self.hard_positives_per_query, queries_without_any_hard_positive)
-        self.queries_paths = np.delete(self.queries_paths, queries_without_any_hard_positive)
-        self.queries_utms = np.delete(self.queries_utms, queries_without_any_hard_positive, axis=0)
+        self.hard_positives_per_query = [item for index, item in enumerate(self.hard_positives_per_query) if index not in queries_without_any_hard_positive]
+        self.queries_paths = [item for index, item in enumerate(self.queries_paths) if index not in queries_without_any_hard_positive]
+        self.queries_utms = [item for index, item in enumerate(self.queries_utms) if index not in queries_without_any_hard_positive]
         
         # Remove queries in val region for extended dataset if necessary
         if exclude_val_region and self.split=="extended":
@@ -450,9 +454,9 @@ class TripletsDataset(BaseDataset):
                     + "within the extended set. They won't be considered because it will affect validation."
                 )
             # Remove queries in val region
-            self.hard_positives_per_query = np.delete(self.hard_positives_per_query, queries_in_val_region)
-            self.queries_paths = np.delete(self.queries_paths, queries_in_val_region)
-            self.queries_utms = np.delete(self.queries_utms, queries_in_val_region, axis=0)
+            self.hard_positives_per_query = [item for index, item in enumerate(self.hard_positives_per_query) if index not in queries_in_val_region]
+            self.queries_paths = [item for index, item in enumerate(self.queries_paths) if index not in queries_in_val_region]
+            self.queries_utms = [item for index, item in enumerate(self.queries_utms) if index not in queries_in_val_region]
 
         # Recompute images_paths and queries_num because some queries might have been removed
         self.images_paths = list(self.database_paths) + \
