@@ -30,6 +30,9 @@ The ``datasets`` folder should be created in the root folder with the following 
 
 ```
 STHN/datasets/
+├── maps
+│   └── satellite
+|   |   └── 20201117_BingSatellite.png
 ├── satellite_0_satellite_0
 │   └── train_database.h5
 ├── satellite_0_thermalmapping_135
@@ -40,7 +43,7 @@ STHN/datasets/
 │   ├── val_database.h5
 │   └── val_queries.h5
 ├── satellite_0_thermalmapping_135_train
-│   ├── extended_database.h5 -> ../satellite_0_satellite_0_dense/train_database.h5
+│   ├── extended_database.h5 -> ../satellite_0_satellite_0/train_database.h5
 │   ├── extended_queries.h5
 │   ├── test_database.h5 -> ../satellite_0_thermalmapping_135/test_database.h5
 │   ├── test_queries.h5 -> ../satellite_0_thermalmapping_135/test_queries.h5
