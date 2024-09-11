@@ -3,7 +3,7 @@
 This is the official repository for [STHN: Deep Homography Estimation for UAV Thermal Geo-localization with Satellite Imagery](https://arxiv.org/abs/2405.20470).
 
 Related works:  
-1. Long-range UAV Thermal Geo-localization with Satellite Imagery [[Paper]](https://arxiv.org/abs/2306.02994) [[Code]](https://github.com/arplaboratory/satellite-thermal-geo-localization)
+* STHN: Deep Homography Estimation for UAV Thermal Geo-localization with Satellite Imagery [[Project]](https://xjh19971.github.io/STHN)
 
 ```
 @ARTICLE{xiao2024sthn,
@@ -17,6 +17,7 @@ Related works:
   keywords={Estimation;Location awareness;Satellites;Satellite images;Autonomous aerial vehicles;Accuracy;Iterative methods;Deep learning for visual perception;aerial systems: applications;localization},
   doi={10.1109/LRA.2024.3448129}}
 ```
+
 **Developer: Jiuhong Xiao<br />
 Affiliation: [NYU ARPL](https://wp.nyu.edu/arpl/)<br />
 Maintainer: Jiuhong Xiao (jx1190@nyu.edu)<br />**
