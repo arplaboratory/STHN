@@ -87,7 +87,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
     if args.generate_test_pairs:
         test_pairs = torch.zeros(len(val_dataset.dataset), dtype=torch.long)
     for i_batch, data_blob in enumerate(tqdm(val_dataset)):
-        img1, img2, flow_gt,  H, query_utm, database_utm, image1_ori, index, pos_index  = [x for x in data_blob]
+        img2, img1, flow, H, query_utm, database_utm, index, pos_index  = [x for x in data_blob]
         if args.generate_test_pairs:
             test_pairs[index] = pos_index
 
@@ -116,7 +116,7 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
         if args.train_ue_method != 'train_only_ue_raw_input':
             if not args.identity:
                 # time_start = time.time()
-                model.forward(use_raw_input=(args.train_ue_method == 'train_only_ue_raw_input'), noise_std=args.noise_std, sample_method=args.sample_method)
+                model.forward()
                 # time_end = time.time()
                 four_pred = model.four_pred
                 # timeall.append(time_end-time_start)
