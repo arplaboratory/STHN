@@ -83,6 +83,7 @@ def save_overlap_bbox_img(img1, img2, path, four_point_gt, four_point_pred, crop
             crop_bbox_single[2] = crop_bbox_single[3]
             crop_bbox_single[3] = temp
             image2=cv2.polylines(image2,[crop_bbox_single],True,(0,0,255),1)
+        image2 = cv2.resize(image2, (image1.shape[0], image1.shape[1])) # quick fix for dimension inconsistency for image1 and image2
         img1_list[i] = image1
         img2_list[i] = image2
     img1_tensor = torch.from_numpy(img1_list).permute(0, 3, 1, 2)
