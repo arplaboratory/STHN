@@ -124,9 +124,11 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
             else:
                 four_pred = torch.zeros((flow_gt.shape[0], 2, 2, 2))
 
+            alpha = args.database_size / args.resize_width
             mace_ = (flow_4cor - four_pred.cpu().detach())**2
             mace_ = ((mace_[:,0,:,:] + mace_[:,1,:,:])**0.5)
             mace_vec = torch.mean(torch.mean(mace_, dim=1), dim=1)
+            mace_vec = mace_vec * alpha
             # print(mace_[0,:])
 
             total_mace = torch.cat([total_mace,mace_vec], dim=0)
@@ -149,17 +151,13 @@ def evaluate_SNet(model, val_dataset, batch_size=0, args = None, wandb_log=False
             center_T = torch.tensor([args.resize_width/2-0.5, args.resize_width/2-0.5, 1]).unsqueeze(1).unsqueeze(0).repeat(H.shape[0], 1, 1)
             w = torch.bmm(H, center_T).squeeze(2)
             center_pred_offset = w[:, :2]/w[:, 2].unsqueeze(1) - center_T[:, :2].squeeze(2)
-            # alpha = args.database_size / args.resize_width
-            # center_gt_offset = (query_utm - database_utm).squeeze(1) / alpha
-            # temp = center_gt_offset[:, 0].clone()
-            # center_gt_offset[:, 0] = center_gt_offset[:, 1]
-            # center_gt_offset[:, 1] = temp # Swap!
             H_gt = tgm.get_perspective_transform(four_point_org, four_point_gt)
             w_gt = torch.bmm(H_gt, center_T).squeeze(2)
             center_gt_offset = w_gt[:, :2]/w_gt[:, 2].unsqueeze(1) - center_T[:, :2].squeeze(2)
             ce_ = (center_pred_offset - center_gt_offset)**2
             ce_ = ((ce_[:,0] + ce_[:,1])**0.5)
             ce_vec = ce_
+            ce_vec = ce_vec * alpha
             total_ce = torch.cat([total_ce, ce_vec], dim=0)
             final_ce = torch.mean(total_ce).item()
             
