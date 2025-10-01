@@ -99,7 +99,6 @@ To evaluate one-stage and two-stage methods, use one of the following scripts:
 ```
 
 Find the test results in ``./test/local_he/$model_folder_name/``.  
-**:warning: Please note that the MACE and CE tests are performed on resized images with dimensions of 256x256. To convert these metrics from pixels to meters, you need to multiply them by a scaling factor, denoted as $\alpha$. This can be expressed as $MACE(m) = \alpha \cdot MACE(pixel)$. Specifically, use $\alpha = 6$ when $W_S = 1536$, and $\alpha = 2$ when $W_S = 512$.**
 
 ## Image-matching Baselines
 For training and evaluating the image-matching baselines (anyloc and STGL), please refer to ``scripts/global/`` for training and evaluation.
