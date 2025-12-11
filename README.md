@@ -111,7 +111,7 @@ Download pretrained TGM and STHN models for $W_S=1536$ and $D_C=512$ m: [Downloa
   <summary>Train/Val/Test split</summary>
   Below is the visualization of the train-validation-test regions. The dataset includes thermal maps from six flights: three flights (conducted at 9 PM, 12 AM, and 2 AM) cover the upper region, and the other three flights (conducted at 10 PM, 1 AM, and 3 AM) cover the lower region. The lower region is further divided into training and validation subsets. The synthesized thermal images span a larger area (23,744m x 9,088m) but exclude the test region to assess generalization performance properly.
   
-  **Note that our v3 dataset *includes* the test region, as we found that its inclusion does not significantly affect performance. If you prefer a more rigorous setup that excludes the test region, please use [eval_pix2pix_generate_h5_exclude.py](https://github.com/arplaboratory/STHN/blob/main/global_pipeline/eval_pix2pix_generate_h5_exclude.py) to generate the extended dataset accordingly.**
+  **[2025/12] Update:** We have released an updated version of **satellite-thermal-dataset-v3**, which excludes the test region from the generated data to ensure full alignment with the original paper’s evaluation protocol. If you wish to conduct a **rigorous comparison with STHN**, please replace `extended_queries.h5` with `extended_queries_test_excluded.h5`.
   
   ![image](https://github.com/arplaboratory/STHN/assets/29690116/8e833ba9-644e-4446-b951-7b17a5e4316b)
   
