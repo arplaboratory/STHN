@@ -24,10 +24,6 @@ Related works:
   doi={10.1109/LRA.2024.3448129}}
 ```
 
-**Developer: Jiuhong Xiao<br />
-Affiliation: [NYU ARPL](https://wp.nyu.edu/arpl/)<br />
-Maintainer: Jiuhong Xiao (jx1190@nyu.edu)<br />**
-
 ## Conda Environment Setup
 Our repository requires a conda environment. Relevant packages are listed in ``env.yml``. Run the following command to setup the conda environment.
 ```
