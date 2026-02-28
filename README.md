@@ -23,6 +23,23 @@ Related works:
 Affiliation: [NYU ARPL](https://wp.nyu.edu/arpl/)<br />
 Maintainer: Jiuhong Xiao (jx1190@nyu.edu)<br />**
 
+## Conda Environment Setup
+Our repository requires a conda environment. Relevant packages are listed in ``env.yml``. Run the following command to setup the conda environment.
+```
+conda env create -f env.yml
+```
+
+## Simple Inference Demo
+
+To quickly get started with STHN, we provide a [`STHN_demo.py`](STHN_demo.py) script. This demo automatically downloads the model from Hugging Face and runs inference on a pair of sample images:
+
+```bash
+# From the STHN root directory
+conda activate STHN
+python STHN_demo.py # one-stage model
+python STHN_demo.py --two_stages # two-stage model
+```
+
 ## Dataset
 We extend the Boson-nighttime dataset from [STGL](https://github.com/arplaboratory/satellite-thermal-geo-localization/tree/main) with additional unpaired satellite images and our generated thermal images using TGM.
 
@@ -53,12 +70,6 @@ STHN/datasets/
 │   ├── train_queries.h5 -> ../satellite_0_thermalmapping_135/train_queries.h5
 │   ├── val_database.h5 -> ../satellite_0_thermalmapping_135/val_database.h5
 │   └── val_queries.h5 -> ../satellite_0_thermalmapping_135/val_queries.h5
-```
-
-## Conda Environment Setup
-Our repository requires a conda environment. Relevant packages are listed in ``env.yml``. Run the following command to setup the conda environment.
-```
-conda env create -f env.yml
 ```
 
 ## Training
