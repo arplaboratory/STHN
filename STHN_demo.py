@@ -397,27 +397,6 @@ def visualize_result(satellite_image, thermal_image, four_pred, resize_width,
 # ==============================================================================
 # Main
 # ==============================================================================
-
-ONE_STAGE_CONFIG = {
-    'resize_width': 256,
-    'database_size': 1536,
-    'corr_level': 4,
-    'iters_lev0': 6,
-    'iters_lev1': 6,
-    'two_stages': False,
-    'fine_padding': 0,
-}
-
-TWO_STAGE_CONFIG = {
-    'resize_width': 256,
-    'database_size': 1536,
-    'corr_level': 4,
-    'iters_lev0': 6,
-    'iters_lev1': 6,
-    'two_stages': True,
-    'fine_padding': 0,
-}
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='STHN Demo: Satellite-Thermal Homography Estimation')
     parser.add_argument('--two_stages', action='store_true',
@@ -425,7 +404,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    config = TWO_STAGE_CONFIG if args.two_stages else ONE_STAGE_CONFIG
     save_path = 'examples/STHN_result_two_stage.png' if args.two_stages else 'examples/STHN_result_one_stage.png'
 
     # ---- Load Model ----
@@ -439,13 +417,13 @@ if __name__ == "__main__":
     # ---- Run Inference ----
     print(f"Running inference on {device}...")
     satellite = load_and_preprocess_satellite(
-        'examples/img1.png', config['database_size']).to(device)
+        'examples/img1.png', model.database_size).to(device)
     thermal = load_and_preprocess_thermal(
-        'examples/img2.png', config['resize_width']).to(device)
+        'examples/img2.png', model.resize_width).to(device)
 
     with torch.no_grad():
         four_pred = model(satellite, thermal)
 
     visualize_result(satellite, thermal, four_pred,
-                     config['resize_width'], config['database_size'],
+                     model.resize_width, model.database_size,
                      save_path, gt_image_path='examples/gt.png')
