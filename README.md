@@ -1,5 +1,10 @@
 # STHN: Deep Homography Estimation for UAV Thermal Geo-localization with Satellite Imagery
 
+[![arXiv](https://img.shields.io/badge/arXiv-2405.20470-B31B1B.svg)](https://arxiv.org/abs/2405.20470)
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face%20Dataset-STHN-blue.svg)](https://huggingface.co/datasets/xjh19972/boson-nighttime/tree/main/satellite-thermal-dataset-v3)
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face%20Model-STHN-blue.svg)](https://huggingface.co/xjh19972/STHN)
+[![Model](https://img.shields.io/badge/Resources-STHN-green.svg)](https://drive.google.com/drive/folders/1hprzDQNwhFIQbLEa7p9WQUMMJHnYjdxk?usp=sharing)
+
 This is the official repository for [STHN: Deep Homography Estimation for UAV Thermal Geo-localization with Satellite Imagery](https://arxiv.org/abs/2405.20470).
 
 Related works:  
@@ -113,9 +118,6 @@ Find the test results in ``./test/local_he/$model_folder_name/``.
 
 ## Image-matching Baselines
 For training and evaluating the image-matching baselines (anyloc and STGL), please refer to ``scripts/global/`` for training and evaluation.
-
-## Pretrained Models
-Download pretrained TGM and STHN models for $W_S=1536$ and $D_C=512$ m: [Download](https://drive.google.com/drive/folders/1hprzDQNwhFIQbLEa7p9WQUMMJHnYjdxk?usp=sharing)
 
 ## Additional Details
 <details>
