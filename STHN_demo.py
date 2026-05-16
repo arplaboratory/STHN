@@ -407,9 +407,9 @@ if __name__ == "__main__":
     save_path = 'examples/STHN_result_two_stage.png' if args.two_stages else 'examples/STHN_result_one_stage.png'
 
     # ---- Load Model ----
-    subfolder = 'two_stages' if args.two_stages else 'one_stage'
-    print(f"Loading model from HuggingFace Hub: xjh19972/STHN ({subfolder})")
-    model = STHN.from_pretrained('xjh19972/STHN', subfolder=subfolder)
+    repo_id = 'xjh19972/STHN-two-stages' if args.two_stages else 'xjh19972/STHN-one-stage'
+    print(f"Loading model from HuggingFace Hub: {repo_id}")
+    model = STHN.from_pretrained(repo_id)
 
     model = model.to(device)
     model.eval()
